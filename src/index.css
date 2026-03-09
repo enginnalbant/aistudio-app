@@ -1,0 +1,269 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+:root {
+  /* Cognitive Color Engine - Light Theme (Default) */
+  --pure-white: #FFFFFF;
+  --pure-black: #000000;
+  
+  --void-white-val: #FFFFFF;
+  --void-black-val: #050505;
+  
+  --skel-glass-val: #1E293B; /* Dark text for light mode */
+  --skel-metal-val: #64748B; /* Slate 500 */
+  --skel-matte-val: #475569; /* Slate 600 */
+  --skel-dark-val: #F1F5F9;  /* Light background for light mode */
+  --skel-space-val: #FFFFFF; /* Pure white for cards in light mode */
+
+  --focus-ice-val: #EFF6FF;
+  --focus-neon: #2563EB; /* Default blue for light mode */
+  --focus-neon-val: var(--focus-neon);
+  --focus-main-val: #1D4ED8;
+  --focus-deep-val: #1E40AF;
+  --focus-void-val: #DBEAFE;
+
+  --ai-fairy-val: #F5F3FF;
+  --ai-bright-val: #8B5CF6;
+  --ai-royal-val: #7C3AED;
+  --ai-night-val: #6D28D9;
+  --ai-void-val: #EDE9FE;
+
+  --crit-pale-val: #FEF2F2;
+  --crit-vivid-val: #EF4444;
+  --crit-blood-val: #DC2626;
+  --crit-dark-val: #B91C1C;
+  --crit-shadow-val: #FEE2E2;
+
+  --grow-mint-val: #F0FDF4;
+  --grow-phosphor-val: #22C55E;
+  --grow-main-val: #16A34A;
+  --grow-forest-val: #15803D;
+  --grow-moss-val: #DCFCE7;
+
+  --nrg-sun-val: #EAB308;
+  --nrg-gold-val: #D97706;
+  --nrg-fire-val: #EA580C;
+  --nrg-brick-val: #C2410C;
+
+  --app-bg: #F8FAFC;
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --border-val: rgba(100, 116, 139, 0.15);
+  --border-strong-val: rgba(100, 116, 139, 0.3);
+  --text-primary-val: #0F172A;
+  --text-secondary-val: #64748B;
+  
+  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+  --card-shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+}
+
+.dark {
+  /* Cognitive Color Engine - Dark Theme */
+  --skel-glass-val: #F8F9FB;
+  --skel-metal-val: #9499B0;
+  --skel-matte-val: #474B63;
+  --skel-dark-val: #161621;
+  --skel-space-val: #0D0E12;
+
+  --focus-ice-val: #EBF5FF;
+  --focus-neon: #70A1FF;
+  --focus-neon-val: var(--focus-neon);
+  --focus-main-val: #1E90FF;
+  --focus-deep-val: #0056B3;
+  --focus-void-val: #00081A;
+
+  --ai-fairy-val: #F8F0FF;
+  --ai-bright-val: #A55EEF;
+  --ai-royal-val: #6C25BE;
+  --ai-night-val: #32085A;
+  --ai-void-val: #0D0021;
+
+  --crit-pale-val: #FFF0F0;
+  --crit-vivid-val: #FF4757;
+  --crit-blood-val: #D63031;
+  --crit-dark-val: #7B1113;
+  --crit-shadow-val: #210304;
+
+  --grow-mint-val: #F0FFF4;
+  --grow-phosphor-val: #2ED573;
+  --grow-main-val: #20BF6B;
+  --grow-forest-val: #10AC84;
+  --grow-moss-val: #001A0B;
+
+  --nrg-sun-val: #ECCC68;
+  --nrg-gold-val: #FFA502;
+  --nrg-fire-val: #FF7F50;
+  --nrg-brick-val: #FF6348;
+
+  --app-bg: #050505;
+  --card-bg: rgba(13, 14, 18, 0.8);
+  --border-val: rgba(148, 153, 176, 0.15);
+  --border-strong-val: rgba(148, 153, 176, 0.3);
+  --text-primary-val: #F8F9FB;
+  --text-secondary-val: #9499B0;
+
+  --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6);
+  --card-shadow-hover: 0 20px 50px -15px rgba(112, 161, 255, 0.15);
+}
+
+@theme {
+  --color-pure-white: var(--pure-white);
+  --color-pure-black: var(--pure-black);
+  
+  --color-void-white: var(--text-primary-val);
+  --color-void-black: var(--app-bg);
+  
+  --color-skel-glass: var(--skel-glass-val);
+  --color-skel-metal: var(--skel-metal-val);
+  --color-skel-matte: var(--skel-matte-val);
+  --color-skel-dark: var(--skel-dark-val);
+  --color-skel-space: var(--skel-space-val);
+
+  --color-focus-ice: var(--focus-ice-val);
+  --color-focus-neon: var(--focus-neon-val);
+  --color-focus-main: var(--focus-main-val);
+  --color-focus-deep: var(--focus-deep-val);
+  --color-focus-void: var(--focus-void-val);
+
+  --color-ai-fairy: var(--ai-fairy-val);
+  --color-ai-bright: var(--ai-bright-val);
+  --color-ai-royal: var(--ai-royal-val);
+  --color-ai-night: var(--ai-night-val);
+  --color-ai-void: var(--ai-void-val);
+
+  --color-crit-pale: var(--crit-pale-val);
+  --color-crit-vivid: var(--crit-vivid-val);
+  --color-crit-blood: var(--crit-blood-val);
+  --color-crit-dark: var(--crit-dark-val);
+  --color-crit-shadow: var(--crit-shadow-val);
+
+  --color-grow-mint: var(--grow-mint-val);
+  --color-grow-phosphor: var(--grow-phosphor-val);
+  --color-grow-main: var(--grow-main-val);
+  --color-grow-forest: var(--grow-forest-val);
+  --color-grow-moss: var(--grow-moss-val);
+
+  --color-nrg-sun: var(--nrg-sun-val);
+  --color-nrg-gold: var(--nrg-gold-val);
+  --color-nrg-fire: var(--nrg-fire-val);
+  --color-nrg-brick: var(--nrg-brick-val);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
+  --radius-2xl: 34px;
+  --radius-3xl: 50px;
+
+  --color-accent: var(--focus-neon-val);
+  --color-bg-app: var(--app-bg);
+  --color-bg-card: var(--card-bg);
+  --color-border: var(--border-val);
+  --color-border-strong: var(--border-strong-val);
+  --color-text-primary: var(--text-primary-val);
+  --color-text-secondary: var(--text-secondary-val);
+}
+
+@layer base {
+  body {
+    @apply bg-bg-app text-text-primary font-sans antialiased selection:bg-focus-neon/30 selection:text-void-white overflow-hidden;
+    background-image: 
+      radial-gradient(circle at 50% -20%, var(--focus-void) 0%, transparent 60%),
+      radial-gradient(circle at 0% 100%, var(--ai-void) 0%, transparent 40%);
+    background-attachment: fixed;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+    transition: background-color 0.5s ease, color 0.5s ease;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight leading-tight text-text-primary;
+  }
+}
+
+@utility bento-card {
+  @apply bg-skel-space/50 backdrop-blur-3xl border border-skel-metal/10 rounded-2xl transition-all duration-700;
+  box-shadow: 
+    var(--card-shadow),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+@utility bento-card-hover {
+  @apply border-focus-neon/40 bg-skel-space/70;
+  box-shadow: 
+    var(--card-shadow-hover),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-4px);
+}
+
+@utility glass-panel {
+  @apply bg-void-white/5 backdrop-blur-3xl border border-void-white/10;
+}
+
+@utility os-btn {
+  @apply relative px-7 py-3 rounded-xl font-display font-bold tracking-wide transition-all duration-500 flex items-center justify-center gap-3 overflow-hidden;
+}
+
+@utility os-btn-primary {
+  @apply bg-focus-main text-pure-white shadow-[0_8px_25px_rgba(30,144,255,0.3)] hover:shadow-[0_12px_35px_rgba(30,144,255,0.5)] hover:scale-[1.03] active:scale-[0.97];
+}
+
+@utility os-btn-secondary {
+  @apply bg-skel-matte/15 text-text-primary border border-skel-metal/20 hover:bg-skel-matte/25 hover:border-skel-metal/40;
+}
+
+@utility label-mono {
+  @apply font-mono text-[11px] uppercase tracking-[0.25em] text-text-secondary font-bold;
+}
+
+@utility aerogel {
+  @apply bg-void-white/5 backdrop-blur-[120px] border-none shadow-none;
+}
+
+@utility liquid-metal {
+  background: linear-gradient(135deg, var(--skel-metal) 0%, var(--skel-glass) 50%, var(--skel-metal) 100%);
+  background-size: 200% 200%;
+  animation: liquid-flow 6s ease-infinite;
+}
+
+@utility layer-3d {
+  @apply bento-card;
+}
+
+@utility os-input {
+  @apply bg-skel-space/60 border border-skel-metal/15 rounded-xl px-5 py-3 text-text-primary transition-all duration-500 placeholder:text-text-secondary/40 focus:outline-none focus:border-focus-neon/50 focus:bg-skel-space/90 focus:ring-4 focus:ring-focus-neon/5;
+}
+
+@keyframes liquid-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Volumetric Environment */
+.v-fog {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: url('https://grainy-gradients.vercel.app/noise.svg');
+  opacity: 0.04;
+  z-index: 100;
+  mix-blend-mode: overlay;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-skel-metal/15 rounded-full hover:bg-focus-neon/30 transition-colors border-2 border-transparent bg-clip-padding;
+}

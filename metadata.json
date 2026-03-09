@@ -1,0 +1,5 @@
+{
+  "name": "Nexus OS - Üretim Takip",
+  "description": "Üretim stoklarının tedarikçi giriş-çıkışlarını takip eden akıllı ve dinamik OS tabanlı web uygulaması.",
+  "requestFramePermissions": []
+}
