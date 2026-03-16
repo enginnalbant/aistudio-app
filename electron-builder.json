@@ -1,0 +1,53 @@
+{
+  "appId": "com.nexusos.uretim-takip",
+  "productName": "Nexus OS - Üretim Takip",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "server.ts",
+    "src/services/**/*",
+    "node_modules/**/*",
+    "package.json",
+    ".env"
+  ],
+  "extraResources": [
+    {
+      "from": "public/",
+      "to": "public/",
+      "filter": ["**/*"]
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/icon.png",
+    "artifactName": "${productName}-${version}-Setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Nexus OS Üretim Takip"
+  },
+  "mac": {
+    "target": ["dmg"],
+    "icon": "public/icon.png",
+    "category": "public.app-category.business",
+    "artifactName": "${productName}-${version}.${ext}"
+  },
+  "linux": {
+    "target": ["AppImage", "deb"],
+    "icon": "public/icon.png",
+    "category": "Office",
+    "artifactName": "${productName}-${version}.${ext}"
+  }
+}
