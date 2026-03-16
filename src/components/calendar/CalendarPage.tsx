@@ -18,12 +18,17 @@ import {
   ExternalLink,
   Sparkles,
   Activity,
-  Layers
+  Layers,
+  FileText,
+  Table
 } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { CalendarWizardModal } from './CalendarWizardModal';
 import clsx from 'clsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 interface Event {
   id: string;
@@ -34,6 +39,9 @@ interface Event {
   attendees?: number;
   type: 'meeting' | 'deadline' | 'reminder' | 'production';
   description?: string;
+  detail?: string;
+  morning_done?: boolean;
+  evening_done?: boolean;
   related_id?: string;
 }
 
@@ -69,6 +77,76 @@ export function CalendarPage() {
     fetchEvents();
   }, []);
 
+  const exportPDF = () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    
+    // Turkish character support: Standard fonts in jspdf have limited support.
+    // However, for basic Turkish characters, helvetica usually works if encoded correctly.
+    doc.setFont('helvetica');
+    
+    doc.setFontSize(18);
+    doc.text(`Günlük Görev Raporu - ${format(selectedDate, 'dd MMMM yyyy', { locale: tr })}`, 14, 15);
+    
+    const eventsToExport = events.filter(e => isSameDay(e.date, selectedDate));
+    
+    let y = 25;
+    eventsToExport.forEach((e, index) => {
+      // Draw card background
+      doc.setFillColor(245, 245, 245); // Light gray background
+      doc.setDrawColor(200, 200, 200); // Light border
+      doc.roundedRect(14, y, 268, 30, 3, 3, 'FD');
+      
+      // Title
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text(e.title, 20, y + 10);
+      
+      // Time
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Zaman: ${e.time}`, 20, y + 18);
+      
+      // Status
+      doc.text(`Sabah: ${e.morning_done ? '[X]' : '[ ]'}`, 100, y + 18);
+      doc.text(`Akşam: ${e.evening_done ? '[X]' : '[ ]'}`, 140, y + 18);
+      
+      // Detail/Description
+      doc.setFontSize(9);
+      doc.text(`Detay: ${e.detail || '-'}`, 20, y + 25);
+      doc.text(`Açıklama: ${e.description || '-'}`, 100, y + 25);
+      
+      y += 35;
+      
+      // Add new page if needed
+      if (y > 180) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+
+    doc.save(`Gunluk_Gorev_Raporu_${format(selectedDate, 'yyyy-MM-dd')}.pdf`);
+  };
+
+  const exportExcel = () => {
+    const data = events
+      .filter(e => isSameDay(e.date, selectedDate))
+      .map(e => ({
+        'Görev Başlığı': e.title,
+        'Zaman': e.time,
+        'Lokasyon': e.location || '-',
+        'Tip': e.type === 'meeting' ? 'Toplantı' : e.type === 'deadline' ? 'Termin' : e.type === 'production' ? 'Üretim' : 'Hatırlatıcı',
+        'Sabah': e.morning_done ? 'Evet' : 'Hayır',
+        'Akşam': e.evening_done ? 'Evet' : 'Hayır',
+        'Detay': e.detail || '-',
+        'Açıklama': e.description || '-'
+      }));
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Görevler");
+    XLSX.writeFile(wb, `Gunluk_Gorev_Raporu_${format(selectedDate, 'yyyy-MM-dd')}.xlsx`);
+  };
+
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
@@ -91,6 +169,12 @@ export function CalendarPage() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <button onClick={exportPDF} className="os-btn os-btn-secondary h-[54px]">
+            <FileText size={18} /> PDF
+          </button>
+          <button onClick={exportExcel} className="os-btn os-btn-secondary h-[54px]">
+            <Table size={18} /> Excel
+          </button>
           <div className="flex p-1.5 rounded-2xl bg-skel-matte/5 border border-skel-metal/10 backdrop-blur-xl">
             <button 
               onClick={() => setView('month')}

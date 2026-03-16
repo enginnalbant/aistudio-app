@@ -145,6 +145,7 @@ const SortableReminderRow = ({
 export const Reminders = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [allReminders, setAllReminders] = useState<Reminder[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [moveModal, setMoveModal] = useState<Reminder | null>(null);
   const [moveDate, setMoveDate] = useState(date);
@@ -165,7 +166,7 @@ export const Reminders = () => {
   const fetchReminders = async () => {
     const res = await fetch('/api/events');
     const data = await res.json();
-    setReminders(data.filter((r: any) => r.date === date && r.type === 'reminder').map((r: any) => ({
+    const all = Array.isArray(data) ? data.filter((r: any) => r.type === 'reminder').map((r: any) => ({
       id: r.id,
       title: r.title,
       description: r.description,
@@ -174,7 +175,9 @@ export const Reminders = () => {
       is_completed: r.is_completed || 0,
       sort_order: r.sort_order || 0,
       is_archived: r.is_archived || 0
-    })));
+    })) : [];
+    setAllReminders(all);
+    setReminders(all.filter(r => r.date === date));
   };
 
   const updateReminder = async (id: string, data: Partial<Reminder>) => {
@@ -367,6 +370,50 @@ export const Reminders = () => {
             </table>
           </SortableContext>
         </DndContext>
+          </div>
+        </div>
+      </section>
+
+      {/* Archived Reminders Table */}
+      <section className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/10 rounded-xl text-amber-500">
+              <Archive size={24} />
+            </div>
+            <h2 className="text-2xl font-black text-text-primary">Geçmiş Hatırlatıcılar (Bitenler/Arşivlenenler)</h2>
+          </div>
+        </div>
+
+        <div className="layer-3d overflow-hidden border-amber-500/10 shadow-2xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-bg-card/95 backdrop-blur-xl border-b border-border">
+                <tr className="text-text-secondary text-[10px] uppercase tracking-[0.2em] font-black">
+                  <th className="p-4">HATIRLATICI BAŞLIĞI</th>
+                  <th className="p-4 w-40">DURUM</th>
+                  <th className="p-4 w-40">TARİH</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allReminders.filter(r => r.is_completed === 1 || r.is_archived === 1).map((reminder) => (
+                  <tr key={reminder.id} className="border-b border-border/50">
+                    <td className="p-4 font-bold text-text-primary">{reminder.title}</td>
+                    <td className="p-4 text-emerald-500 font-bold text-xs">
+                      {reminder.is_completed === 1 ? 'Tamamlandı' : 'Arşivlendi'}
+                    </td>
+                    <td className="p-4 text-text-secondary font-mono text-xs">{reminder.date}</td>
+                  </tr>
+                ))}
+                {allReminders.filter(r => r.is_completed === 1 || r.is_archived === 1).length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="p-16 text-center text-text-secondary font-bold opacity-50">
+                      Henüz tamamlanmış veya arşivlenmiş hatırlatıcı bulunmuyor.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>

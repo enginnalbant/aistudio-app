@@ -25,21 +25,12 @@ export const PlannerDashboard = ({ setActiveModule }: { setActiveModule: (m: str
   const fetchStats = async () => {
     setIsLoading(true);
     try {
-      const [tasksRes, notesRes, eventsRes, plannerRes] = await Promise.all([
-        fetch('/api/tasks'),
-        fetch('/api/notes'),
-        fetch('/api/events'),
-        fetch(`/api/planner/${today}`)
+      const [tasks, notes, events, planner] = await Promise.all([
+        fetch('/api/tasks').then(res => res.ok ? res.json() : []).catch(() => []),
+        fetch('/api/notes').then(res => res.ok ? res.json() : []).catch(() => []),
+        fetch('/api/events').then(res => res.ok ? res.json() : []).catch(() => []),
+        fetch(`/api/planner/${today}`).then(res => res.ok ? res.json() : []).catch(() => [])
       ]);
-
-      if (!tasksRes.ok || !notesRes.ok || !eventsRes.ok || !plannerRes.ok) {
-        throw new Error('Failed to fetch data');
-      }
-
-      const tasks = await tasksRes.json();
-      const notes = await notesRes.json();
-      const events = await eventsRes.json();
-      const planner = await plannerRes.json();
 
       console.log('fetchStats data:', { tasks, notes, events, planner });
       

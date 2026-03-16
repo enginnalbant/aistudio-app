@@ -2,26 +2,16 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
+import { getDatabaseService } from './src/services/dbService';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from './src/services/supabaseClient';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Supabase Setup
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_KEY || '';
-export const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
-
-if (supabase) {
-  console.log('Supabase client initialized');
-} else {
-  console.log('Supabase credentials not found, running with local SQLite only');
-}
 
 const db = new Database('local.db');
 
@@ -206,6 +196,61 @@ async function startServer() {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS purchase_requests (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending', -- pending, approved, ordered, received, cancelled
+        requested_by TEXT,
+        department TEXT,
+        priority TEXT DEFAULT 'normal',
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_request_items (
+        id TEXT PRIMARY KEY,
+        request_id TEXT NOT NULL,
+        stock_id TEXT NOT NULL,
+        qty REAL NOT NULL,
+        estimated_price REAL,
+        supplier_id TEXT,
+        FOREIGN KEY (request_id) REFERENCES purchase_requests(id) ON DELETE CASCADE,
+        FOREIGN KEY (stock_id) REFERENCES stocks(id),
+        FOREIGN KEY (supplier_id) REFERENCES accounts(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS shipments (
+        id TEXT PRIMARY KEY,
+        recipient_name TEXT NOT NULL,
+        delivery_address TEXT,
+        invoice_address TEXT,
+        carrier_name TEXT,
+        vehicle_info TEXT,
+        logistics_cost_amount REAL,
+        logistics_cost_currency TEXT,
+        departure_date TEXT,
+        delivery_date TEXT,
+        scheduled_date TEXT,
+        priority TEXT,
+        status TEXT,
+        transport_method TEXT,
+        shipment_type TEXT,
+        extra_details TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS shipment_movements (
+        id TEXT PRIMARY KEY,
+        shipment_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        location TEXT,
+        description TEXT,
+        movement_date TEXT,
+        file_paths TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE
+      );
     `);
 
     // Migrations / Column Checks
@@ -299,29 +344,6 @@ async function startServer() {
     }
 
     // Seed initial data if empty
-    const countAccounts = db.prepare('SELECT COUNT(*) as count FROM accounts').get() as { count: number };
-    if (countAccounts.count === 0) {
-      const insertAccount = db.prepare(`
-        INSERT INTO accounts (
-          id, name, type, phone, email, series, address, tax_office, tax_number, authorized_person, website
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      insertAccount.run(uuidv4(), 'Metal İş A.Ş.', 'Tedarikçi', '0312 555 1000', 'info@metalis.com', 'MTL', 'İkitelli OSB, İstanbul', 'İkitelli V.D.', '1234567890', 'Mehmet Demir', 'www.metalis.com');
-      insertAccount.run(uuidv4(), 'Plastik Kalıp Ltd.', 'Fason', '0312 555 1001', 'info@plastikkalip.com', 'PLK', 'Ostim OSB, Ankara', 'Ostim V.D.', '0987654321', 'Ayşe Kalıp', 'www.plastikkalip.com');
-      insertAccount.run(uuidv4(), 'Boya Sanayi', 'Hizmet', '0312 555 1002', 'info@boyasanayi.com', 'BOY', 'İvedik OSB, Ankara', 'Yenimahalle V.D.', '1122334455', 'Zeki Boya', 'www.boyasanayi.com');
-      insertAccount.run(uuidv4(), 'ZG BOYA', 'Hizmet', '0312 555 1003', 'info@zgboya.com', 'ZGB', 'Sincan OSB, Ankara', 'Sincan V.D.', '5544332211', 'Zeki Güçlü', 'www.zgboya.com');
-    }
-
-    const countStocks = db.prepare('SELECT COUNT(*) as count FROM stocks').get() as { count: number };
-    if (countStocks.count === 0) {
-      const insertStock = db.prepare('INSERT INTO stocks (id, code, name, category, unit, critical_level) VALUES (?, ?, ?, ?, ?, ?)');
-      insertStock.run(uuidv4(), 'STK-1000', 'EUROCLAMP 2 GİRİŞLİ', 'Yarı Mamul', 'Adet', 10);
-      insertStock.run(uuidv4(), 'STK-1001', 'MASA AYAĞI', 'Hammadde', 'Adet', 5);
-      insertStock.run(uuidv4(), 'STK-1002', 'DEMİR BARREL GÖVDE', 'Yarı Mamul', 'Adet', 2);
-      insertStock.run(uuidv4(), 'STK-1003', 'STOPER SACI', 'Sarf Malzeme', 'Adet', 50);
-      insertStock.run(uuidv4(), 'STK-1004', 'OMUZLUK L DEMİR', 'Bağlantı Elemanı', 'Adet', 20);
-    }
-
     const countSettings = db.prepare('SELECT COUNT(*) as count FROM settings').get() as { count: number };
     if (countSettings.count === 0) {
       const defaultSettings = [
@@ -391,19 +413,83 @@ async function startServer() {
     }
   });
 
-  // Calendar Events (Moved to top)
-  app.get('/api/events', (req, res) => {
+  // Shipments
+  app.get('/api/shipments', (req, res) => {
     try {
-      const events = db.prepare('SELECT * FROM events ORDER BY date ASC').all();
-      res.json(events);
+      const shipments = db.prepare('SELECT * FROM shipments').all();
+      const shipmentsWithMovements = shipments.map((s: any) => ({
+        ...s,
+        recipient: { name: s.recipient_name, deliveryAddress: s.delivery_address, invoiceAddress: s.invoice_address },
+        carrier: { name: s.carrier_name, vehicleInfo: s.vehicle_info },
+        logisticsCost: { amount: s.logistics_cost_amount, currency: s.logistics_cost_currency },
+        movements: db.prepare('SELECT * FROM shipment_movements WHERE shipment_id = ? ORDER BY created_at DESC').all(s.id)
+      }));
+      res.json(shipmentsWithMovements);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/shipments', (req, res) => {
+    const { id, recipient, carrier, logisticsCost, departureDate, deliveryDate, scheduledDate, priority, status, transportMethod, shipmentType, extraDetails } = req.body;
+    const shipmentId = id || uuidv4();
+    try {
+      db.prepare(`
+        INSERT INTO shipments (
+          id, recipient_name, delivery_address, invoice_address, carrier_name, vehicle_info,
+          logistics_cost_amount, logistics_cost_currency, departure_date, delivery_date, scheduled_date,
+          priority, status, transport_method, shipment_type, extra_details
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        shipmentId, recipient.name, recipient.deliveryAddress, recipient.invoiceAddress, carrier.name, carrier.vehicleInfo,
+        logisticsCost.amount, logisticsCost.currency, departureDate, deliveryDate, scheduledDate,
+        priority, status, transportMethod, shipmentType, extraDetails
+      );
+      res.json({ success: true, id: shipmentId });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/shipments/:id/movements', (req, res) => {
+    const { status, location, description, movementDate, filePaths } = req.body;
+    const id = uuidv4();
+    try {
+      db.prepare(`
+        INSERT INTO shipment_movements (id, shipment_id, status, location, description, movement_date, file_paths)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(id, req.params.id, status, location, description, movementDate, JSON.stringify(filePaths || []));
+      res.json({ success: true, id });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.patch('/api/shipments/:id/status', (req, res) => {
+    const { status } = req.body;
+    try {
+      db.prepare(`UPDATE shipments SET status = ? WHERE id = ?`).run(status, req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
     }
   });
 
   app.all('/api/events/:id', (req, res, next) => {
     console.log(`REQUEST to /api/events/${req.params.id} [${req.method}]`);
     next();
+  });
+
+  app.get('/api/events', (req, res) => {
+    console.log('Fetching all events');
+    try {
+      const events = db.prepare('SELECT * FROM events').all();
+      console.log('Fetched events:', events);
+      res.json(events);
+    } catch (err: any) {
+      console.error('Error fetching events:', err);
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.get('/api/events/:id', (req, res) => {
@@ -465,10 +551,11 @@ async function startServer() {
   });
   
   // Accounts
-  app.get('/api/accounts', (req, res) => {
+  app.get('/api/accounts', async (req, res) => {
     console.log('GET /api/accounts');
     try {
-      const accounts = db.prepare('SELECT * FROM accounts').all();
+      const service = getDatabaseService();
+      const accounts = await service.getAccounts();
       res.json(accounts);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -1430,10 +1517,88 @@ async function startServer() {
 
       const result = summary.map((s: any) => ({
         ...s,
-        balance: s.total_outgoing - s.total_incoming
+        balance: s.total_incoming - s.total_outgoing
       }));
 
       res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Purchase Requests
+  app.get('/api/purchase-requests', (req, res) => {
+    try {
+      const requests = db.prepare(`
+        SELECT pr.*, 
+          (SELECT COUNT(*) FROM purchase_request_items pri WHERE pri.request_id = pr.id) as item_count
+        FROM purchase_requests pr 
+        ORDER BY pr.created_at DESC
+      `).all();
+      
+      const result = requests.map((req: any) => {
+        const items = db.prepare(`
+          SELECT pri.*, s.name as stock_name, s.code as stock_code, s.unit, a.name as supplier_name
+          FROM purchase_request_items pri
+          LEFT JOIN stocks s ON pri.stock_id = s.id
+          LEFT JOIN accounts a ON pri.supplier_id = a.id
+          WHERE pri.request_id = ?
+        `).all(req.id);
+        return { ...req, items };
+      });
+      
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/purchase-requests', (req, res) => {
+    const { id, date, status, requested_by, department, priority, notes, items } = req.body;
+    
+    try {
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO purchase_requests (id, date, status, requested_by, department, priority, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(id, date, status || 'pending', requested_by, department, priority || 'normal', notes);
+
+        const insertItem = db.prepare(`
+          INSERT INTO purchase_request_items (id, request_id, stock_id, qty, estimated_price, supplier_id)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+
+        for (const item of items) {
+          insertItem.run(
+            Math.random().toString(36).substr(2, 9),
+            id,
+            item.stock_id,
+            item.qty,
+            item.estimated_price || null,
+            item.supplier_id || null
+          );
+        }
+      })();
+      res.json({ success: true, id });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/purchase-requests/:id/status', (req, res) => {
+    const { status } = req.body;
+    try {
+      db.prepare('UPDATE purchase_requests SET status = ? WHERE id = ?').run(status, req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/purchase-requests/:id', (req, res) => {
+    try {
+      db.prepare('DELETE FROM purchase_requests WHERE id = ?').run(req.params.id);
+      res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1583,6 +1748,7 @@ async function startServer() {
         return res.status(500).json({ error: 'Table daily_planner does not exist' });
       }
       const planner = db.prepare('SELECT * FROM daily_planner WHERE date = ? AND is_archived = 0 ORDER BY sort_order ASC').all(req.params.date);
+      console.log('Fetched planner:', planner);
       res.json(planner);
     } catch (err: any) {
       console.error('Error fetching planner:', err);

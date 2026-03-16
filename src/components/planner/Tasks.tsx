@@ -94,11 +94,17 @@ const SortableTaskRow = ({
           <GripVertical size={18} />
         </button>
       </td>
-      <td className="p-4 text-center">
+      <td className="p-4 text-center flex items-center justify-center gap-2">
         <StatusButton 
           status={statusToNum(task.status)} 
           onChange={(s) => onUpdate(task.id, { status: numToStatus(s) })} 
         />
+        <button 
+          onClick={() => onUpdate(task.id, { status: 'completed' })}
+          className="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-600 transition-colors"
+        >
+          Tamamla
+        </button>
       </td>
       <td className="p-4">
         <input 
@@ -422,6 +428,50 @@ export const Tasks = () => {
             </table>
           </SortableContext>
         </DndContext>
+          </div>
+        </div>
+      </section>
+
+      {/* Archived Tasks Table */}
+      <section className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/10 rounded-xl text-amber-500">
+              <Archive size={24} />
+            </div>
+            <h2 className="text-2xl font-black text-text-primary">Geçmiş Görevler (Bitenler/Arşivlenenler)</h2>
+          </div>
+        </div>
+
+        <div className="layer-3d overflow-hidden border-amber-500/10 shadow-2xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-bg-card/95 backdrop-blur-xl border-b border-border">
+                <tr className="text-text-secondary text-[10px] uppercase tracking-[0.2em] font-black">
+                  <th className="p-4">GÖREV BAŞLIĞI</th>
+                  <th className="p-4 w-40">DURUM</th>
+                  <th className="p-4 w-40">TARİH</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allTasks.filter(t => t.status === 'completed' || t.is_archived === 1).map((task) => (
+                  <tr key={task.id} className="border-b border-border/50">
+                    <td className="p-4 font-bold text-text-primary">{task.title}</td>
+                    <td className="p-4 text-emerald-500 font-bold text-xs">
+                      {task.status === 'completed' ? 'Tamamlandı' : 'Arşivlendi'}
+                    </td>
+                    <td className="p-4 text-text-secondary font-mono text-xs">{task.due_date}</td>
+                  </tr>
+                ))}
+                {allTasks.filter(t => t.status === 'completed' || t.is_archived === 1).length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="p-16 text-center text-text-secondary font-bold opacity-50">
+                      Henüz tamamlanmış veya arşivlenmiş görev bulunmuyor.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>

@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "Conversion": {
+      "title": "Conversion",
+      "description": "A character conversion record.",
+      "type": "object",
+      "properties": {
+        "input": { "type": "string", "description": "The input text." },
+        "output": { "type": "string", "description": "The converted text." },
+        "format": { "type": "string", "description": "The conversion format used." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the conversion occurred." },
+        "userId": { "type": "string", "description": "The ID of the user who performed the conversion." }
+      },
+      "required": ["input", "output", "format", "timestamp", "userId"]
+    },
+    "TemplateExtraction": {
+      "title": "TemplateExtraction",
+      "description": "A record of extracted information from raw text.",
+      "type": "object",
+      "properties": {
+        "rawText": { "type": "string", "description": "The original raw text." },
+        "name": { "type": "string", "description": "Extracted name or company." },
+        "phone": { "type": "string", "description": "Extracted phone number." },
+        "email": { "type": "string", "description": "Extracted email address." },
+        "taxInfo": { "type": "string", "description": "Extracted tax office and number." },
+        "address": { "type": "string", "description": "Extracted address." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the extraction occurred." },
+        "userId": { "type": "string", "description": "The ID of the user who performed the extraction." }
+      },
+      "required": ["rawText", "timestamp", "userId"]
+    },
+    "CustomConversionTemplate": {
+      "title": "CustomConversionTemplate",
+      "description": "A user-defined character conversion template.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the template." },
+        "operations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "find": { "type": "string" },
+              "replace": { "type": "string" }
+            },
+            "required": ["find", "replace"]
+          }
+        },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the template was created." },
+        "userId": { "type": "string", "description": "The ID of the user who created the template." }
+      },
+      "required": ["name", "operations", "timestamp", "userId"]
+    }
+  },
+  "firestore": {
+    "conversions": {
+      "schema": { "$ref": "Conversion" },
+      "description": "Collection of all conversion records."
+    },
+    "template_extractions": {
+      "schema": { "$ref": "TemplateExtraction" },
+      "description": "Collection of all template extraction records."
+    },
+    "custom_conversion_templates": {
+      "schema": { "$ref": "CustomConversionTemplate" },
+      "description": "Collection of user-defined conversion templates."
+    }
+  }
+}

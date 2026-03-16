@@ -12,7 +12,10 @@ import {
   Sparkles,
   ShieldCheck,
   Activity,
-  Calendar
+  Calendar,
+  ClipboardList,
+  Package,
+  Users
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { 

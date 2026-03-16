@@ -8,7 +8,7 @@ import {
   Plus, Trash2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, 
   Clock, Check, Minus, LayoutGrid, List, Sparkles, Zap, Target, 
   MoreVertical, Copy, ArrowRight, Archive, Paperclip, GripVertical, Download,
-  CheckCircle2, AlertCircle, X, Mic, Star, Pencil, ChevronUp, ChevronDown
+  CheckCircle2, AlertCircle, X, Mic, Star, Pencil, ChevronUp, ChevronDown, AlignLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import jsPDF from 'jspdf';
@@ -59,6 +59,7 @@ interface PlannerItem {
   sub_tasks: string;
   comments: string;
   url: string;
+  attachments: string[];
 }
 
 const COLORS = [
@@ -92,10 +93,6 @@ const SortableRow = ({
     isDragging
   } = useSortable({ id: item.id });
 
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showSubTasks, setShowSubTasks] = useState(false);
-  const [showComments, setShowComments] = useState(false);
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -104,60 +101,107 @@ const SortableRow = ({
   };
 
   return (
-    <div className="flex flex-col gap-2 p-2 bg-white rounded-xl shadow-sm border border-border/50 hover:shadow-md transition-all group">
-      <div 
-        ref={setNodeRef} 
-        style={style}
-        {...attributes} 
-        {...listeners}
-        className="flex items-center gap-3"
-      >
-        <button className="p-1 text-text-secondary hover:text-emerald-500 cursor-grab active:cursor-grabbing">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      ref={setNodeRef} 
+      style={style}
+      className="flex flex-col gap-2 p-4 bg-white rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all group relative"
+    >
+      <div className="flex items-center gap-3">
+        <button 
+          {...attributes} 
+          {...listeners}
+          className="p-1 text-slate-300 hover:text-emerald-500 cursor-grab active:cursor-grabbing transition-colors"
+        >
           <GripVertical size={16} />
         </button>
         
-        <div className="w-3 h-3 rounded-full bg-emerald-500" />
-        
-        <span className="font-mono text-xs text-text-secondary">{item.time_range || '00:00'}</span>
-        
-        <span className={`flex-1 font-bold text-text-primary ${item.morning_status === 1 ? 'line-through text-text-secondary' : ''}`}>
-          {item.item_key}
-        </span>
-
-        <StatusButton 
-          status={item.morning_status} 
-          onChange={(s) => onUpdate(item.id, { morning_status: s })} 
-          type="morning"
-        />
-
-        <div className="flex gap-1">
-          {[1, 2, 3].map(star => (
-            <button key={star} onClick={() => onUpdate(item.id, { priority: star })}>
-              <Star size={14} className={star <= (item.priority || 0) ? 'fill-amber-500 text-amber-500' : 'text-border'} />
-            </button>
-          ))}
+        <div className="flex-1 flex flex-col">
+          <input 
+            type="text"
+            value={item.item_key}
+            onChange={(e) => onUpdate(item.id, { item_key: e.target.value })}
+            className={`font-medium text-base bg-transparent outline-none focus:border-b border-emerald-500 transition-colors ${item.morning_status === 1 && item.evening_status === 1 ? 'line-through text-slate-400' : 'text-slate-800'}`}
+            placeholder="Görev adı..."
+          />
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-slate-500 flex items-center gap-1">
+              <Clock size={12} />
+              {item.time_range || 'Tüm Gün'}
+            </span>
+            {item.category && (
+              <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-medium">
+                {item.category}
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="flex gap-1">
-          <button onClick={() => onUpdate(item.id, { morning_status: item.morning_status === 1 ? 0 : 1 })} className="p-1 hover:bg-emerald-100 rounded"><Check size={14} /></button>
-          <button className="p-1 hover:bg-blue-100 rounded"><Pencil size={14} /></button>
-          <button onClick={() => onDelete(item.id)} className="p-1 hover:bg-rose-100 rounded text-rose-500"><Trash2 size={14} /></button>
-        </div>
+        <div className="flex items-center gap-4">
+          {/* Priority */}
+          <div className="flex gap-0.5">
+            {[1, 2, 3].map(star => (
+              <button key={star} onClick={() => onUpdate(item.id, { priority: item.priority === star ? 0 : star })} className="transition-transform hover:scale-110">
+                <Star size={16} className={star <= (item.priority || 0) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'} />
+              </button>
+            ))}
+          </div>
 
-        <button onClick={() => setShowSubTasks(!showSubTasks)} className="p-1">
-          {showSubTasks ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
+          {/* Status Buttons */}
+          <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
+            <div className="flex flex-col items-center">
+              <StatusButton 
+                status={item.morning_status} 
+                onChange={(s) => onUpdate(item.id, { morning_status: s })} 
+                type="morning"
+                size={16}
+              />
+            </div>
+            <div className="w-px h-6 bg-slate-200"></div>
+            <div className="flex flex-col items-center">
+              <StatusButton 
+                status={item.evening_status} 
+                onChange={(s) => onUpdate(item.id, { evening_status: s })} 
+                type="evening"
+                size={16}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {showSubTasks && (
-        <div className="grid grid-cols-4 gap-4 p-4 text-xs text-text-secondary border-t border-border/50">
-          <div><span className="font-bold">Kategori:</span> {item.category || '-'}</div>
-          <div><span className="font-bold">Tahmini:</span> {item.estimated_time || '-'}</div>
-          <div><span className="font-bold">Gerçekleşen:</span> {item.actual_time || '-'}</div>
-          <div><span className="font-bold">Kişi:</span> {item.assigned_to || '-'}</div>
+      {/* Details Section */}
+      {(item.description || item.detail || (item.attachments && item.attachments.length > 0)) && (
+        <div className="mt-2 pl-9 pr-4 py-2 bg-slate-50/50 rounded-xl text-sm text-slate-600 grid grid-cols-1 md:grid-cols-2 gap-2 border border-slate-100">
+          {item.description && (
+            <div className="flex items-start gap-2">
+              <List size={14} className="mt-0.5 text-slate-400" />
+              <span className="line-clamp-2">{item.description}</span>
+            </div>
+          )}
+          {item.detail && (
+            <div className="flex items-start gap-2">
+              <AlignLeft size={14} className="mt-0.5 text-slate-400" />
+              <span className="line-clamp-2">{item.detail}</span>
+            </div>
+          )}
+          {item.attachments && item.attachments.length > 0 && (
+            <div className="flex items-start gap-2">
+              <Paperclip size={14} className="mt-0.5 text-slate-400" />
+              <span className="line-clamp-2">{item.attachments.length} dosya</span>
+            </div>
+          )}
         </div>
       )}
-    </div>
+
+      {/* Actions (Hover) */}
+      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm p-1 rounded-lg shadow-sm border border-slate-100">
+        <button onClick={() => onDelete(item.id)} className="p-1.5 hover:bg-rose-50 rounded-md text-rose-500 transition-colors" title="Sil">
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </motion.div>
   );
 };
 
@@ -212,12 +256,27 @@ export const DailyPlanner = () => {
     }
 
     for (const targetDate of datesToAdd) {
-      for (const itemText of planItems) {
-        await addItem(itemText, targetDate);
+      for (const item of planItems) {
+        // item has { title, priority, timing, details }
+        let morning_status = 0;
+        let evening_status = 0;
+        if (item.timing === 'morning') {
+          evening_status = -1; // -1 means not applicable, or we can just leave it 0 and use a different field. But we have morning_status and evening_status.
+        } else if (item.timing === 'evening') {
+          morning_status = -1;
+        }
+
+        await addItem(item.title, targetDate, {
+          priority: item.priority,
+          description: item.details,
+          // We can use time_range to store timing preference if needed, or just let the user know.
+          time_range: item.timing === 'morning' ? 'Sabah' : item.timing === 'evening' ? 'Akşam' : 'Tüm Gün'
+        });
       }
     }
     setShowWizard(false);
   };
+
   const [newItemTitle, setNewItemTitle] = useState('');
   const [activeTimePicker, setActiveTimePicker] = useState<PlannerItem | null>(null);
   const [activePopupDate, setActivePopupDate] = useState<string | null>(null);
@@ -290,14 +349,15 @@ export const DailyPlanner = () => {
     fetchAllItems();
   };
 
-  const addItem = async (itemKey: string, targetDate: string = date) => {
+  const addItem = async (itemKey: string, targetDate: string = date, extraData: any = {}) => {
     await fetch('/api/planner', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         date: targetDate, 
         item_key: itemKey,
-        sort_order: items.length
+        sort_order: items.length,
+        ...extraData
       })
     });
     fetchItems();
@@ -491,96 +551,121 @@ export const DailyPlanner = () => {
   const [filter, setFilter] = useState('Tümü');
 
   return (
-    <div ref={containerRef} className="h-full flex flex-col overflow-y-auto custom-scrollbar scroll-smooth bg-bg-app">
-      <div className="p-6 space-y-8 flex-1">
-        
-        <HeroSection date={date} />
-
-        <div className="flex items-center justify-between gap-4">
-          <DaysBar date={date} setDate={setDate} onDateClick={setActivePopupDate} />
+    <div ref={containerRef} className="h-full flex flex-col overflow-y-auto custom-scrollbar scroll-smooth bg-slate-50 text-slate-900">
+      
+      {/* Header Area */}
+      <div className="sticky top-0 z-20 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            {new Date(date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' })}
+          </h1>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Bugün harika bir gün olacak!</p>
         </div>
-
-        {/* Layout Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-[350px,1fr] gap-8">
-          {/* Left Panel: Summary & Widgets */}
-          <div className="space-y-6">
-            <SmartSummaryPanel items={items} completedCount={completedCount} />
-            
-            <DndContext 
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleWidgetDragEnd}
-            >
-              <SortableContext 
-                items={summaryWidgets.map(w => w.id)}
-                strategy={rectSortingStrategy}
+        
+        <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 custom-scrollbar">
+          <div className="flex bg-white rounded-full p-1 shadow-sm border border-slate-200">
+            {['Tümü', 'Acil', 'Sabah', 'Akşam'].map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${filter === f ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
               >
-                <div className="grid grid-cols-1 gap-6">
-                  <PlannerSummaryWidgets 
-                    items={items} 
-                    completedCount={completedCount} 
-                    progress={progress} 
-                    widgets={summaryWidgets}
-                  />
-                  
-                  <div className="layer-3d p-4 flex flex-col justify-center bg-bg-card/50 rounded-2xl border border-border">
-                    <button 
-                      onClick={() => setShowWizard(true)}
-                      className="w-full py-4 bg-emerald-500 text-white rounded-2xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 font-black shadow-xl shadow-emerald-500/20"
-                    >
-                      <Plus size={20} />
-                      Yeni Plan Ekle
-                    </button>
-                  </div>
-                </div>
-              </SortableContext>
-            </DndContext>
+                {f}
+              </button>
+            ))}
+          </div>
+          <button 
+            onClick={() => setShowWizard(true)}
+            className="shrink-0 px-5 py-2.5 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 transition-all flex items-center gap-2 font-semibold shadow-md shadow-emerald-500/20"
+          >
+            <Plus size={18} />
+            Yeni Görev
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6 flex-1">
+        {/* Layout Grid */}
+        <div className="max-w-4xl mx-auto space-y-8">
+          
+          {/* 1. This Week */}
+          <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Bu Hafta</h3>
+            <div className="flex justify-between">
+              {Array.from({ length: 7 }).map((_, i) => {
+                const d = new Date(date);
+                d.setDate(d.getDate() - d.getDay() + 1 + i); // Start from Monday
+                const dStr = d.toISOString().split('T')[0];
+                const isSelected = dStr === date;
+                const isToday = dStr === new Date().toISOString().split('T')[0];
+                
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setDate(dStr)}
+                    className={`flex flex-col items-center p-2 rounded-xl transition-all ${isSelected ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'hover:bg-slate-50 text-slate-600'}`}
+                  >
+                    <span className={`text-[10px] font-bold uppercase ${isSelected ? 'text-emerald-100' : 'text-slate-400'}`}>
+                      {d.toLocaleDateString('tr-TR', { weekday: 'short' })}
+                    </span>
+                    <span className={`text-lg font-bold mt-1 ${isSelected ? 'text-white' : isToday ? 'text-emerald-500' : 'text-slate-700'}`}>
+                      {d.getDate()}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Right Panel: Main Table View */}
-          <div className="layer-3d bg-bg-card/50 backdrop-blur-xl border border-border rounded-3xl p-6">
+          {/* 2 & 3. Stats Cards (Total/Completed/Pending) */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center mb-3">
+                <List size={20} />
+              </div>
+              <span className="text-3xl font-black text-slate-800">{items.length}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Toplam</span>
+            </div>
+            <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center mb-3">
+                <CheckCircle2 size={20} />
+              </div>
+              <span className="text-3xl font-black text-slate-800">{completedCount}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Tamamlanan</span>
+            </div>
+            <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+              <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center mb-3">
+                <Clock size={20} />
+              </div>
+              <span className="text-3xl font-black text-slate-800">{items.length - completedCount}</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Bekleyen</span>
+            </div>
+          </div>
+
+          {/* 4. Tasks List */}
+          <div className="flex flex-col">
             {view === 'daily' && (
-              <section className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-black text-text-primary">Günlük Plan Tablosu</h2>
-                  <div className="flex items-center gap-2">
-                    <FilterBar currentFilter={filter} onFilterChange={setFilter} />
-                    <button 
-                      onClick={() => setShowWizard(true)}
-                      className="px-4 py-2 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 transition-all flex items-center gap-2 font-black text-xs uppercase"
-                    >
-                      <Plus size={14} />
-                      Yeni Plan
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto custom-scrollbar border-emerald-500/10 shadow-2xl bg-bg-card/50 backdrop-blur-md rounded-2xl">
-                  <div className="min-w-[1800px]">
-                    {/* Table Header */}
-                    <div className="grid grid-cols-[40px_20px_80px_1fr_100px_100px_100px_40px] gap-4 p-4 bg-bg-card/95 backdrop-blur-xl border-b border-border text-text-secondary text-[10px] uppercase tracking-[0.2em] font-black sticky top-0 z-10">
-                      <div className="w-8"></div>
-                      <div></div> {/* Color Tag */}
-                      <div className="text-center">SAAT</div>
-                      <div>PLAN / ETKİNLİK</div>
-                      <div className="text-center">DURUM</div>
-                      <div className="text-center">ÖNCELİK</div>
-                      <div className="text-center">AKSİYON</div>
-                      <div className="w-8"></div>
-                    </div>
-
-                    {/* Table Body */}
-                    <DndContext 
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <SortableContext 
-                        items={items.map(i => i.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div className="divide-y divide-border/30">
-                          {items.map((item) => (
+              <div className="flex-1">
+                <DndContext 
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext 
+                    items={items.map(i => i.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="flex flex-col gap-3">
+                      <AnimatePresence>
+                        {items
+                          .filter(item => {
+                            if (filter === 'Tümü') return true;
+                            if (filter === 'Acil') return item.priority === 3;
+                            if (filter === 'Sabah') return item.time_range?.toLowerCase().includes('sabah') || item.morning_status !== -1;
+                            if (filter === 'Akşam') return item.time_range?.toLowerCase().includes('akşam') || item.evening_status !== -1;
+                            return true;
+                          })
+                          .map((item, index) => (
                             <SortableRow 
                               key={item.id} 
                               item={item} 
@@ -591,32 +676,48 @@ export const DailyPlanner = () => {
                               onArchive={archiveItem}
                               onTimeClick={(it) => setActiveTimePicker(it)}
                             />
-                          ))}
-                        </div>
-                      </SortableContext>
-                    </DndContext>
-                    
-                    {items.length === 0 && (
-                      <div className="p-16 text-center text-text-secondary font-bold opacity-50">
-                        Bu tarih için plan bulunmuyor. Yeni bir plan ekleyerek başlayın.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </section>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  </SortableContext>
+                </DndContext>
+                
+                {items.length === 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col items-center justify-center p-16 text-center bg-white rounded-3xl border border-slate-200 border-dashed mt-4"
+                  >
+                    <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mb-6">
+                      <Sparkles size={40} className="text-emerald-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800 mb-2">Bugün için plan yok</h3>
+                    <p className="text-slate-500 max-w-sm mb-8">Harika bir gün geçirmek için hemen yeni bir görev ekleyerek planlamaya başla.</p>
+                    <button 
+                      onClick={() => setShowWizard(true)}
+                      className="px-6 py-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 transition-all font-bold shadow-lg shadow-emerald-500/20"
+                    >
+                      İlk Görevi Ekle
+                    </button>
+                  </motion.div>
+                )}
+              </div>
             )}
             
             {view !== 'daily' && (
-              <div className="text-center py-20 layer-3d bg-bg-card/30 border-dashed rounded-3xl">
+              <div className="text-center py-20 bg-white border border-slate-200 border-dashed rounded-3xl">
                 <Sparkles size={64} className="mx-auto mb-4 text-emerald-500 opacity-20" />
-                <p className="text-xl font-black text-text-primary">{view === 'weekly' ? 'Haftalık Görünüm' : 'Aylık Görünüm'}</p>
-                <p className="text-sm text-text-secondary mt-2">Bu görünüm yakında daha fazla detay ile güncellenecek.</p>
+                <p className="text-xl font-black text-slate-800">{view === 'weekly' ? 'Haftalık Görünüm' : 'Aylık Görünüm'}</p>
+                <p className="text-sm text-slate-500 mt-2">Bu görünüm yakında daha fazla detay ile güncellenecek.</p>
               </div>
             )}
           </div>
+
+          {/* 5. Calendar */}
+          <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-200">
+            <CalendarView date={date} setDate={setDate} />
+          </div>
         </div>
-        
-        <CalendarView date={date} setDate={setDate} />
 
       {/* Popup for DaysBar clicks */}
       {activePopupDate && (
@@ -685,6 +786,7 @@ export const DailyPlanner = () => {
           isOpen={showWizard} 
           onClose={() => setShowWizard(false)} 
           onSave={handleWizardSave} 
+          allPlannerItems={allPlannerItems}
         />
         {showAddModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">

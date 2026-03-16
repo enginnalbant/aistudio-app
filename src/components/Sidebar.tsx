@@ -28,7 +28,15 @@ import {
   Newspaper,
   Library,
   GraduationCap,
-  Video
+  Video,
+  Truck,
+  Clock,
+  MapPin,
+  Settings,
+  MoreHorizontal,
+  Languages,
+  MessageSquare,
+  Files
 } from 'lucide-react';
 import { useState } from 'react';
 import { clsx } from 'clsx';
@@ -45,8 +53,9 @@ export function Sidebar({ isOpen, activeModule, setActiveModule }: SidebarProps)
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     business: true,
     planning: false,
-    budget: false,
-    media: false,
+    shipment: false,
+    others: false,
+    purchasing: false,
   });
 
   const toggleMenu = (menu: string) => {
@@ -83,29 +92,42 @@ export function Sidebar({ isOpen, activeModule, setActiveModule }: SidebarProps)
       ]
     },
     {
-      id: 'budget',
-      label: 'Kişisel Bütçe',
-      icon: <Wallet size={18} />,
+      id: 'shipment',
+      label: 'Sevkiyat Takip',
+      icon: <Truck size={18} />,
       subItems: [
-        { id: 'budget-dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
-        { id: 'budget-incomes', label: 'Gelirler', icon: <TrendingUp size={14} /> },
-        { id: 'budget-expenses', label: 'Giderler', icon: <TrendingDown size={14} /> },
-        { id: 'budget-subscriptions', label: 'Abonelik ve Borçlar', icon: <CreditCard size={14} /> },
-        { id: 'budget-investments', label: 'Yatırım ve Birikimler', icon: <PiggyBank size={14} /> },
-        { id: 'budget-wishlist', label: 'Alınacaklar', icon: <ShoppingCart size={14} /> },
-        { id: 'budget-reports', label: 'Raporlar', icon: <PieChart size={14} /> },
+        { id: 'shipment-dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
+        { id: 'shipment-pending', label: 'Bekleyen sevkiyatlar', icon: <Clock size={14} /> },
+        { id: 'shipment-transit', label: 'Yoldakiler', icon: <MapPin size={14} /> },
+        { id: 'shipment-all', label: 'Tüm sevkiyatlar', icon: <Package size={14} /> },
+        { id: 'shipment-reports', label: 'Raporlar', icon: <BarChart3 size={14} /> },
+        { id: 'shipment-settings', label: 'Ayarlar', icon: <Settings size={14} /> },
       ]
     },
     {
-      id: 'media',
-      label: 'Medya',
-      icon: <PlaySquare size={18} />,
+      id: 'others',
+      label: 'Diğer İşler',
+      icon: <MoreHorizontal size={18} />,
       subItems: [
-        { id: 'media-dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
-        { id: 'media-news', label: 'Haber-Dergi', icon: <Newspaper size={14} /> },
-        { id: 'media-library', label: 'Kitaplık', icon: <Library size={14} /> },
-        { id: 'media-education', label: 'Eğitim', icon: <GraduationCap size={14} /> },
-        { id: 'media-records', label: 'Kayıtlar', icon: <Video size={14} /> },
+        { id: 'others-dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
+        { id: 'others-transliteration', label: 'Harf Çevirme', icon: <Terminal size={14} /> },
+        { id: 'others-translation', label: 'Çeviri', icon: <Languages size={14} /> },
+        { id: 'others-templates', label: 'Akıllı Şablon Motoru', icon: <MessageSquare size={14} /> },
+        { id: 'others-documents', label: 'Belge ve dökümanlar', icon: <Files size={14} /> },
+      ]
+    },
+    {
+      id: 'purchasing',
+      label: 'Satınalma Planlaması',
+      icon: <ShoppingCart size={18} />,
+      subItems: [
+        { id: 'purchasing-dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
+        { id: 'purchasing-requests', label: 'Satınalma Talepleri', icon: <ListTodo size={14} /> },
+        { id: 'purchasing-planning', label: 'Satınalma Planlaması', icon: <Calendar size={14} /> },
+        { id: 'purchasing-quotes', label: 'Fiyat Teklifleri', icon: <FileText size={14} /> },
+        { id: 'purchasing-orders', label: 'Verilen Siparişler', icon: <Truck size={14} /> },
+        { id: 'purchasing-all', label: 'Tüm siparişler', icon: <Package size={14} /> },
+        { id: 'purchasing-reports', label: 'Raporlar', icon: <BarChart3 size={14} /> },
       ]
     }
   ];

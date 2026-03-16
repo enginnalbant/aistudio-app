@@ -202,7 +202,7 @@ export function WidgetRenderer({
                 </div>
               </div>
             </div>
-            <div className="flex-1 w-full min-h-[300px] min-w-0">
+            <div className="flex-1 w-full h-[300px] min-w-0 relative">
               <ResponsiveContainer width="100%" height="100%" debounce={100} minWidth={0}>
                 <AreaChart data={[
                   { name: 'Ocak', borc: 45000, odeme: 32000 },
@@ -282,7 +282,7 @@ export function WidgetRenderer({
               <Activity size={20} className="text-focus-neon" />
             </div>
             <div className="space-y-5 flex-1 overflow-hidden">
-              {data.recentActivities.movements.slice(0, 5).map((m: any) => (
+              {data.recentActivities?.movements?.slice(0, 5).map((m: any) => (
                 <div key={m.id} className="flex items-start gap-4 group">
                   <div className={`mt-1 p-2 rounded-xl shrink-0 ${m.type === 'IN' ? 'bg-grow-phosphor/10 text-grow-phosphor' : 'bg-nrg-sun/10 text-nrg-sun'}`}>
                     {m.type === 'IN' ? <ArrowDownRight size={16} /> : <ArrowUpRight size={16} />}
@@ -317,7 +317,7 @@ export function WidgetRenderer({
               <Users size={24} className="text-focus-neon" />
             </div>
             <div className="space-y-4 flex-1 overflow-hidden">
-              {data.accounts.top.slice(0, 4).map((acc: any) => (
+              {data.accounts?.top?.slice(0, 4).map((acc: any) => (
                 <div key={acc.id} className="flex items-center justify-between p-5 rounded-3xl bg-skel-space/30 border border-skel-metal/5 hover:border-focus-neon/20 transition-all group">
                   <div className="flex items-center gap-5">
                     <div className="w-12 h-12 rounded-2xl bg-skel-space border border-skel-metal/10 flex items-center justify-center text-skel-metal group-hover:text-focus-neon transition-colors">
@@ -349,7 +349,7 @@ export function WidgetRenderer({
               <Box size={24} className="text-focus-neon" />
             </div>
             <div className="space-y-4 flex-1 overflow-hidden">
-              {data.stocks.top.slice(0, 4).map((stock: any) => (
+              {data.stocks?.top?.slice(0, 4).map((stock: any) => (
                 <div key={stock.id} className="flex items-center justify-between p-5 rounded-3xl bg-skel-space/30 border border-skel-metal/5 hover:border-focus-neon/20 transition-all group">
                   <div className="flex items-center gap-5">
                     <div className="w-12 h-12 rounded-2xl bg-skel-space border border-skel-metal/10 flex items-center justify-center text-skel-metal group-hover:text-focus-neon transition-colors">
@@ -380,11 +380,11 @@ export function WidgetRenderer({
               </div>
               <PieChartIcon size={24} className="text-focus-neon" />
             </div>
-            <div className="flex-1 w-full min-h-[250px] min-w-0">
+            <div className="flex-1 w-full h-[250px] min-w-0 relative">
               <ResponsiveContainer width="100%" height="100%" debounce={100} minWidth={0}>
                 <PieChart>
                   <Pie
-                    data={data.stocks.distribution}
+                    data={data.stocks?.distribution || []}
                     cx="50%"
                     cy="50%"
                     innerRadius={70}
@@ -392,7 +392,7 @@ export function WidgetRenderer({
                     paddingAngle={8}
                     dataKey="value"
                   >
-                    {data.stocks.distribution.map((entry: any, index: number) => (
+                    {data.stocks?.distribution?.map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={APEX_COLORS[index % APEX_COLORS.length]} stroke="none" />
                     ))}
                   </Pie>
@@ -421,9 +421,9 @@ export function WidgetRenderer({
               </div>
               <BarChart3 size={24} className="text-focus-neon" />
             </div>
-            <div className="flex-1 w-full min-h-[300px] min-w-0">
+            <div className="flex-1 w-full h-[300px] min-w-0 relative">
               <ResponsiveContainer width="100%" height="100%" debounce={100} minWidth={0}>
-                <BarChart data={data.jobs.trends}>
+                <BarChart data={data.jobs?.trends || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(161, 165, 183, 0.05)" vertical={false} />
                   <XAxis dataKey="name" stroke="var(--color-skel-metal)" fontSize={10} tickLine={false} axisLine={false} dy={15} />
                   <YAxis stroke="var(--color-skel-metal)" fontSize={10} tickLine={false} axisLine={false} />
@@ -456,7 +456,7 @@ export function WidgetRenderer({
               <Clock size={24} className="text-focus-neon" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {data.jobs.upcoming.slice(0, 3).map((job: any) => (
+              {data.jobs?.upcoming?.slice(0, 3).map((job: any) => (
                 <div key={job.receipt_no} className="p-6 rounded-3xl bg-skel-space/30 border border-skel-metal/5 flex flex-col justify-between group hover:border-focus-neon/30 transition-all relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <Calendar size={40} className="text-focus-neon" />

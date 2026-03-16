@@ -59,23 +59,23 @@ export function AccountsDashboard({ setActiveModule }: { setActiveModule: (modul
     }
   };
 
-  const totalAccounts = accounts.length;
-  const activeAccounts = accounts.filter(a => a.status === 'Aktif').length;
-  const totalCost = accounts.reduce((acc, curr) => acc + (curr.total_cost || 0), 0);
-  const totalPayment = accounts.reduce((acc, curr) => acc + (curr.total_payment || 0), 0);
-  const totalOverdue = accounts.reduce((acc, curr) => acc + (curr.overdue_debt || 0), 0);
+  const totalAccounts = accounts?.length || 0;
+  const activeAccounts = accounts?.filter(a => a.status === 'Aktif')?.length || 0;
+  const totalCost = (accounts || []).reduce((acc, curr) => acc + (curr.total_cost || 0), 0);
+  const totalPayment = (accounts || []).reduce((acc, curr) => acc + (curr.total_payment || 0), 0);
+  const totalOverdue = (accounts || []).reduce((acc, curr) => acc + (curr.overdue_debt || 0), 0);
   const netBalance = totalCost - totalPayment;
 
   // Type distribution
   const typeData = Object.entries(
-    accounts.reduce((acc: any, curr) => {
+    (accounts || []).reduce((acc: any, curr) => {
       acc[curr.type] = (acc[curr.type] || 0) + 1;
       return acc;
     }, {})
   ).map(([name, value]) => ({ name, value }));
 
   // Top accounts by balance
-  const topAccounts = [...accounts]
+  const topAccounts = [...(accounts || [])]
     .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance))
     .slice(0, 6)
     .map(a => ({
@@ -223,7 +223,7 @@ export function AccountsDashboard({ setActiveModule }: { setActiveModule: (modul
           </div>
           <div className="flex-1 w-full min-h-[300px] min-w-0">
             <ResponsiveContainer width="100%" height="100%" debounce={100} minWidth={0}>
-              {topAccounts.length > 0 ? (
+              {topAccounts?.length > 0 ? (
                 <BarChart data={topAccounts} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
@@ -284,12 +284,12 @@ export function AccountsDashboard({ setActiveModule }: { setActiveModule: (modul
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-bold text-skel-glass">{typeData.length}</span>
+              <span className="text-2xl font-bold text-skel-glass">{typeData?.length || 0}</span>
               <span className="text-[10px] text-skel-metal uppercase font-bold tracking-widest">Tip</span>
             </div>
           </div>
           <div className="mt-6 space-y-2">
-            {typeData.slice(0, 4).map((type, i) => (
+            {(typeData || []).slice(0, 4).map((type, i) => (
               <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-skel-matte/10 border border-skel-matte/20">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
@@ -317,8 +317,8 @@ export function AccountsDashboard({ setActiveModule }: { setActiveModule: (modul
             </h2>
           </div>
           <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-            {accounts.length > 0 ? (
-              [...accounts].reverse().slice(0, 5).map((account, i) => (
+            {accounts?.length > 0 ? (
+              [...(accounts || [])].reverse().slice(0, 5).map((account, i) => (
                 <div key={i} className="p-4 rounded-2xl border border-skel-matte/20 bg-skel-matte/10 flex items-center justify-between group hover:bg-skel-matte/20 transition-all">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-skel-matte/20 border border-skel-matte/20 flex items-center justify-center text-skel-metal group-hover:text-focus-neon transition-colors">

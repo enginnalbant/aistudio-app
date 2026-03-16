@@ -32,7 +32,8 @@ export const StatusButton: React.FC<StatusButtonProps> = ({ status, onChange, si
         whileHover={{ scale: 1.1, rotate: 5 }}
         whileTap={{ scale: 0.9 }}
         onClick={handleClick}
-        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 shadow-lg ${config.color} ${config.shadow} relative overflow-hidden`}
+        style={{ width: size * 2, height: size * 2 }}
+        className={`rounded-xl flex items-center justify-center transition-all duration-300 shadow-lg ${config.color} ${config.shadow} relative overflow-hidden`}
       >
         <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
         <AnimatePresence mode="wait">
