@@ -1,5 +1,5 @@
 {
-  "name": "Nexus OS - Üretim Takip",
-  "description": "Üretim stoklarının tedarikçi giriş-çıkışlarını takip eden akıllı ve dinamik OS tabanlı web uygulaması.",
+  "name": "Nexus OS - Akıllı Üretim & AI Asistan",
+  "description": "Üretim stoklarını, tedarikçi ilişkilerini ve finansal süreçleri takip eden, kendi kendine öğrenebilen ve raporlayabilen Nexus AI asistanlı dinamik yönetim sistemi.",
   "requestFramePermissions": []
 }

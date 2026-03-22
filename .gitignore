@@ -6,7 +6,3 @@ coverage/
 *.log
 .env*
 !.env.example
-
-# Electron
-release/
-*.db

@@ -39,6 +39,51 @@ interface Settings {
   content_width: 'full' | 'boxed';
   shadow_intensity: 'none' | 'soft' | 'hard';
   glow_effects: boolean;
+  // Profile
+  user_title: string;
+  user_language: string;
+  user_timezone: string;
+  // Security
+  security_ip_whitelist: string;
+  security_password_expiry: number;
+  security_max_attempts: number;
+  security_session_duration: number;
+  // Appearance
+  ui_density: 'compact' | 'comfortable' | 'spacious';
+  color_blind_mode: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
+  // Notifications
+  notif_desktop: boolean;
+  notif_slack: boolean;
+  notif_telegram: boolean;
+  // System
+  sys_performance_mode: 'balanced' | 'high' | 'low';
+  sys_debug_mode: boolean;
+  sys_api_access: boolean;
+  // Backup & Recovery
+  backup_enabled: boolean;
+  backup_frequency: 'daily' | 'weekly' | 'monthly';
+  backup_retention: number;
+  auto_recovery: boolean;
+  // Logging
+  log_level: 'error' | 'warn' | 'info' | 'debug';
+  log_retention_days: number;
+  audit_logging: boolean;
+  // AI Assistant
+  ai_assistant_enabled: boolean;
+  ai_model: string;
+  ai_voice_enabled: boolean;
+  ai_personality: 'professional' | 'friendly' | 'concise';
+  // Widgets
+  widgets_enabled: boolean;
+  widget_transparency: number;
+  // Charts
+  chart_theme: 'classic' | 'modern' | 'vibrant' | 'monochrome';
+  chart_animations: boolean;
+  // Background
+  background_type: 'default' | '3d-advanced' | 'accent-synced' | 'live-weather';
+  // Admin
+  admin_maintenance_mode: boolean;
+  admin_registration_open: boolean;
 }
 
 interface SettingsContextType {
@@ -84,6 +129,39 @@ const defaultSettings: Settings = {
   content_width: 'full',
   shadow_intensity: 'soft',
   glow_effects: true,
+  user_title: 'Sistem Yöneticisi',
+  user_language: 'tr',
+  user_timezone: 'UTC+3',
+  security_ip_whitelist: '',
+  security_password_expiry: 90,
+  security_max_attempts: 5,
+  security_session_duration: 120,
+  ui_density: 'comfortable',
+  color_blind_mode: 'none',
+  notif_desktop: true,
+  notif_slack: false,
+  notif_telegram: false,
+  sys_performance_mode: 'balanced',
+  sys_debug_mode: false,
+  sys_api_access: true,
+  backup_enabled: true,
+  backup_frequency: 'daily',
+  backup_retention: 30,
+  auto_recovery: true,
+  log_level: 'info',
+  log_retention_days: 7,
+  audit_logging: true,
+  ai_assistant_enabled: true,
+  ai_model: 'gemini-3-pro-preview',
+  ai_voice_enabled: false,
+  ai_personality: 'professional',
+  widgets_enabled: true,
+  widget_transparency: 0.8,
+  chart_theme: 'modern',
+  chart_animations: true,
+  background_type: 'default',
+  admin_maintenance_mode: false,
+  admin_registration_open: true,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

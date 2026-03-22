@@ -1,10 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
 
-dotenv.config();
+const getEnv = (key: string) => {
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    return process.env[key];
+  }
+  try {
+    return (import.meta as any).env[key];
+  } catch (e) {
+    return '';
+  }
+};
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_KEY || '';
+const supabaseUrl = getEnv('VITE_SUPABASE_URL') || '';
+const supabaseKey = getEnv('VITE_SUPABASE_ANON_KEY') || '';
 
 export const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 

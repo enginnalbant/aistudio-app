@@ -78,6 +78,7 @@ export function ShipmentWizard({ onSave, onClose, initialData }: ShipmentWizardP
     deliveryDate: '',
     scheduledDate: '',
     priority: 'medium',
+    products: [],
     pallets: [],
     notes: [''],
     documents: [],
@@ -564,6 +565,7 @@ export function ShipmentWizard({ onSave, onClose, initialData }: ShipmentWizardP
 
     onSave({
       ...formData,
+      products: selectedProducts,
       id: formData.id || Math.random().toString(36).substr(2, 9),
     });
     onClose();

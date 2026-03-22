@@ -1,0 +1,45 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Nexus OS Enterprise ERP API",
+    "version": "3.0.0",
+    "description": "Enterprise-level ERP API with AI and Workflow integration."
+  },
+  "servers": [
+    {
+      "url": "https://ais-dev-736nxccmaa6mvq2robg2bk-67294342919.europe-west2.run.app/api"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/accounts": {
+      "get": {
+        "summary": "Get all accounts",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of accounts"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

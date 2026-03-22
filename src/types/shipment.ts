@@ -39,6 +39,7 @@ export interface Shipment {
   deliveryDate: string;
   scheduledDate: string;
   priority: 'low' | 'medium' | 'high';
+  products: (Product & { quantity: number; stock: number })[];
   pallets: Pallet[];
   notes: string[];
   documents: string[]; // File names or URLs

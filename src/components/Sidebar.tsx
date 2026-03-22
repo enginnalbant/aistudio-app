@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Briefcase, 
@@ -38,7 +39,6 @@ import {
   MessageSquare,
   Files
 } from 'lucide-react';
-import { useState } from 'react';
 import { clsx } from 'clsx';
 import { useSettings } from '../context/SettingsContext';
 
@@ -46,9 +46,10 @@ interface SidebarProps {
   isOpen: boolean;
   activeModule: string;
   setActiveModule: (module: string) => void;
+  closeSidebar?: () => void;
 }
 
-export function Sidebar({ isOpen, activeModule, setActiveModule }: SidebarProps) {
+export const Sidebar = React.memo(function Sidebar({ isOpen, activeModule, setActiveModule, closeSidebar }: SidebarProps) {
   const { settings } = useSettings();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     business: true,
@@ -113,6 +114,7 @@ export function Sidebar({ isOpen, activeModule, setActiveModule }: SidebarProps)
         { id: 'others-transliteration', label: 'Harf Çevirme', icon: <Terminal size={14} /> },
         { id: 'others-translation', label: 'Çeviri', icon: <Languages size={14} /> },
         { id: 'others-templates', label: 'Akıllı Şablon Motoru', icon: <MessageSquare size={14} /> },
+        { id: 'others-answers', label: 'Cevaplar', icon: <MessageSquare size={14} /> },
         { id: 'others-documents', label: 'Belge ve dökümanlar', icon: <Files size={14} /> },
       ]
     },
@@ -133,13 +135,34 @@ export function Sidebar({ isOpen, activeModule, setActiveModule }: SidebarProps)
   ];
 
   return (
-    <motion.aside 
-      initial={{ width: 280 }}
-      animate={{ width: isOpen ? 280 : 96 }}
-      className="bento-card h-full flex flex-col shrink-0 relative overflow-hidden group/sidebar"
-    >
-      {/* Sidebar Ambient Glow */}
-      <div className="absolute top-0 right-0 w-[1px] h-full bg-gradient-to-b from-transparent via-focus-neon/20 to-transparent" />
+    <>
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeSidebar}
+            className="fixed inset-0 bg-skel-space/60 backdrop-blur-md z-[100] lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      <motion.aside 
+        initial={false}
+        animate={{ 
+          width: isOpen ? 280 : 96,
+          x: typeof window !== 'undefined' && window.innerWidth < 1024 ? (isOpen ? 0 : -280) : 0
+        }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className={clsx(
+          "bento-card h-full flex flex-col shrink-0 relative overflow-hidden group/sidebar z-[101]",
+          "fixed inset-y-0 left-0 lg:relative lg:inset-auto"
+        )}
+      >
+        {/* Sidebar Ambient Glow */}
+        <div className="absolute top-0 right-0 w-[1px] h-full bg-gradient-to-b from-transparent via-focus-neon/20 to-transparent" />
 
       <div className="h-24 flex items-center px-6 shrink-0">
         <div className="w-12 h-12 rounded-2xl bg-focus-main flex items-center justify-center shadow-[0_8px_20px_rgba(30,144,255,0.4)] group-hover/sidebar:rotate-12 transition-transform duration-700 shrink-0">
@@ -311,5 +334,6 @@ export function Sidebar({ isOpen, activeModule, setActiveModule }: SidebarProps)
         </div>
       </div>
     </motion.aside>
+    </>
   );
-}
+});

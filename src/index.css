@@ -287,3 +287,18 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-skel-metal/15 rounded-full hover:bg-focus-neon/30 transition-colors border-2 border-transparent bg-clip-padding;
 }
+
+@layer utilities {
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

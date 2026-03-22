@@ -1,19 +1,41 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
-import Database from 'better-sqlite3';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import DatabaseClass from 'better-sqlite3';
+const Database = (DatabaseClass as any).default || DatabaseClass;
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabaseService } from './src/services/dbService';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { supabase } from './src/services/supabaseClient';
+import { apiLimiter, authenticate, errorHandler } from './src/middleware/api';
+import { z } from 'zod';
+import { accountSchema, stockSchema, jobSchema } from './src/middleware/validation';
 
-dotenv.config();
+const validate = (schema: z.ZodObject<any>) => async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  try {
+    await schema.parseAsync(req.body);
+    return next();
+  } catch (error: any) {
+    return res.status(400).json({ status: 400, message: 'Validation Error', errors: error.errors });
+  }
+};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database('local.db');
+const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'local.db');
+let db: any;
+
+// Diagnostic logs for API keys
+console.log("[System] Checking API Keys...");
+console.log("- GEMINI_API_KEY:", process.env.GEMINI_API_KEY ? "Set" : "Not Set");
+console.log("- PERPLEXITY_API_KEY:", process.env.PERPLEXITY_API_KEY ? "Set" : "Not Set");
+console.log("- GOOGLE_API_KEY:", process.env.GOOGLE_API_KEY ? "Set" : "Not Set");
+console.log("- API_KEY:", process.env.API_KEY ? "Set" : "Not Set");
 
 // Helper functions for notifications and events
 const createNotification = (title: string, message: string, type: 'alert' | 'success' | 'info' | 'system', related_id?: string) => {
@@ -46,9 +68,26 @@ const createEvent = (title: string, date: string, type: 'meeting' | 'deadline' |
 
 async function startServer() {
   console.log('Starting server...');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('Database path:', dbPath);
   // Initialize Database
   try {
-    console.log('Database initialized successfully');
+    console.log('Attempting to initialize database...');
+    const fs = await import('fs');
+    console.log('Checking database path:', dbPath);
+    if (fs.existsSync(dbPath)) {
+      console.log('Database file exists.');
+    } else {
+      console.log('Database file does not exist, will be created.');
+      // Ensure directory exists
+      const dir = path.dirname(dbPath);
+      if (!fs.existsSync(dir)) {
+        console.log('Creating directory:', dir);
+        fs.mkdirSync(dir, { recursive: true });
+      }
+    }
+    db = new Database(dbPath);
+    console.log('Database initialized successfully.');
     // Initialize DB schema
     db.exec(`
       CREATE TABLE IF NOT EXISTS accounts (
@@ -129,6 +168,98 @@ async function startServer() {
         is_completed INTEGER DEFAULT 0,
         sort_order INTEGER DEFAULT 0,
         is_archived INTEGER DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS budgets (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        period_start TEXT NOT NULL,
+        period_end TEXT NOT NULL,
+        total_budget REAL NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_conversations (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        title TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        conversation_id TEXT,
+        role TEXT,
+        content TEXT,
+        model TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(conversation_id) REFERENCES ai_conversations(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_memories (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        category TEXT,
+        last_accessed TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_insights (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        type TEXT,
+        title TEXT,
+        content TEXT,
+        data TEXT,
+        priority TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_tasks (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        title TEXT,
+        description TEXT,
+        due_at TEXT,
+        status TEXT,
+        action_type TEXT,
+        action_payload TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_system_snapshots (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        snapshot_data TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_action_history (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        action TEXT,
+        target_table TEXT,
+        target_id TEXT,
+        details TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_learning_data (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        data_type TEXT,
+        content TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_profiles (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        name TEXT,
+        personality TEXT,
+        learning_level INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS tasks (
@@ -220,6 +351,103 @@ async function startServer() {
         FOREIGN KEY (supplier_id) REFERENCES accounts(id)
       );
 
+      CREATE TABLE IF NOT EXISTS purchase_plans (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft', -- draft, confirmed, ordered, cancelled
+        title TEXT,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_plan_items (
+        id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL,
+        request_item_id TEXT, -- Optional, can be linked to a specific request item
+        stock_id TEXT NOT NULL,
+        qty REAL NOT NULL,
+        estimated_price REAL,
+        supplier_id TEXT,
+        FOREIGN KEY (plan_id) REFERENCES purchase_plans(id) ON DELETE CASCADE,
+        FOREIGN KEY (request_item_id) REFERENCES purchase_request_items(id),
+        FOREIGN KEY (stock_id) REFERENCES stocks(id),
+        FOREIGN KEY (supplier_id) REFERENCES accounts(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_quotes (
+        id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        supplier_id TEXT NOT NULL,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (plan_id) REFERENCES purchase_plans(id) ON DELETE CASCADE,
+        FOREIGN KEY (supplier_id) REFERENCES accounts(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_quote_items (
+        id TEXT PRIMARY KEY,
+        quote_id TEXT NOT NULL,
+        stock_id TEXT NOT NULL,
+        qty REAL NOT NULL,
+        price REAL NOT NULL,
+        FOREIGN KEY (quote_id) REFERENCES purchase_quotes(id) ON DELETE CASCADE,
+        FOREIGN KEY (stock_id) REFERENCES stocks(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_orders (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open', -- open, completed, cancelled
+        supplier_id TEXT NOT NULL,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (supplier_id) REFERENCES accounts(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS purchase_order_items (
+        id TEXT PRIMARY KEY,
+        order_id TEXT NOT NULL,
+        stock_id TEXT NOT NULL,
+        qty REAL NOT NULL,
+        price REAL NOT NULL,
+        FOREIGN KEY (order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
+        FOREIGN KEY (stock_id) REFERENCES stocks(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS system_logs (
+        id TEXT PRIMARY KEY,
+        level TEXT NOT NULL,
+        module TEXT NOT NULL,
+        message TEXT NOT NULL,
+        metadata TEXT,
+        user_id TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS workflow_definitions (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        module TEXT NOT NULL,
+        config TEXT NOT NULL,
+        status TEXT DEFAULT 'Draft',
+        created_by TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS workflow_instances (
+        id TEXT PRIMARY KEY,
+        definition_id TEXT NOT NULL,
+        current_state TEXT NOT NULL,
+        context TEXT,
+        history TEXT,
+        started_by TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (definition_id) REFERENCES workflow_definitions(id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS shipments (
         id TEXT PRIMARY KEY,
         recipient_name TEXT NOT NULL,
@@ -254,6 +482,62 @@ async function startServer() {
     `);
 
     // Migrations / Column Checks
+    const shipmentsTableInfo = db.prepare("PRAGMA table_info(shipments)").all() as any[];
+    
+    // Force migration if it's the old schema
+    if (shipmentsTableInfo.some(c => c.name === 'job_id')) {
+        // Rename the old table
+        db.exec("ALTER TABLE shipments RENAME TO shipments_old");
+        // Create the new table
+        db.exec(`
+          CREATE TABLE shipments (
+            id TEXT PRIMARY KEY,
+            recipient_name TEXT NOT NULL,
+            delivery_address TEXT,
+            invoice_address TEXT,
+            carrier_name TEXT,
+            vehicle_info TEXT,
+            logistics_cost_amount REAL,
+            logistics_cost_currency TEXT,
+            departure_date TEXT,
+            delivery_date TEXT,
+            scheduled_date TEXT,
+            priority TEXT,
+            status TEXT,
+            transport_method TEXT,
+            shipment_type TEXT,
+            extra_details TEXT,
+            pallets TEXT,
+            products TEXT,
+            notes TEXT,
+            documents TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+        console.log("Renamed shipments table to shipments_old and created new shipments table.");
+    }
+
+    const shipmentColumns = [
+      { name: 'pallets', type: 'TEXT' },
+      { name: 'products', type: 'TEXT' },
+      { name: 'notes', type: 'TEXT' },
+      { name: 'documents', type: 'TEXT' }
+    ];
+
+    const shipmentTableInfo = db.prepare("PRAGMA table_info(shipments)").all() as any[];
+    const existingShipmentColumns = shipmentTableInfo.map(c => c.name);
+
+    shipmentColumns.forEach(col => {
+      if (!existingShipmentColumns.includes(col.name)) {
+        try {
+          db.exec(`ALTER TABLE shipments ADD COLUMN ${col.name} ${col.type}`);
+          console.log(`Added column ${col.name} to shipments table`);
+        } catch (err) {
+          console.error(`Error adding column ${col.name}:`, err);
+        }
+      }
+    });
+
     const columns = [
       { name: 'address', type: 'TEXT' },
       { name: 'tax_office', type: 'TEXT' },
@@ -395,10 +679,22 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Trust proxy for rate limiting (Cloud Run/Nginx environment)
+  app.set('trust proxy', 1);
+
+  // Security & Logging Middlewares
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP for development/iframe compatibility
+  }));
+  app.use(morgan('dev'));
   app.use(express.json());
+  
+  // Rate Limiting for API
+  app.use('/api/', apiLimiter);
 
   // API Routes
   app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+  app.get('/api/docs', (req, res) => res.sendFile(path.join(__dirname, 'public', 'api-docs.json')));
 
   app.get('/api/schema', (req, res) => {
     try {
@@ -407,6 +703,15 @@ async function startServer() {
       for (const table of tables as any[]) {
         schema[table.name] = db.prepare(`PRAGMA table_info(${table.name})`).all();
       }
+      res.json(schema);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/debug/shipments-schema', (req, res) => {
+    try {
+      const schema = db.prepare("PRAGMA table_info(shipments)").all();
       res.json(schema);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -422,6 +727,10 @@ async function startServer() {
         recipient: { name: s.recipient_name, deliveryAddress: s.delivery_address, invoiceAddress: s.invoice_address },
         carrier: { name: s.carrier_name, vehicleInfo: s.vehicle_info },
         logisticsCost: { amount: s.logistics_cost_amount, currency: s.logistics_cost_currency },
+        pallets: s.pallets ? JSON.parse(s.pallets) : [],
+        products: s.products ? JSON.parse(s.products) : [],
+        notes: s.notes ? JSON.parse(s.notes) : [],
+        documents: s.documents ? JSON.parse(s.documents) : [],
         movements: db.prepare('SELECT * FROM shipment_movements WHERE shipment_id = ? ORDER BY created_at DESC').all(s.id)
       }));
       res.json(shipmentsWithMovements);
@@ -431,19 +740,25 @@ async function startServer() {
   });
 
   app.post('/api/shipments', (req, res) => {
-    const { id, recipient, carrier, logisticsCost, departureDate, deliveryDate, scheduledDate, priority, status, transportMethod, shipmentType, extraDetails } = req.body;
+    const { 
+      id, recipient, carrier, logisticsCost, departureDate, deliveryDate, scheduledDate, 
+      priority, status, transportMethod, shipmentType, extraDetails, 
+      pallets, products, notes, documents 
+    } = req.body;
     const shipmentId = id || uuidv4();
     try {
       db.prepare(`
         INSERT INTO shipments (
           id, recipient_name, delivery_address, invoice_address, carrier_name, vehicle_info,
           logistics_cost_amount, logistics_cost_currency, departure_date, delivery_date, scheduled_date,
-          priority, status, transport_method, shipment_type, extra_details
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          priority, status, transport_method, shipment_type, extra_details,
+          pallets, products, notes, documents
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         shipmentId, recipient.name, recipient.deliveryAddress, recipient.invoiceAddress, carrier.name, carrier.vehicleInfo,
         logisticsCost.amount, logisticsCost.currency, departureDate, deliveryDate, scheduledDate,
-        priority, status, transportMethod, shipmentType, extraDetails
+        priority, status, transportMethod, shipmentType, extraDetails,
+        JSON.stringify(pallets || []), JSON.stringify(products || []), JSON.stringify(notes || []), JSON.stringify(documents || [])
       );
       res.json({ success: true, id: shipmentId });
     } catch (err: any) {
@@ -559,6 +874,16 @@ async function startServer() {
       res.json(accounts);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/accounts', validate(accountSchema), async (req, res) => {
+    try {
+      const service = getDatabaseService();
+      const id = await service.createAccount(req.body);
+      res.status(201).json({ success: true, id });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
     }
   });
 
@@ -743,6 +1068,34 @@ async function startServer() {
         }
       }
 
+      // Purchasing Summary
+      const pendingPurchaseRequests = db.prepare("SELECT COUNT(*) as count FROM purchase_requests WHERE status = 'pending'").get() as any;
+      const openPurchaseOrders = db.prepare("SELECT COUNT(*) as count FROM purchase_orders WHERE status = 'open'").get() as any;
+      const totalPurchaseSpend = db.prepare(`
+        SELECT SUM(poi.qty * poi.price) as total
+        FROM purchase_orders po
+        JOIN purchase_order_items poi ON po.id = poi.order_id
+        WHERE po.status != 'cancelled'
+      `).get() as any;
+
+      // Shipments Summary
+      const activeShipments = db.prepare("SELECT COUNT(*) as count FROM shipments WHERE status NOT IN ('Teslim Edildi', 'İptal')").get() as any;
+
+      // Tasks Summary
+      const pendingTasks = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE status != 'completed' AND is_archived = 0").get() as any;
+
+      // Budget Summary
+      const activeBudget = db.prepare("SELECT * FROM budgets WHERE period_start <= ? AND period_end >= ? ORDER BY period_start DESC LIMIT 1").get(new Date().toISOString(), new Date().toISOString()) as any;
+      let budgetSpent = 0;
+      if (activeBudget) {
+        const spent = db.prepare(`
+          SELECT SUM(amount) as total
+          FROM payments
+          WHERE type = 'OUTGOING' AND date >= ? AND date <= ?
+        `).get(activeBudget.period_start, activeBudget.period_end) as any;
+        budgetSpent = spent?.total || 0;
+      }
+
       res.json({
         accounts: {
           total: accounts.length,
@@ -765,6 +1118,21 @@ async function startServer() {
           completed: completedJobs.count,
           trends: monthlyTrends,
           upcoming: upcomingDeadlines
+        },
+        purchasing: {
+          pendingRequests: pendingPurchaseRequests?.count || 0,
+          openOrders: openPurchaseOrders?.count || 0,
+          totalSpend: totalPurchaseSpend?.total || 0
+        },
+        shipments: {
+          active: activeShipments?.count || 0
+        },
+        tasks: {
+          pending: pendingTasks?.count || 0
+        },
+        budget: {
+          active: activeBudget || null,
+          spent: budgetSpent
         },
         recentActivities: {
           movements: recentMovements,
@@ -1604,6 +1972,275 @@ async function startServer() {
     }
   });
 
+  // Purchase Plans
+  app.get('/api/purchase-plans', (req, res) => {
+    try {
+      const plans = db.prepare(`
+        SELECT pp.*, 
+          (SELECT COUNT(*) FROM purchase_plan_items ppi WHERE ppi.plan_id = pp.id) as item_count
+        FROM purchase_plans pp 
+        ORDER BY pp.created_at DESC
+      `).all();
+      
+      const result = plans.map((plan: any) => {
+        const items = db.prepare(`
+          SELECT ppi.*, s.name as stock_name, s.code as stock_code, s.unit, a.name as supplier_name,
+                 pri.request_id as source_request_id
+          FROM purchase_plan_items ppi
+          LEFT JOIN stocks s ON ppi.stock_id = s.id
+          LEFT JOIN accounts a ON ppi.supplier_id = a.id
+          LEFT JOIN purchase_request_items pri ON ppi.request_item_id = pri.id
+          WHERE ppi.plan_id = ?
+        `).all(plan.id);
+        return { ...plan, items };
+      });
+      
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/purchase-plans', (req, res) => {
+    const { id, date, status, title, notes, items } = req.body;
+    const planId = id || uuidv4();
+    
+    try {
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO purchase_plans (id, date, status, title, notes)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(planId, date, status || 'draft', title, notes);
+
+        const insertItem = db.prepare(`
+          INSERT INTO purchase_plan_items (id, plan_id, request_item_id, stock_id, qty, estimated_price, supplier_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        for (const item of items) {
+          insertItem.run(
+            uuidv4(),
+            planId,
+            item.request_item_id || null,
+            item.stock_id,
+            item.qty,
+            item.estimated_price || null,
+            item.supplier_id || null
+          );
+        }
+      })();
+      res.json({ success: true, id: planId });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/purchase-plans/:id/status', (req, res) => {
+    const { status } = req.body;
+    try {
+      db.prepare('UPDATE purchase_plans SET status = ? WHERE id = ?').run(status, req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/purchase-plans/:id', (req, res) => {
+    try {
+      db.prepare('DELETE FROM purchase_plans WHERE id = ?').run(req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Purchase Quotes
+  app.get('/api/purchase-quotes', (req, res) => {
+    try {
+      const quotes = db.prepare(`
+        SELECT pq.*, a.name as supplier_name, pp.title as plan_title
+        FROM purchase_quotes pq
+        LEFT JOIN accounts a ON pq.supplier_id = a.id
+        LEFT JOIN purchase_plans pp ON pq.plan_id = pp.id
+        ORDER BY pq.created_at DESC
+      `).all();
+      
+      const result = quotes.map((quote: any) => {
+        const items = db.prepare(`
+          SELECT pqi.*, s.name as stock_name, s.code as stock_code, s.unit
+          FROM purchase_quote_items pqi
+          LEFT JOIN stocks s ON pqi.stock_id = s.id
+          WHERE pqi.quote_id = ?
+        `).all(quote.id);
+        return { ...quote, items };
+      });
+      
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/purchase-quotes', (req, res) => {
+    const { plan_id, date, supplier_id, notes, items } = req.body;
+    const quoteId = uuidv4();
+    
+    try {
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO purchase_quotes (id, plan_id, date, supplier_id, notes)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(quoteId, plan_id, date, supplier_id, notes);
+
+        const insertItem = db.prepare(`
+          INSERT INTO purchase_quote_items (id, quote_id, stock_id, qty, price)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+
+        for (const item of items) {
+          insertItem.run(uuidv4(), quoteId, item.stock_id, item.qty, item.price);
+        }
+      })();
+      res.json({ success: true, id: quoteId });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Purchase Orders
+  app.get('/api/purchase-orders', (req, res) => {
+    try {
+      const orders = db.prepare(`
+        SELECT po.*, a.name as supplier_name
+        FROM purchase_orders po
+        LEFT JOIN accounts a ON po.supplier_id = a.id
+        ORDER BY po.created_at DESC
+      `).all();
+      
+      const result = orders.map((order: any) => {
+        const items = db.prepare(`
+          SELECT poi.*, s.name as stock_name, s.code as stock_code, s.unit
+          FROM purchase_order_items poi
+          LEFT JOIN stocks s ON poi.stock_id = s.id
+          WHERE poi.order_id = ?
+        `).all(order.id);
+        return { ...order, items };
+      });
+      
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/purchase-orders', (req, res) => {
+    const { date, supplier_id, notes, items } = req.body;
+    const orderId = uuidv4();
+    
+    try {
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO purchase_orders (id, date, status, supplier_id, notes)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(orderId, date, 'open', supplier_id, notes);
+
+        const insertItem = db.prepare(`
+          INSERT INTO purchase_order_items (id, order_id, stock_id, qty, price)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+
+        for (const item of items) {
+          insertItem.run(uuidv4(), orderId, item.stock_id, item.qty, item.price);
+        }
+      })();
+      res.json({ success: true, id: orderId });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/purchase-orders/generate', (req, res) => {
+    const { plan_id, orders } = req.body;
+    try {
+      db.transaction(() => {
+        for (const order of orders) {
+          const orderId = uuidv4();
+          db.prepare(`
+            INSERT INTO purchase_orders (id, date, status, supplier_id, notes)
+            VALUES (?, ?, ?, ?, ?)
+          `).run(orderId, new Date().toISOString().split('T')[0], 'open', order.supplier_id, order.notes || '');
+
+          const insertItem = db.prepare(`
+            INSERT INTO purchase_order_items (id, order_id, stock_id, qty, price)
+            VALUES (?, ?, ?, ?, ?)
+          `);
+
+          for (const item of order.items) {
+            insertItem.run(uuidv4(), orderId, item.stock_id, item.qty, item.price);
+          }
+        }
+        if (plan_id) {
+          db.prepare('UPDATE purchase_plans SET status = ? WHERE id = ?').run('ordered', plan_id);
+        }
+      })();
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/purchase-orders/:id/status', (req, res) => {
+    const { status } = req.body;
+    try {
+      db.prepare('UPDATE purchase_orders SET status = ? WHERE id = ?').run(status, req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 5. PAYMENTS (Ödemeler/Tahsilatlar)
+  app.get('/api/payments', (req, res) => {
+    try {
+      const payments = db.prepare('SELECT p.*, a.name as account_name FROM payments p LEFT JOIN accounts a ON p.account_id = a.id ORDER BY p.date DESC').all();
+      res.json(payments);
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  app.post('/api/payments', (req, res) => {
+    try {
+      const { account_id, date, amount, type, description, category } = req.body;
+      const id = uuidv4();
+      db.prepare('INSERT INTO payments (id, account_id, date, amount, type, description, category) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, account_id, date, amount, type, description, category);
+      res.json({ id, account_id, date, amount, type, description, category });
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  // 6. BUDGET (Bütçe/Finans)
+  app.get('/api/budgets', (req, res) => {
+    try {
+      const budgets = db.prepare('SELECT * FROM budgets ORDER BY period_start DESC').all();
+      res.json(budgets);
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  app.post('/api/budgets', (req, res) => {
+    try {
+      const { name, period_start, period_end, total_budget } = req.body;
+      const id = uuidv4();
+      db.prepare('INSERT INTO budgets (id, name, period_start, period_end, total_budget) VALUES (?, ?, ?, ?, ?)').run(id, name, period_start, period_end, total_budget);
+      res.json({ id, name, period_start, period_end, total_budget });
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
   // Notifications
   app.get('/api/notifications', (req, res) => {
     try {
@@ -1992,6 +2629,80 @@ async function startServer() {
     }
   });
 
+  // AI Assistant Routes
+  app.get('/api/ai/conversations', async (req, res) => {
+    try {
+      const service = getDatabaseService();
+      const conversations = await service.getAIConversations();
+      res.json(conversations);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/ai/conversations/:id/messages', async (req, res) => {
+    try {
+      const service = getDatabaseService();
+      const messages = await service.getAIMessages(req.params.id);
+      res.json(messages);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/ai/chat', async (req, res) => {
+    const { userId, conversationId, message, modelType } = req.body;
+    try {
+      const { nexusAI } = await import('./src/services/aiAssistantService');
+      const response = await nexusAI.processMessage(userId || 'default-user', conversationId, message, modelType);
+      res.json({ response });
+    } catch (err: any) {
+      console.error('AI Chat Error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/ai/memories', async (req, res) => {
+    try {
+      const service = getDatabaseService();
+      const memories = await service.getAIMemories();
+      res.json(memories);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/ai/insights', async (req, res) => {
+    try {
+      const service = getDatabaseService();
+      const insights = await service.getAIInsights();
+      res.json(insights);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/ai/insights/generate', async (req, res) => {
+    const { userId } = req.body;
+    try {
+      const { nexusAI } = await import('./src/services/aiAssistantService');
+      await nexusAI.generateInsight(userId || 'default-user');
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/ai/tasks', async (req, res) => {
+    try {
+      const service = getDatabaseService();
+      const tasks = await service.getAITasks();
+      res.json(tasks);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // 404 for unknown API routes
   app.all('/api/*', (req, res) => {
     console.log(`404 - Unknown API Route: ${req.method} ${req.originalUrl || req.url}`);
@@ -2000,23 +2711,36 @@ async function startServer() {
 
   // Serve frontend
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(__dirname, 'dist')));
+    const basePath = process.env.APP_PATH || __dirname;
+    const distPath = path.join(basePath, 'dist');
+    console.log('Serving static files from:', distPath);
+    app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+      console.log('Serving index.html for:', req.url);
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
   // Global Error Handler
-  app.use((err: any, req: any, res: any, next: any) => {
-    console.error('Unhandled Error:', err);
-    res.status(500).json({ error: 'Internal Server Error', details: err.message });
-  });
+  app.use(errorHandler);
+
+  // AI Heartbeat - Periodically generate insights
+  setInterval(async () => {
+    try {
+      const { nexusAI } = await import('./src/services/aiAssistantService');
+      console.log('AI Heartbeat: Generating insights...');
+      await nexusAI.generateInsight('default-user');
+    } catch (err) {
+      console.error('AI Heartbeat Error:', err);
+    }
+  }, 1000 * 60 * 5); // Every 5 minutes
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);

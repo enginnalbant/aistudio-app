@@ -24,7 +24,11 @@ import {
   Cpu,
   Globe,
   Database,
-  Terminal
+  Terminal,
+  ShoppingCart,
+  Truck,
+  CheckSquare,
+  Wallet
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -64,7 +68,11 @@ export type WidgetType =
   | 'avg_completion'
   | 'total_overdue'
   | 'system_console'
-  | 'generative';
+  | 'generative'
+  | 'purchasing_summary'
+  | 'active_shipments'
+  | 'pending_tasks'
+  | 'budget_status';
 
 export interface WidgetConfig {
   id: string;
@@ -88,11 +96,12 @@ export const WIDGET_DEFAULTS: WidgetConfig[] = [
   { id: 'w10', type: 'category_dist', title: 'Kategori Dağılımı', description: 'Stok kalemlerinin sektörel dağılımı', gridSpan: 'md:col-span-4' },
   { id: 'w11', type: 'job_trends', title: 'Aylık İş Trendi', description: 'Üretim hacmi ve performans takibi', gridSpan: 'md:col-span-8' },
   { id: 'w12', type: 'upcoming_deadlines', title: 'Zaman Çizelgesi', description: 'Yaklaşan teslimat ve iş emirleri', gridSpan: 'md:col-span-12' },
-  { id: 'w13', type: 'account_type_dist', title: 'Cari Tip Dağılımı', description: 'Müşteri ve tedarikçi dengesi', gridSpan: 'md:col-span-4' },
-  { id: 'w14', type: 'total_stock_value', title: 'Toplam Stok Değeri', description: 'Depodaki varlıkların tahmini değeri', gridSpan: 'md:col-span-3' },
-  { id: 'w15', type: 'system_status', title: 'Sistem Durumu', description: 'Nexus OS operasyonel sağlık raporu', gridSpan: 'md:col-span-5' },
-  { id: 'w16', type: 'ai_insights', title: 'Apex AI Analitiği', description: 'Yapay zeka destekli sistem öngörüleri', gridSpan: 'md:col-span-12' },
-  { id: 'w17', type: 'system_console', title: 'Çekirdek Konsolu', description: 'Apex Kernel gerçek zamanlı log akışı', gridSpan: 'md:col-span-6' },
+  { id: 'w13', type: 'purchasing_summary', title: 'Satın Alma Özeti', description: 'Bekleyen talepler ve siparişler', gridSpan: 'md:col-span-4' },
+  { id: 'w14', type: 'active_shipments', title: 'Aktif Sevkiyatlar', description: 'Devam eden lojistik operasyonlar', gridSpan: 'md:col-span-4' },
+  { id: 'w15', type: 'pending_tasks', title: 'Bekleyen Görevler', description: 'Tamamlanmamış iş kalemleri', gridSpan: 'md:col-span-4' },
+  { id: 'w16', type: 'budget_status', title: 'Bütçe Durumu', description: 'Aktif bütçe harcama oranı', gridSpan: 'md:col-span-4' },
+  { id: 'w17', type: 'system_status', title: 'Sistem Durumu', description: 'Nexus OS operasyonel sağlık raporu', gridSpan: 'md:col-span-4' },
+  { id: 'w18', type: 'ai_insights', title: 'Apex AI Analitiği', description: 'Yapay zeka destekli sistem öngörüleri', gridSpan: 'md:col-span-12' },
 ];
 
 interface WidgetRendererProps {
@@ -251,7 +260,7 @@ export function WidgetRenderer({
                 <p className="label-mono text-pure-white/60 tracking-[0.3em]">{widget.title}</p>
                 <Zap size={22} className="animate-pulse" />
               </div>
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <button onClick={(e) => { e.stopPropagation(); setIsJobModalOpen(true); }} className="flex items-center justify-between p-4 rounded-2xl bg-pure-white/10 hover:bg-pure-white/20 transition-all text-sm font-display font-black tracking-tight group/item border border-pure-white/5">
                   Yeni İş Emri 
                   <div className="p-2 rounded-xl bg-pure-white/10 group-hover/item:bg-pure-white/30 transition-colors">
@@ -268,6 +277,24 @@ export function WidgetRenderer({
                   Cari Kaydı 
                   <div className="p-2 rounded-xl bg-pure-white/10 group-hover/item:bg-pure-white/30 transition-colors">
                     <Plus size={16} />
+                  </div>
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setActiveModule('purchasing'); }} className="flex items-center justify-between p-4 rounded-2xl bg-pure-white/10 hover:bg-pure-white/20 transition-all text-sm font-display font-black tracking-tight group/item border border-pure-white/5">
+                  Satın Alma 
+                  <div className="p-2 rounded-xl bg-pure-white/10 group-hover/item:bg-pure-white/30 transition-colors">
+                    <ArrowUpRight size={16} />
+                  </div>
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setActiveModule('shipment'); }} className="flex items-center justify-between p-4 rounded-2xl bg-pure-white/10 hover:bg-pure-white/20 transition-all text-sm font-display font-black tracking-tight group/item border border-pure-white/5">
+                  Sevkiyatlar 
+                  <div className="p-2 rounded-xl bg-pure-white/10 group-hover/item:bg-pure-white/30 transition-colors">
+                    <ArrowUpRight size={16} />
+                  </div>
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setActiveModule('planner'); }} className="flex items-center justify-between p-4 rounded-2xl bg-pure-white/10 hover:bg-pure-white/20 transition-all text-sm font-display font-black tracking-tight group/item border border-pure-white/5">
+                  Planlayıcı 
+                  <div className="p-2 rounded-xl bg-pure-white/10 group-hover/item:bg-pure-white/30 transition-colors">
+                    <ArrowUpRight size={16} />
                   </div>
                 </button>
               </div>
@@ -618,6 +645,97 @@ export function WidgetRenderer({
                 transition={{ repeat: Infinity, duration: 0.8 }}
                 className="inline-block w-1.5 h-3 bg-focus-neon ml-1 align-middle mt-1"
               />
+            </div>
+          </div>
+        );
+      case 'purchasing_summary':
+        return (
+          <div className="flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-focus-neon/10 text-focus-neon flex items-center justify-center border border-focus-neon/20 group-hover:scale-110 transition-transform duration-500">
+                <ShoppingCart size={24} />
+              </div>
+              <div className="px-3 py-1 rounded-full bg-focus-neon/10 text-focus-neon font-mono text-[10px] font-bold border border-focus-neon/20">SATIN ALMA</div>
+            </div>
+            <div>
+              <p className="label-mono mb-2 opacity-70">{widget.title}</p>
+              <div className="flex items-end gap-3">
+                <div className="text-4xl font-display font-black tracking-tighter text-void-white">{data.purchasing?.openOrders || 0}</div>
+                <span className="text-[10px] font-mono text-skel-metal mb-2 font-bold tracking-widest">AÇIK SİPARİŞ</span>
+              </div>
+              <div className="mt-4 text-sm font-mono text-skel-metal">
+                Bekleyen Talep: <span className="text-focus-neon font-bold">{data.purchasing?.pendingRequests || 0}</span>
+              </div>
+            </div>
+          </div>
+        );
+      case 'active_shipments':
+        return (
+          <div className="flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-nrg-sun/10 text-nrg-sun flex items-center justify-center border border-nrg-sun/20 group-hover:scale-110 transition-transform duration-500">
+                <Truck size={24} />
+              </div>
+              <div className="px-3 py-1 rounded-full bg-nrg-sun/10 text-nrg-sun font-mono text-[10px] font-bold border border-nrg-sun/20">LOJİSTİK</div>
+            </div>
+            <div>
+              <p className="label-mono mb-2 opacity-70">{widget.title}</p>
+              <div className="flex items-end gap-3">
+                <div className="text-4xl font-display font-black tracking-tighter text-void-white">{data.shipments?.active || 0}</div>
+                <span className="text-[10px] font-mono text-skel-metal mb-2 font-bold tracking-widest">AKTİF</span>
+              </div>
+            </div>
+          </div>
+        );
+      case 'pending_tasks':
+        return (
+          <div className="flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-crit-blood/10 text-crit-vivid flex items-center justify-center border border-crit-blood/20 group-hover:scale-110 transition-transform duration-500">
+                <CheckSquare size={24} />
+              </div>
+              <div className="px-3 py-1 rounded-full bg-crit-blood/10 text-crit-vivid font-mono text-[10px] font-bold border border-crit-blood/20">GÖREVLER</div>
+            </div>
+            <div>
+              <p className="label-mono mb-2 opacity-70">{widget.title}</p>
+              <div className="flex items-end gap-3">
+                <div className="text-4xl font-display font-black tracking-tighter text-void-white">{data.tasks?.pending || 0}</div>
+                <span className="text-[10px] font-mono text-skel-metal mb-2 font-bold tracking-widest">BEKLEYEN</span>
+              </div>
+            </div>
+          </div>
+        );
+      case 'budget_status':
+        return (
+          <div className="flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-grow-phosphor/10 text-grow-phosphor flex items-center justify-center border border-grow-phosphor/20 group-hover:scale-110 transition-transform duration-500">
+                <Wallet size={24} />
+              </div>
+              <div className="px-3 py-1 rounded-full bg-grow-phosphor/10 text-grow-phosphor font-mono text-[10px] font-bold border border-grow-phosphor/20">BÜTÇE</div>
+            </div>
+            <div>
+              <p className="label-mono mb-2 opacity-70">{widget.title}</p>
+              {data.budget?.active ? (
+                <>
+                  <div className="flex items-end gap-3">
+                    <div className="text-3xl font-display font-black tracking-tighter text-void-white">
+                      %{(data.budget.spent / data.budget.active.total_amount * 100).toFixed(1)}
+                    </div>
+                    <span className="text-[10px] font-mono text-skel-metal mb-1 font-bold tracking-widest">KULLANILAN</span>
+                  </div>
+                  <div className="mt-4 flex gap-1.5">
+                    <div className="flex-1 h-1.5 rounded-full bg-skel-space overflow-hidden">
+                      <div 
+                        className="h-full bg-grow-phosphor" 
+                        style={{ width: `${Math.min(100, (data.budget.spent / data.budget.active.total_amount * 100))}%` }}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm font-mono text-skel-metal">Aktif bütçe bulunmuyor.</div>
+              )}
             </div>
           </div>
         );
