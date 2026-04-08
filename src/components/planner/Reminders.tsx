@@ -159,26 +159,36 @@ export const Reminders = () => {
     })
   );
 
-  useEffect(() => {
-    fetchReminders();
+  const fetchReminders = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/events');
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      const all = Array.isArray(data) ? data.filter((r: any) => r.type === 'reminder').map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        date: r.date,
+        time: r.time,
+        is_completed: r.is_completed || 0,
+        sort_order: r.sort_order || 0,
+        is_archived: r.is_archived || 0
+      })) : [];
+      
+      setAllReminders(prev => JSON.stringify(prev) === JSON.stringify(all) ? prev : all);
+      
+      const filtered = all.filter(r => r.date === date);
+      setReminders(prev => JSON.stringify(prev) === JSON.stringify(filtered) ? prev : filtered);
+    } catch (error) {
+      console.error('Error fetching reminders:', error);
+      setAllReminders(prev => prev.length === 0 ? prev : []);
+      setReminders(prev => prev.length === 0 ? prev : []);
+    }
   }, [date]);
 
-  const fetchReminders = async () => {
-    const res = await fetch('/api/events');
-    const data = await res.json();
-    const all = Array.isArray(data) ? data.filter((r: any) => r.type === 'reminder').map((r: any) => ({
-      id: r.id,
-      title: r.title,
-      description: r.description,
-      date: r.date,
-      time: r.time,
-      is_completed: r.is_completed || 0,
-      sort_order: r.sort_order || 0,
-      is_archived: r.is_archived || 0
-    })) : [];
-    setAllReminders(all);
-    setReminders(all.filter(r => r.date === date));
-  };
+  useEffect(() => {
+    fetchReminders();
+  }, [fetchReminders]);
 
   const updateReminder = async (id: string, data: Partial<Reminder>) => {
     // Map reminder fields to event fields for the API

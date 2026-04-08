@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Terminal, Save, Trash2, History, Plus, X, Settings2 } from 'lucide-react';
-import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
 
 const defaultFormats = [
   { id: 'uppercase', label: 'BÜYÜK HARF' },
@@ -24,24 +22,7 @@ export function CharacterConverter() {
   const [operations, setOperations] = useState([{ find: '', replace: '' }]);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
-    
-    // Fetch History
-    const qHistory = query(collection(db, 'conversions'), where('userId', '==', auth.currentUser.uid), orderBy('timestamp', 'desc'));
-    const unsubHistory = onSnapshot(qHistory, (snapshot) => {
-      setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    // Fetch Custom Templates
-    const qTemplates = query(collection(db, 'custom_conversion_templates'), where('userId', '==', auth.currentUser.uid), orderBy('timestamp', 'desc'));
-    const unsubTemplates = onSnapshot(qTemplates, (snapshot) => {
-      setCustomTemplates(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    return () => {
-      unsubHistory();
-      unsubTemplates();
-    };
+    // Firebase logic removed for database rebuild
   }, []);
 
   const handleConvert = () => {
@@ -71,23 +52,8 @@ export function CharacterConverter() {
   };
 
   const handleSave = async () => {
-    if (!auth.currentUser) return;
-    
-    let formatLabel = format;
-    const defaultFmt = defaultFormats.find(f => f.id === format);
-    if (defaultFmt) formatLabel = defaultFmt.label;
-    else {
-      const customFmt = customTemplates.find(t => t.id === format);
-      if (customFmt) formatLabel = customFmt.name;
-    }
-
-    await addDoc(collection(db, 'conversions'), {
-      input,
-      output,
-      format: formatLabel,
-      timestamp: serverTimestamp(),
-      userId: auth.currentUser.uid
-    });
+    // Firebase logic removed for database rebuild
+    console.log('Save triggered (database rebuild in progress)');
   };
 
   const handleAddOperation = () => {
@@ -105,19 +71,7 @@ export function CharacterConverter() {
   };
 
   const handleSaveTemplate = async () => {
-    if (!auth.currentUser || !newTemplateName.trim()) return;
-    
-    // Filter out empty operations
-    const validOps = operations.filter(op => op.find.trim() !== '');
-    if (validOps.length === 0) return;
-
-    await addDoc(collection(db, 'custom_conversion_templates'), {
-      name: newTemplateName,
-      operations: validOps,
-      timestamp: serverTimestamp(),
-      userId: auth.currentUser.uid
-    });
-
+    // Firebase logic removed for database rebuild
     setShowWizard(false);
     setNewTemplateName('');
     setOperations([{ find: '', replace: '' }]);
@@ -125,7 +79,7 @@ export function CharacterConverter() {
 
   const handleDeleteTemplate = async (id: string) => {
     if (format === id) setFormat(defaultFormats[0].id);
-    await deleteDoc(doc(db, 'custom_conversion_templates', id));
+    // Firebase logic removed for database rebuild
   };
 
   const allFormats = [

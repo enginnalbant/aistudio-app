@@ -46,18 +46,7 @@ interface DashboardItem {
   delayDays?: number;
 }
 
-const MOCK_DATA: DashboardItem[] = [
-  { id: 'JOB-001', module: 'İşler', title: 'CNC Parça Üretimi - Seri A', status: 'Devam Ediyor', priority: 'Yüksek', progress: 65, startDate: '2026-03-15', endDate: '2026-03-22', assignedTo: 'Ahmet Y.' },
-  { id: 'PLN-002', module: 'Planlama', title: 'Haftalık Üretim Çizelgesi', status: 'Tamamlandı', priority: 'Orta', progress: 100, startDate: '2026-03-10', endDate: '2026-03-17', assignedTo: 'Zeynep K.' },
-  { id: 'SHP-003', module: 'Sevkiyatlar', title: 'Almanya İhracat Sevkiyatı', status: 'Yolda', priority: 'Acil', progress: 45, startDate: '2026-03-18', endDate: '2026-03-25', location: 'Gümrük - Kapıkule' },
-  { id: 'PUR-004', module: 'Satınalma', title: 'Hammadde Tedariği (Alüminyum)', status: 'Gecikti', priority: 'Yüksek', progress: 20, startDate: '2026-03-05', endDate: '2026-03-15', supplier: 'AluCorp Inc.', delayDays: 4 },
-  { id: 'JOB-005', module: 'İşler', title: 'Lazer Kesim - Proje X', status: 'Açık', priority: 'Orta', progress: 0, startDate: '2026-03-20', endDate: '2026-03-28', assignedTo: 'Mehmet S.' },
-  { id: 'SHP-006', module: 'Sevkiyatlar', title: 'Yurtiçi Dağıtım - Ege Bölgesi', status: 'Gecikti', priority: 'Yüksek', progress: 80, startDate: '2026-03-12', endDate: '2026-03-18', location: 'Afyon Aktarma', delayDays: 1 },
-  { id: 'PUR-007', module: 'Satınalma', title: 'Yedek Parça Siparişi', status: 'Beklemede', priority: 'Düşük', progress: 10, startDate: '2026-03-19', endDate: '2026-03-30', supplier: 'TeknoMarket' },
-  { id: 'PLN-008', module: 'Planlama', title: 'Bakım Planı - Makine 4', status: 'Açık', priority: 'Acil', progress: 0, startDate: '2026-03-21', endDate: '2026-03-21', assignedTo: 'Teknik Ekip' },
-  { id: 'SHP-009', module: 'Sevkiyatlar', title: 'Müşteri İadesi - Arıza', status: 'Tamamlandı', priority: 'Düşük', progress: 100, startDate: '2026-03-14', endDate: '2026-03-16', location: 'Depo A' },
-  { id: 'JOB-010', module: 'İşler', title: 'Montaj Hattı - Ünite 7', status: 'Devam Ediyor', priority: 'Orta', progress: 30, startDate: '2026-03-17', endDate: '2026-03-24', assignedTo: 'Caner T.' },
-];
+const MOCK_DATA: DashboardItem[] = [];
 
 export function MainDashboard() {
   const { settings } = useSettings();

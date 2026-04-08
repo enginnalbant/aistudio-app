@@ -48,12 +48,12 @@ export const DaysBar = ({ date, setDate, onDateClick }: DaysBarProps) => {
       const end = days[days.length - 1].toISOString().split('T')[0];
       try {
         const res = await fetch(`/api/planner/summaries?start_date=${start}&end_date=${end}`);
-        if (res.ok) {
-          const data = await res.json();
-          setSummaries(data);
-        }
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        setSummaries(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
       } catch (error) {
         console.error('Error fetching summaries:', error);
+        setSummaries(prev => prev.length === 0 ? prev : []);
       }
     };
     fetchSummaries();

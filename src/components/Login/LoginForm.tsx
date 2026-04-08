@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, Eye, EyeOff, Phone, Chrome, UserCheck, UserPlus, ArrowRight, Settings, History, Sparkles } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -20,25 +21,21 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 interface LoginFormProps {
-  onLogin: (data: LoginFormValues) => void;
   onStateChange: (state: any) => void;
   onSwitchToRegister: () => void;
   onForgotPassword: () => void;
-  onGuestLogin: () => void;
-  onDemoLogin: () => void;
+  onGuestLogin?: () => void;
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({
-  onLogin,
   onStateChange,
   onSwitchToRegister,
   onForgotPassword,
   onGuestLogin,
-  onDemoLogin,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<string[]>([]);
-  const [isError, setIsError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     register,
@@ -61,9 +58,9 @@ const LoginForm: React.FC<LoginFormProps> = ({
   useEffect(() => {
     if (isSubmitting) {
       onStateChange('thinking');
-    } else if (isError) {
+    } else if (errorMessage) {
       onStateChange('error');
-      const timer = setTimeout(() => setIsError(false), 2000);
+      const timer = setTimeout(() => setErrorMessage(null), 2000);
       return () => clearTimeout(timer);
     } else if (passwordValue.length > 0 && !showPassword) {
       onStateChange('peeking');
@@ -74,7 +71,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
     } else {
       onStateChange('idle');
     }
-  }, [emailValue, passwordValue, showPassword, onStateChange, isSubmitting, isError]);
+  }, [emailValue, passwordValue, showPassword, onStateChange, isSubmitting, errorMessage]);
 
   useEffect(() => {
     const saved = localStorage.getItem('saved_accounts');
@@ -94,11 +91,20 @@ const LoginForm: React.FC<LoginFormProps> = ({
     }
   };
 
+  const { signIn, signInWithGoogle } = useAuth();
+
   const onSubmit = async (data: LoginFormValues) => {
-    try {
-      await onLogin(data);
-    } catch (err) {
-      setIsError(true);
+    const { error } = await signIn(data.email, data.password);
+    if (error) {
+      setErrorMessage(error.message);
+      console.error(error);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    const { error } = await signInWithGoogle();
+    if (error) {
+      console.error(error);
     }
   };
 
@@ -256,6 +262,16 @@ const LoginForm: React.FC<LoginFormProps> = ({
           </motion.label>
         </div>
 
+        {errorMessage && (
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-xs font-bold text-red-500 text-center"
+          >
+            {errorMessage}
+          </motion.p>
+        )}
+
         <motion.button
           whileHover={{ scale: 1.02, boxShadow: '0 20px 40px -12px rgba(79, 70, 229, 0.4)' }}
           whileTap={{ scale: 0.98 }}
@@ -281,7 +297,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
         <motion.button 
           whileHover={{ y: -2, scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => onStateChange('cool')}
+          onClick={handleGoogleLogin}
           className="flex items-center justify-center gap-3 py-3.5 bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 border-2 border-transparent hover:border-indigo-500/30 rounded-2xl text-sm font-bold transition-all"
         >
           <Chrome className="w-5 h-5 text-red-500" />
@@ -298,32 +314,19 @@ const LoginForm: React.FC<LoginFormProps> = ({
         </motion.button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <motion.button
-          whileHover={{ y: -2, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => {
-            onDemoLogin();
-            onStateChange('cool');
-          }}
-          className="flex items-center justify-center gap-3 py-3.5 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl text-sm font-black transition-all"
-        >
-          <Settings className="w-5 h-5" />
-          Demo Modu
-        </motion.button>
-        <motion.button
-          whileHover={{ y: -2, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => {
-            onGuestLogin();
-            onStateChange('cool');
-          }}
-          className="flex items-center justify-center gap-3 py-3.5 bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 border-2 border-transparent hover:border-indigo-500/30 rounded-2xl text-sm font-black transition-all"
-        >
-          <UserCheck className="w-5 h-5" />
-          Konuk Girişi
-        </motion.button>
-      </div>
+      <motion.button 
+        type="button"
+        whileHover={{ y: -2, scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => {
+          onStateChange('cool');
+          if (onGuestLogin) onGuestLogin();
+        }}
+        className="w-full flex items-center justify-center gap-3 py-3.5 bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 border-2 border-transparent hover:border-indigo-500/30 rounded-2xl text-sm font-bold transition-all text-zinc-700 dark:text-zinc-300"
+      >
+        <UserCheck className="w-5 h-5 text-indigo-500" />
+        Konuk Olarak Devam Et
+      </motion.button>
 
       <motion.p 
         initial={{ opacity: 0 }}
@@ -337,7 +340,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
             onSwitchToRegister();
             onStateChange('surprised');
           }}
-          className="font-black text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1.5"
+          className="font-black text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1.5 border border-red-500"
         >
           <UserPlus className="w-4 h-4" />
           Şimdi Kaydol

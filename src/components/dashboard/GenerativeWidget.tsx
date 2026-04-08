@@ -76,7 +76,7 @@ export function GenerativeWidget({ type, title, data, config }: GenerativeWidget
                 paddingAngle={5}
                 dataKey="value"
               >
-                {data.map((_, index) => (
+                {(data || []).map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -98,7 +98,7 @@ export function GenerativeWidget({ type, title, data, config }: GenerativeWidget
 
   const renderList = () => (
     <div className="space-y-3">
-      {data.map((item, i) => (
+      {(data || []).map((item, i) => (
         <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-skel-matte/5 border border-skel-metal/10">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-focus-neon" />

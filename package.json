@@ -28,15 +28,7 @@
       "package.json",
       "node_modules/**/*"
     ],
-    "extraResources": [
-      {
-        "from": "local.db",
-        "to": "local.db",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
+    "extraResources": [],
     "win": {
       "target": "nsis",
       "icon": "public/vite.svg"
@@ -54,18 +46,17 @@
     "@hookform/resolvers": "^5.2.2",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
-    "@supabase/supabase-js": "^2.97.0",
+    "@supabase/supabase-js": "^2.102.1",
     "@tailwindcss/vite": "^4.1.14",
     "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^5.0.4",
-    "better-sqlite3": "^12.4.1",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
     "express": "^4.21.2",
     "express-rate-limit": "^8.3.1",
-    "firebase": "^12.10.0",
+    "fuse.js": "^7.1.0",
     "helmet": "^8.1.0",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",

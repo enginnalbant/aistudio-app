@@ -54,7 +54,7 @@ export function AllJobs() {
     fetch('/api/jobs')
       .then(res => res.json())
       .then(data => {
-        setAllJobs(data);
+        setAllJobs(Array.isArray(data) ? data : []);
         setSelectedJobIds(new Set());
       });
   };
@@ -65,7 +65,7 @@ export function AllJobs() {
 
   const totalQty = useMemo(() => {
     return allJobs.reduce((acc, curr) => {
-      const qty = curr.items.reduce((sum: number, item: any) => sum + item.qty, 0);
+      const qty = (curr.items || []).reduce((sum: number, item: any) => sum + item.qty, 0);
       return acc + qty;
     }, 0);
   }, [allJobs]);
@@ -98,8 +98,8 @@ export function AllJobs() {
         let bValue = b[sortConfig.key];
         
         if (sortConfig.key === 'qty') {
-          aValue = a.items.reduce((sum: number, item: any) => sum + item.qty, 0);
-          bValue = b.items.reduce((sum: number, item: any) => sum + item.qty, 0);
+          aValue = (a.items || []).reduce((sum: number, item: any) => sum + item.qty, 0);
+          bValue = (b.items || []).reduce((sum: number, item: any) => sum + item.qty, 0);
         }
 
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -250,7 +250,7 @@ export function AllJobs() {
       'İş Emri No': job.receipt_no,
       'Tedarikçi': job.supplier_name,
       'Stoklar': job.items.map((i: any) => i.stock_name).join(', '),
-      'Toplam Miktar': job.items.reduce((sum: number, item: any) => sum + item.qty, 0),
+      'Toplam Miktar': (job.items || []).reduce((sum: number, item: any) => sum + item.qty, 0),
       'Tarih': new Date(job.date).toLocaleDateString('tr-TR'),
       'Durum': job.status
     }));
@@ -268,7 +268,7 @@ export function AllJobs() {
     const tableRows = filteredJobs.map(job => [
       job.receipt_no,
       job.supplier_name,
-      job.items.reduce((sum: number, item: any) => sum + item.qty, 0),
+      (job.items || []).reduce((sum: number, item: any) => sum + item.qty, 0),
       new Date(job.date).toLocaleDateString('tr-TR'),
       job.status
     ]);

@@ -38,27 +38,8 @@ export default function AnswersPage() {
     if (saved) {
       setTemplates(JSON.parse(saved));
     } else {
-      // Default templates
-      const defaults: AnswerTemplate[] = [
-        {
-          id: '1',
-          title: 'Müşteri Karşılama',
-          name: 'Resmi Karşılama',
-          category: 'Genel',
-          content: 'Merhaba [İSİM], ApexOS sistemine hoş geldiniz. Size nasıl yardımcı olabilirim?',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          title: 'Teknik Destek Talebi',
-          name: 'Standart Yanıt',
-          category: 'Destek',
-          content: 'Talebiniz alınmıştır. Teknik ekibimiz en kısa sürede inceleyip size dönüş yapacaktır. Takip numaranız: [NO]',
-          createdAt: new Date().toISOString()
-        }
-      ];
-      setTemplates(defaults);
-      localStorage.setItem('nexus_answer_templates', JSON.stringify(defaults));
+      setTemplates([]);
+      localStorage.setItem('nexus_answer_templates', JSON.stringify([]));
     }
   }, []);
 

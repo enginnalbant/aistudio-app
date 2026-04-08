@@ -26,9 +26,9 @@ export function PurchaseRequestTable({
 
   const filteredRequests = requests.filter(req => {
     const matchesSearch = 
-      req.id.toString().toLowerCase().includes(activeSearchQuery.toLowerCase()) ||
-      req.requested_by.toLowerCase().includes(activeSearchQuery.toLowerCase()) ||
-      req.department.toLowerCase().includes(activeSearchQuery.toLowerCase()) ||
+      (req.id?.toString() || '').toLowerCase().includes(activeSearchQuery.toLowerCase()) ||
+      (req.requested_by || '').toLowerCase().includes(activeSearchQuery.toLowerCase()) ||
+      (req.department || '').toLowerCase().includes(activeSearchQuery.toLowerCase()) ||
       req.items?.some((item: any) => item.stock_name.toLowerCase().includes(activeSearchQuery.toLowerCase()));
     
     const matchesStatus = activeStatusFilter === 'all' || req.status === activeStatusFilter;

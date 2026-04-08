@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
 
 export type LogLevel = 'info' | 'warning' | 'error' | 'critical';
 
@@ -22,9 +23,9 @@ export class LogService {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      const { data, error } = await supabase
-        .from('system_logs')
+      const { data, error } = await (supabase.from('system_logs') as any)
         .insert({
+          id: uuidv4(),
           level,
           module,
           message,
@@ -62,12 +63,13 @@ export class LogService {
     return this.log('critical', module, message, metadata);
   }
 
-  async getLogs(limit = 100) {
+  async getLogs(userId: string, limit = 100) {
     if (!supabase) return [];
 
     const { data, error } = await supabase
       .from('system_logs')
       .select('*, profiles(full_name, email)')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
 

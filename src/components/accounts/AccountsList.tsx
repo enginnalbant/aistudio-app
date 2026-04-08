@@ -52,7 +52,7 @@ export function AccountsList() {
     try {
       const response = await fetch(`/api/accounts/summary?t=${Date.now()}`);
       const data = await response.json();
-      setAccounts(data);
+      setAccounts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching accounts:', error);
     } finally {
@@ -290,8 +290,8 @@ export function AccountsList() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 text-sm">
-                    {filteredAccounts.map((account) => (
-                      <tr key={account.id} className="hover:bg-skel-matte/10 transition-colors group">
+                    {filteredAccounts.map((account, index) => (
+                      <tr key={account.id || `account-${index}`} className="hover:bg-skel-matte/10 transition-colors group">
                         <td className="p-4" onClick={() => { setEditingAccount(account); setWizardScenario('MANUAL'); setIsWizardOpen(true); }}>
                           <span className="font-mono text-focus-neon font-bold bg-focus-neon/5 px-2 py-1 rounded border border-focus-neon/10 text-xs">
                             <HighlightText text={account.series || 'KODSUZ'} highlight={searchTerm} />
@@ -380,9 +380,9 @@ export function AccountsList() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-y-auto h-full pr-2 custom-scrollbar">
-              {filteredAccounts.map((account) => (
+              {filteredAccounts.map((account, index) => (
                 <motion.div 
-                  key={account.id}
+                  key={account.id || `account-grid-${index}`}
                   layout
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}

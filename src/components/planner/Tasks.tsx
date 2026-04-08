@@ -183,10 +183,14 @@ export const Tasks = () => {
       const res = await fetch('/api/tasks');
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = (await res.json()) || [];
-      setTasks(Array.isArray(data) ? data.filter((t: Task) => t.due_date === date) : []);
+      
+      setTasks(prev => {
+        const newData = Array.isArray(data) ? data.filter((t: Task) => t.due_date === date) : [];
+        return JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData;
+      });
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      setTasks([]);
+      setTasks(prev => prev.length === 0 ? prev : []);
     }
   };
 
@@ -195,10 +199,14 @@ export const Tasks = () => {
       const res = await fetch('/api/tasks');
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = (await res.json()) || [];
-      setAllTasks(Array.isArray(data) ? data : []);
+      
+      setAllTasks(prev => {
+        const newData = Array.isArray(data) ? data : [];
+        return JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData;
+      });
     } catch (error) {
       console.error('Error fetching all tasks:', error);
-      setAllTasks([]);
+      setAllTasks(prev => prev.length === 0 ? prev : []);
     }
   };
 

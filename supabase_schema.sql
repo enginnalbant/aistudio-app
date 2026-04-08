@@ -1,54 +1,642 @@
--- NEXUS OS - ENTERPRISE ERP SUPABASE SCHEMA
--- VERSION: 3.0.0
--- DATE: 2026-03-17
--- DESCRIPTION: Production-ready, enterprise-level ERP schema with advanced AI, Workflows, and Performance optimizations.
-
--- ==========================================
--- 0. EXTENSIONS & CONFIGURATION
--- ==========================================
+-- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- For fuzzy search
-CREATE EXTENSION IF NOT EXISTS "pg_stat_statements"; -- For monitoring
 
--- ==========================================
--- 1. CUSTOM TYPES & ENUMS
--- ==========================================
-DO $$ BEGIN
-    -- Existing Types
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'account_type') THEN
-        CREATE TYPE account_type AS ENUM ('Tedarikçi', 'Müşteri', 'Personel', 'Ortak', 'Diğer');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'job_status') THEN
-        CREATE TYPE job_status AS ENUM ('Açık', 'Kısmi', 'Tamamlandı', 'İptal', 'Beklemede');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'priority_level') THEN
-        CREATE TYPE priority_level AS ENUM ('low', 'medium', 'high', 'critical');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ai_role') THEN
-        CREATE TYPE ai_role AS ENUM ('user', 'assistant', 'system');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'movement_type') THEN
-        CREATE TYPE movement_type AS ENUM ('IN', 'OUT', 'TRANSFER', 'ADJUSTMENT');
-    END IF;
+-- Enable pg_trgm for full-text search
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-    -- New Enterprise Types
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'workflow_status') THEN
-        CREATE TYPE workflow_status AS ENUM ('Draft', 'Active', 'Paused', 'Completed', 'Archived');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'action_status') THEN
-        CREATE TYPE action_status AS ENUM ('Pending', 'Executing', 'Success', 'Failed', 'Cancelled');
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'transaction_status') THEN
-        CREATE TYPE transaction_status AS ENUM ('Pending', 'Cleared', 'Reconciled', 'Voided');
-    END IF;
-EXCEPTION
-    WHEN duplicate_object THEN null;
+-- ENUMS
+CREATE TYPE user_role AS ENUM ('admin', 'user', 'viewer');
+CREATE TYPE job_status AS ENUM ('pending', 'in_progress', 'completed', 'cancelled');
+CREATE TYPE job_type AS ENUM ('production', 'service', 'custom');
+CREATE TYPE account_type AS ENUM ('customer', 'supplier', 'both');
+CREATE TYPE payment_method AS ENUM ('cash', 'credit_card', 'bank_transfer', 'check');
+CREATE TYPE movement_type AS ENUM ('IN', 'OUT', 'ADJUSTMENT', 'COUNT');
+CREATE TYPE shipment_status AS ENUM ('pending', 'in_transit', 'delivered', 'cancelled');
+CREATE TYPE task_status AS ENUM ('todo', 'in_progress', 'done', 'archived');
+CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high', 'urgent');
+
+-- 1. USERS (Supabase Auth ile senkronize)
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  firebase_uid TEXT UNIQUE,
+  email TEXT UNIQUE NOT NULL,
+  full_name TEXT,
+  role user_role DEFAULT 'user',
+  avatar_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  deleted_at TIMESTAMP
+);
+
+-- 2. USER PROFILES
+CREATE TABLE user_profiles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  bio TEXT,
+  phone TEXT,
+  preferences JSONB DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 3-6. JOBS & PRODUCTION
+CREATE TABLE jobs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  account_id UUID REFERENCES accounts(id),
+  receipt_no TEXT,
+  date TIMESTAMP DEFAULT NOW(),
+  title TEXT,
+  description TEXT,
+  type TEXT DEFAULT 'production',
+  status TEXT DEFAULT 'pending',
+  start_date TIMESTAMP,
+  end_date TIMESTAMP,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  deleted_at TIMESTAMP
+);
+
+CREATE TABLE job_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  stock_id UUID REFERENCES stock(id),
+  qty DECIMAL NOT NULL,
+  price DECIMAL,
+  received_qty DECIMAL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE job_materials (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  stock_id UUID,
+  quantity_needed DECIMAL,
+  quantity_used DECIMAL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE job_notes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id),
+  content TEXT,
+  attachments JSONB DEFAULT '[]',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE job_assignments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id),
+  role TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 7-10. INVENTORY & STOCKS  
+CREATE TABLE stock_categories (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  parent_id UUID REFERENCES stock_categories(id),
+  description TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE stock (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  sku TEXT UNIQUE,
+  barcode TEXT,
+  name TEXT NOT NULL,
+  description TEXT,
+  category_id UUID REFERENCES stock_categories(id),
+  unit TEXT,
+  quantity DECIMAL DEFAULT 0,
+  min_quantity DECIMAL DEFAULT 0,
+  warehouse_location TEXT,
+  supplier_id UUID,
+  purchase_price DECIMAL DEFAULT 0,
+  sale_price DECIMAL DEFAULT 0,
+  critical_level DECIMAL DEFAULT 10,
+  category TEXT,
+  code TEXT,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  deleted_at TIMESTAMP
+);
+
+CREATE TABLE stock_movements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  stock_id UUID REFERENCES stock(id),
+  user_id UUID REFERENCES users(id),
+  type movement_type,
+  qty DECIMAL NOT NULL,
+  from_location TEXT,
+  to_location TEXT,
+  reference_type TEXT,
+  reference_id UUID,
+  job_id UUID,
+  job_item_id UUID,
+  notes TEXT,
+  date TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE stock_price_history (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  stock_id UUID REFERENCES stock(id),
+  price_type TEXT,
+  price DECIMAL,
+  effective_date TIMESTAMP DEFAULT NOW()
+);
+
+-- 11-14. ACCOUNTS & PAYMENTS
+CREATE TABLE accounts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  account_type account_type,
+  company_name TEXT,
+  contact_name TEXT,
+  email TEXT,
+  phone TEXT,
+  address JSONB,
+  payment_terms TEXT,
+  balance DECIMAL DEFAULT 0,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  deleted_at TIMESTAMP
+);
+
+CREATE TABLE payments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  account_id UUID REFERENCES accounts(id),
+  payment_type TEXT,
+  payment_method payment_method,
+  amount DECIMAL NOT NULL,
+  currency TEXT DEFAULT 'TRY',
+  reference_number TEXT,
+  invoice_id UUID,
+  payment_date TIMESTAMP DEFAULT NOW(),
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE invoices (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  account_id UUID REFERENCES accounts(id),
+  invoice_number TEXT UNIQUE,
+  invoice_type TEXT,
+  total_amount DECIMAL,
+  paid_amount DECIMAL DEFAULT 0,
+  status TEXT,
+  due_date TIMESTAMP,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE invoice_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
+  stock_id UUID,
+  description TEXT,
+  quantity DECIMAL,
+  unit_price DECIMAL,
+  total_price DECIMAL
+);
+
+-- 15-18. PURCHASING
+CREATE TABLE purchase_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  request_number TEXT UNIQUE,
+  status TEXT DEFAULT 'pending',
+  priority TEXT,
+  required_date TIMESTAMP,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE purchase_orders (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  supplier_id UUID REFERENCES accounts(id),
+  order_number TEXT UNIQUE,
+  status TEXT DEFAULT 'draft',
+  total_amount DECIMAL,
+  expected_delivery TIMESTAMP,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE purchase_quotes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  request_id UUID REFERENCES purchase_requests(id),
+  supplier_id UUID REFERENCES accounts(id),
+  quote_number TEXT,
+  total_amount DECIMAL,
+  valid_until TIMESTAMP,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE purchase_plans (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  plan_name TEXT,
+  period_start TIMESTAMP,
+  period_end TIMESTAMP,
+  status TEXT DEFAULT 'draft',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 19-22. SHIPMENTS
+CREATE TABLE shipments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  tracking_number TEXT UNIQUE,
+  recipient_name TEXT,
+  delivery_address TEXT,
+  invoice_address TEXT,
+  carrier_name TEXT,
+  vehicle_info TEXT,
+  logistics_cost_amount DECIMAL,
+  logistics_cost_currency TEXT,
+  departure_date TIMESTAMP,
+  delivery_date TIMESTAMP,
+  scheduled_date TIMESTAMP,
+  priority TEXT,
+  status TEXT DEFAULT 'pending',
+  transport_method TEXT,
+  shipment_type TEXT,
+  extra_details TEXT,
+  pallets JSONB DEFAULT '[]',
+  products JSONB DEFAULT '[]',
+  notes JSONB DEFAULT '[]',
+  documents JSONB DEFAULT '[]',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE shipment_addresses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shipment_id UUID REFERENCES shipments(id) ON DELETE CASCADE,
+  address_type TEXT,
+  full_address TEXT,
+  city TEXT,
+  country TEXT,
+  postal_code TEXT,
+  contact_phone TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE shipment_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shipment_id UUID REFERENCES shipments(id) ON DELETE CASCADE,
+  stock_id UUID REFERENCES stock(id),
+  quantity DECIMAL,
+  weight DECIMAL,
+  dimensions TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE shipment_movements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shipment_id UUID REFERENCES shipments(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id),
+  location TEXT,
+  status TEXT,
+  movement_date TIMESTAMP DEFAULT NOW(),
+  notes TEXT,
+  file_paths TEXT[] DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 23-27. FINANCE & BUDGET
+CREATE TABLE budget_incomes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  category TEXT,
+  amount DECIMAL NOT NULL,
+  date TIMESTAMP DEFAULT NOW(),
+  description TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE budget_expenses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  category TEXT,
+  amount DECIMAL NOT NULL,
+  date TIMESTAMP DEFAULT NOW(),
+  description TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE subscriptions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  service_name TEXT NOT NULL,
+  cost DECIMAL NOT NULL,
+  billing_cycle TEXT,
+  next_billing_date TIMESTAMP,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE investments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  asset_name TEXT NOT NULL,
+  asset_type TEXT,
+  amount_invested DECIMAL NOT NULL,
+  current_value DECIMAL,
+  purchase_date TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE wishlists (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  item_name TEXT NOT NULL,
+  estimated_cost DECIMAL,
+  priority TEXT,
+  target_date TIMESTAMP,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 28-32. PRODUCTIVITY
+CREATE TABLE tasks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  due_date DATE NOT NULL,
+  status TEXT DEFAULT 'pending', -- 'pending', 'partial', 'completed'
+  priority TEXT DEFAULT 'medium', -- 'low', 'medium', 'high'
+  sort_order INTEGER DEFAULT 0,
+  is_archived INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE notes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  title TEXT NOT NULL,
+  content TEXT DEFAULT '',
+  target_date DATE NOT NULL,
+  sort_order INTEGER DEFAULT 0,
+  is_archived INTEGER DEFAULT 0,
+  tags TEXT[] DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE reminders (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  title TEXT NOT NULL,
+  trigger_time TIMESTAMP NOT NULL,
+  is_completed BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE daily_plans (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  date DATE NOT NULL,
+  goals TEXT,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE calendar_events (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  title TEXT NOT NULL,
+  description TEXT,
+  start_time TIMESTAMP NOT NULL,
+  end_time TIMESTAMP NOT NULL,
+  location TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 33-36. MEDIA & DOCS
+CREATE TABLE media_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  file_name TEXT NOT NULL,
+  file_url TEXT NOT NULL,
+  mime_type TEXT,
+  size_bytes BIGINT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE documents (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  title TEXT NOT NULL,
+  content TEXT,
+  version INT DEFAULT 1,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  name TEXT NOT NULL,
+  type TEXT,
+  content TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE translations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  key TEXT NOT NULL,
+  locale TEXT NOT NULL,
+  value TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(key, locale)
+);
+
+-- 37-39. COMMS & AI
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  title TEXT NOT NULL,
+  message TEXT,
+  is_read BOOLEAN DEFAULT false,
+  type TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE ai_conversations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  title TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE ai_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  conversation_id UUID REFERENCES ai_conversations(id) ON DELETE CASCADE,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 40-43. SYSTEM & LOGS
+CREATE TABLE reports (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  name TEXT NOT NULL,
+  type TEXT,
+  parameters JSONB,
+  result_data JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  key TEXT NOT NULL,
+  value JSONB,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, key)
+);
+
+CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  action TEXT NOT NULL,
+  table_name TEXT,
+  record_id UUID,
+  old_data JSONB,
+  new_data JSONB,
+  ip_address TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE activity_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id),
+  activity_type TEXT NOT NULL,
+  description TEXT,
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Enable RLS for all tables
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_materials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_price_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoice_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_quotes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shipment_addresses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shipment_items ENABLE ROW LEVEL SECURITY;
+-- Ensure missing columns exist
+ALTER TABLE shipment_movements ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
+ALTER TABLE shipment_movements ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+ALTER TABLE shipment_movements ADD COLUMN IF NOT EXISTS movement_date TIMESTAMP DEFAULT NOW();
+ALTER TABLE shipment_movements ADD COLUMN IF NOT EXISTS file_paths TEXT[] DEFAULT '{}';
+ALTER TABLE shipment_movements ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS qty DECIMAL;
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS type movement_type;
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS job_id UUID;
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS job_item_id UUID;
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS date TIMESTAMP DEFAULT NOW();
+
+ALTER TABLE budget_incomes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE budget_expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wishlists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE media_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE translations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS Policies (Allow users to read/write their own data)
+-- Users
+CREATE POLICY "Users can view own data" ON users FOR SELECT USING (auth.uid() = id OR (auth.jwt()->>'sub') = firebase_uid);
+CREATE POLICY "Users can update own data" ON users FOR UPDATE USING (auth.uid() = id OR (auth.jwt()->>'sub') = firebase_uid);
+CREATE POLICY "Users can insert own data" ON users FOR INSERT WITH CHECK (auth.uid() = id OR (auth.jwt()->>'sub') = firebase_uid);
+
+-- User Profiles
+CREATE POLICY "Users can view own profile" ON user_profiles FOR SELECT USING (auth.uid() = user_id OR (auth.jwt()->>'sub') = (SELECT firebase_uid FROM users WHERE id = user_id));
+CREATE POLICY "Users can update own profile" ON user_profiles FOR UPDATE USING (auth.uid() = user_id OR (auth.jwt()->>'sub') = (SELECT firebase_uid FROM users WHERE id = user_id));
+CREATE POLICY "Users can insert own profile" ON user_profiles FOR INSERT WITH CHECK (auth.uid() = user_id OR (auth.jwt()->>'sub') = (SELECT firebase_uid FROM users WHERE id = user_id));
+
+-- For all other tables with user_id, create generic policies
+DO $$
+DECLARE
+    t_name text;
+BEGIN
+    FOR t_name IN 
+        SELECT table_name 
+        FROM information_schema.columns 
+        WHERE column_name = 'user_id' AND table_schema = 'public' AND table_name != 'users' AND table_name != 'user_profiles'
+    LOOP
+        EXECUTE format('CREATE POLICY "Users can view own %I" ON %I FOR SELECT USING (auth.uid() = user_id OR (auth.jwt()->>''sub'') = (SELECT firebase_uid FROM users WHERE id = user_id))', t_name, t_name);
+        EXECUTE format('CREATE POLICY "Users can insert own %I" ON %I FOR INSERT WITH CHECK (auth.uid() = user_id OR (auth.jwt()->>''sub'') = (SELECT firebase_uid FROM users WHERE id = user_id))', t_name, t_name);
+        EXECUTE format('CREATE POLICY "Users can update own %I" ON %I FOR UPDATE USING (auth.uid() = user_id OR (auth.jwt()->>''sub'') = (SELECT firebase_uid FROM users WHERE id = user_id))', t_name, t_name);
+        EXECUTE format('CREATE POLICY "Users can delete own %I" ON %I FOR DELETE USING (auth.uid() = user_id OR (auth.jwt()->>''sub'') = (SELECT firebase_uid FROM users WHERE id = user_id))', t_name, t_name);
+    END LOOP;
 END $$;
 
--- ==========================================
--- 2. HELPER FUNCTIONS
--- ==========================================
+-- Triggers for updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -57,287 +645,87 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- ==========================================
--- 3. CORE MODULES (REFINED)
--- ==========================================
-
--- 3.1 ACCOUNTS
-CREATE TABLE IF NOT EXISTS accounts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users DEFAULT auth.uid(),
-    name TEXT NOT NULL,
-    type account_type DEFAULT 'Müşteri',
-    phone TEXT,
-    email TEXT,
-    website TEXT,
-    tax_office TEXT,
-    tax_number TEXT,
-    address TEXT,
-    authorized_person TEXT,
-    payment_term_days INTEGER DEFAULT 0,
-    status TEXT DEFAULT 'Aktif',
-    balance DECIMAL(15,2) DEFAULT 0,
-    metadata JSONB DEFAULT '{}',
-    fts TSVECTOR GENERATED ALWAYS AS (to_tsvector('turkish', name || ' ' || coalesce(tax_number, '') || ' ' || coalesce(authorized_person, ''))) STORED,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 3.2 STOCKS
-CREATE TABLE IF NOT EXISTS stocks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users DEFAULT auth.uid(),
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    category TEXT,
-    unit TEXT NOT NULL,
-    barcode TEXT,
-    purchase_price DECIMAL(15,2) DEFAULT 0,
-    sale_price DECIMAL(15,2) DEFAULT 0,
-    critical_level DECIMAL(12,2) DEFAULT 0,
-    current_balance DECIMAL(12,2) DEFAULT 0,
-    status TEXT DEFAULT 'Aktif',
-    tags TEXT[],
-    attributes JSONB DEFAULT '{}',
-    fts TSVECTOR GENERATED ALWAYS AS (to_tsvector('turkish', name || ' ' || code || ' ' || coalesce(barcode, ''))) STORED,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 3.3 JOBS (With Workflow Integration)
-CREATE TABLE IF NOT EXISTS jobs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users DEFAULT auth.uid(),
-    account_id UUID REFERENCES accounts(id),
-    receipt_no TEXT NOT NULL UNIQUE,
-    date DATE NOT NULL DEFAULT CURRENT_DATE,
-    type TEXT NOT NULL,
-    status job_status DEFAULT 'Açık',
-    priority priority_level DEFAULT 'medium',
-    description TEXT,
-    workflow_instance_id UUID,
-    total_amount DECIMAL(15,2) DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 3.4 PAYMENTS
-CREATE TABLE IF NOT EXISTS payments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users DEFAULT auth.uid(),
-    account_id UUID REFERENCES accounts(id),
-    date DATE NOT NULL DEFAULT CURRENT_DATE,
-    amount DECIMAL(15,2) NOT NULL,
-    type TEXT NOT NULL, -- 'INCOMING' or 'OUTGOING'
-    description TEXT,
-    category TEXT,
-    status transaction_status DEFAULT 'Pending',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ==========================================
--- 4. WORKFLOW STATE MACHINE
--- ==========================================
-
-CREATE TABLE IF NOT EXISTS workflow_definitions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users DEFAULT auth.uid(),
-    name TEXT NOT NULL,
-    module TEXT NOT NULL, -- 'Jobs', 'Stocks', 'Finance'
-    config JSONB NOT NULL, -- States, Transitions, Rules
-    status workflow_status DEFAULT 'Active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS workflow_instances (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    definition_id UUID REFERENCES workflow_definitions(id),
-    current_state TEXT NOT NULL,
-    context JSONB DEFAULT '{}',
-    history JSONB DEFAULT '[]',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ==========================================
--- 5. ADVANCED AI ASSISTANT (V3)
--- ==========================================
-
--- 5.1 AI Models & Performance
-CREATE TABLE IF NOT EXISTS ai_models (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
-    version TEXT NOT NULL,
-    provider TEXT NOT NULL,
-    capabilities TEXT[],
-    avg_latency_ms INTEGER,
-    accuracy_score FLOAT,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 5.2 AI Reasoning & Chains
-CREATE TABLE IF NOT EXISTS ai_reasoning_chains (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    message_id UUID, -- Link to ai_messages
-    chain JSONB NOT NULL, -- Step-by-step logic
-    tokens_used INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 5.3 AI Embeddings (Semantic Search)
--- Note: Vector extension might be needed, using JSONB fallback if not available
-CREATE TABLE IF NOT EXISTS ai_embeddings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users DEFAULT auth.uid(),
-    content_type TEXT NOT NULL, -- 'Stock', 'Account', 'Note'
-    content_id UUID NOT NULL,
-    embedding JSONB NOT NULL, -- Storing as JSONB for maximum compatibility
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 5.4 AI Anomaly Detection
-CREATE TABLE IF NOT EXISTS ai_anomaly_detection (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users DEFAULT auth.uid(),
-    module TEXT NOT NULL,
-    target_id UUID,
-    severity priority_level DEFAULT 'medium',
-    description TEXT NOT NULL,
-    evidence JSONB,
-    is_resolved BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 5.5 AI Prediction History
-CREATE TABLE IF NOT EXISTS ai_prediction_history (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users DEFAULT auth.uid(),
-    type TEXT NOT NULL, -- 'StockDemand', 'CashFlow', 'Churn'
-    prediction JSONB NOT NULL,
-    actual_outcome JSONB,
-    accuracy_delta FLOAT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 5.6 AI Suggested Actions
-CREATE TABLE IF NOT EXISTS ai_suggested_actions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users DEFAULT auth.uid(),
-    title TEXT NOT NULL,
-    description TEXT,
-    action_type TEXT NOT NULL,
-    payload JSONB NOT NULL,
-    status action_status DEFAULT 'Pending',
-    priority priority_level DEFAULT 'medium',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ==========================================
--- 6. PERFORMANCE & ANALYTICS (VIEWS)
--- ==========================================
-
--- 6.1 Materialized View for Stock Summary (Performance)
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_stock_summary AS
-SELECT 
-    category,
-    count(*) as item_count,
-    sum(current_balance) as total_qty,
-    sum(current_balance * purchase_price) as total_valuation
-FROM stocks
-GROUP BY category;
-
--- 6.2 Financial Performance View
-CREATE OR REPLACE VIEW v_financial_performance AS
-SELECT 
-    date_trunc('month', date) as month,
-    type,
-    sum(amount) as total_amount,
-    count(*) as transaction_count
-FROM payments
-GROUP BY 1, 2;
-
--- ==========================================
--- 7. STORAGE BUCKETS (SQL DEFINITIONS)
--- ==========================================
--- Note: These are usually created via Supabase API, but we define them here for documentation.
-/*
-INSERT INTO storage.buckets (id, name, public) VALUES ('documents', 'documents', false);
-INSERT INTO storage.buckets (id, name, public) VALUES ('images', 'images', true);
-INSERT INTO storage.buckets (id, name, public) VALUES ('exports', 'exports', false);
-INSERT INTO storage.buckets (id, name, public) VALUES ('ai-training', 'ai-training', false);
-*/
-
--- ==========================================
--- 8. ADVANCED INDEXES
--- ==========================================
-CREATE INDEX IF NOT EXISTS idx_accounts_fts ON accounts USING GIN (fts);
-CREATE INDEX IF NOT EXISTS idx_stocks_fts ON stocks USING GIN (fts);
-CREATE INDEX IF NOT EXISTS idx_stock_movements_date ON stock_movements (date DESC);
-CREATE INDEX IF NOT EXISTS idx_ai_messages_metadata ON ai_messages USING GIN (metadata);
-CREATE INDEX IF NOT EXISTS idx_jobs_workflow ON jobs (workflow_instance_id);
-
--- ==========================================
--- 9. TRIGGERS & AUTOMATION
--- ==========================================
-
--- 9.1 Auto-log AI Actions
-CREATE OR REPLACE FUNCTION refresh_materialized_view(view_name TEXT)
-RETURNS VOID AS $$
+DO $$
+DECLARE
+    t_name text;
 BEGIN
-    EXECUTE 'REFRESH MATERIALIZED VIEW ' || quote_ident(view_name);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+    FOR t_name IN 
+        SELECT table_name 
+        FROM information_schema.columns 
+        WHERE column_name = 'updated_at' AND table_schema = 'public'
+    LOOP
+        EXECUTE format('CREATE TRIGGER update_%I_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()', t_name, t_name);
+    END LOOP;
+END $$;
 
-CREATE OR REPLACE FUNCTION fn_log_ai_action()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO ai_action_history (user_id, action, target_table, target_id, details)
-    VALUES (NEW.user_id, 'SUGGESTED_ACTION_' || NEW.status, 'ai_suggested_actions', NEW.id, NEW.payload);
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+-- Indexes
+CREATE INDEX idx_users_firebase_uid ON users(firebase_uid);
+CREATE INDEX idx_jobs_user_id ON jobs(user_id);
+CREATE INDEX idx_stocks_user_id ON stocks(user_id);
+CREATE INDEX idx_accounts_user_id ON accounts(user_id);
+CREATE INDEX idx_tasks_user_id ON tasks(user_id);
 
-CREATE TRIGGER trg_log_ai_action
-AFTER UPDATE OF status ON ai_suggested_actions
-FOR EACH ROW WHEN (OLD.status IS DISTINCT FROM NEW.status)
-EXECUTE PROCEDURE fn_log_ai_action();
-
--- ==========================================
--- 10. RLS POLICIES (ENTERPRISE)
--- ==========================================
-ALTER TABLE workflow_definitions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can only access their own workflow definitions" ON workflow_definitions FOR ALL USING (auth.uid() = user_id);
-
-ALTER TABLE ai_models ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Everyone can read active models" ON ai_models FOR SELECT USING (is_active = true);
-
-ALTER TABLE ai_reasoning_chains ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can only access their own reasoning chains" ON ai_reasoning_chains FOR ALL USING (
-    EXISTS (SELECT 1 FROM ai_messages m JOIN ai_conversations c ON m.conversation_id = c.id WHERE m.id = ai_reasoning_chains.message_id AND c.user_id = auth.uid())
+-- Daily Planner Table
+CREATE TABLE IF NOT EXISTS public.daily_planner (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    item_key TEXT NOT NULL,
+    time_range TEXT DEFAULT '',
+    morning_status INTEGER DEFAULT 0,
+    evening_status INTEGER DEFAULT 0,
+    description TEXT DEFAULT '',
+    detail TEXT DEFAULT '',
+    sort_order INTEGER DEFAULT 0,
+    is_archived BOOLEAN DEFAULT false,
+    priority INTEGER DEFAULT 0,
+    category TEXT DEFAULT '',
+    estimated_time TEXT DEFAULT '',
+    actual_time TEXT DEFAULT '',
+    assigned_to TEXT DEFAULT '',
+    recurrence TEXT DEFAULT '',
+    color_tag TEXT DEFAULT '',
+    sub_tasks TEXT DEFAULT '',
+    comments TEXT DEFAULT '',
+    url TEXT DEFAULT '',
+    attachments TEXT[] DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-ALTER TABLE ai_anomaly_detection ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can only access their own anomalies" ON ai_anomaly_detection FOR ALL USING (auth.uid() = user_id);
+-- Daily Summaries Table
+CREATE TABLE IF NOT EXISTS public.daily_summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    summary TEXT DEFAULT '',
+    focus_score INTEGER DEFAULT 0,
+    completed_tasks INTEGER DEFAULT 0,
+    total_tasks INTEGER DEFAULT 0,
+    productivity_score INTEGER DEFAULT 0,
+    notes TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_id, date)
+);
 
-ALTER TABLE ai_prediction_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can only access their own predictions" ON ai_prediction_history FOR ALL USING (auth.uid() = user_id);
+-- RLS for Daily Planner
+ALTER TABLE public.daily_planner ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own planner items" ON public.daily_planner
+    FOR ALL USING (auth.uid() = user_id);
 
-ALTER TABLE ai_suggested_actions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can only access their own suggested actions" ON ai_suggested_actions FOR ALL USING (auth.uid() = user_id);
+-- RLS for Daily Summaries
+ALTER TABLE public.daily_summaries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own summaries" ON public.daily_summaries
+    FOR ALL USING (auth.uid() = user_id);
 
--- ==========================================
--- 11. SEED DATA (EXAMPLES)
--- ==========================================
-INSERT INTO ai_models (name, version, provider, capabilities)
-VALUES 
-('Gemini 3.1 Pro', '3.1-pro-preview', 'Google', ARRAY['reasoning', 'vision', 'coding', 'analysis']),
-('Gemini 3.1 Flash', '3.1-flash-preview', 'Google', ARRAY['speed', 'chat', 'simple-tasks'])
-ON CONFLICT DO NOTHING;
+-- Trigger for updated_at
+-- Note: update_updated_at_column() exists in schema
+CREATE TRIGGER update_daily_planner_updated_at BEFORE UPDATE ON public.daily_planner
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-INSERT INTO workflow_definitions (name, module, config)
-VALUES 
-('Sipariş Süreci', 'Jobs', '{"states": ["Teklif", "Onay", "Üretim", "Sevkiyat", "Tamamlandı"], "transitions": {"Teklif": ["Onay", "İptal"], "Onay": ["Üretim", "İptal"]}}')
-ON CONFLICT DO NOTHING;
+CREATE TRIGGER update_daily_summaries_updated_at BEFORE UPDATE ON public.daily_summaries
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE INDEX idx_daily_planner_user_id_date ON daily_planner(user_id, date);
+CREATE INDEX idx_daily_summaries_user_id_date ON daily_summaries(user_id, date);

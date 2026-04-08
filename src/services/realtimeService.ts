@@ -1,31 +1,51 @@
 import { supabase } from './supabaseClient';
 
 export class RealtimeService {
-  subscribeToNotifications(callback: (payload: any) => void) {
+  subscribeToNotifications(userId: string, callback: (payload: any) => void) {
     return supabase
-      .channel('public:notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, callback)
+      .channel(`user:${userId}:notifications`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'notifications',
+        filter: `user_id=eq.${userId}`
+      }, callback)
       .subscribe();
   }
 
-  subscribeToAIMessages(callback: (payload: any) => void) {
+  subscribeToAIMessages(userId: string, callback: (payload: any) => void) {
     return supabase
-      .channel('public:ai_messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ai_messages' }, callback)
+      .channel(`user:${userId}:ai_messages`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'ai_messages',
+        filter: `user_id=eq.${userId}`
+      }, callback)
       .subscribe();
   }
 
-  subscribeToStockMovements(callback: (payload: any) => void) {
+  subscribeToStockMovements(userId: string, callback: (payload: any) => void) {
     return supabase
-      .channel('public:stock_movements')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stock_movements' }, callback)
+      .channel(`user:${userId}:stock_movements`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'stock_movements',
+        filter: `user_id=eq.${userId}`
+      }, callback)
       .subscribe();
   }
 
-  subscribeToJobStatus(callback: (payload: any) => void) {
+  subscribeToJobStatus(userId: string, callback: (payload: any) => void) {
     return supabase
-      .channel('public:jobs')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs', filter: 'status=eq.Tamamlandı' }, callback)
+      .channel(`user:${userId}:jobs`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'jobs', 
+        filter: `user_id=eq.${userId}`
+      }, callback)
       .subscribe();
   }
 }

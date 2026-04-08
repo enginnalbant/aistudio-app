@@ -15,7 +15,8 @@ import {
   ArrowDownRight,
   DollarSign,
   Edit2,
-  RotateCcw
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
 
 interface JobWizardModalProps {
@@ -79,8 +80,9 @@ export function JobWizardModal({ isOpen, onClose, onSave, editingJob }: JobWizar
   useEffect(() => {
     if (isOpen) {
       fetch('/api/accounts').then(res => res.json()).then(data => {
-        setSuppliers(data);
-        if (data.length > 0) setSupplierId(data[0].id);
+        const supplierData = Array.isArray(data) ? data : [];
+        setSuppliers(supplierData);
+        if (supplierData.length > 0) setSupplierId(supplierData[0].id);
       });
       fetch('/api/stocks').then(res => res.json()).then(data => {
         setStocks(data);
@@ -88,7 +90,7 @@ export function JobWizardModal({ isOpen, onClose, onSave, editingJob }: JobWizar
       });
       fetch('/api/jobs/open').then(res => res.json()).then(data => {
         // Map data to OpenJob format
-        const mappedJobs = data.map((j: any) => ({
+        const mappedJobs = (Array.isArray(data) ? data : []).map((j: any) => ({
           id: j.id,
           receipt_no: j.receipt_no,
           date: j.date,
@@ -238,46 +240,60 @@ export function JobWizardModal({ isOpen, onClose, onSave, editingJob }: JobWizar
     }));
   };
 
-  const handleSave = async () => {
-    const method = editingJob ? 'PUT' : 'POST';
-    const url = editingJob ? `/api/jobs/${editingJob.id}` : (scenario === 'OUTGOING' ? '/api/jobs/outgoing' : '/api/jobs/incoming');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    if (scenario === 'OUTGOING') {
-      const jobData = {
-        date,
-        receiptNo,
-        accountId: supplierId,
-        items: items.map(i => ({ stockId: i.stockId, qty: i.qty, price: i.price }))
-      };
-      await fetch(url, {
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const method = editingJob ? 'PUT' : 'POST';
+      const url = editingJob ? `/api/jobs/${editingJob.id}` : (scenario === 'OUTGOING' ? '/api/jobs/outgoing' : '/api/jobs/incoming');
+
+      let jobData;
+      if (scenario === 'OUTGOING') {
+        jobData = {
+          date,
+          receiptNo,
+          accountId: supplierId,
+          items: items.map(i => ({ stockId: i.stockId, qty: i.qty, price: i.price }))
+        };
+      } else if (scenario === 'INCOMING') {
+        jobData = {
+          date,
+          receiptNo,
+          accountId: supplierId,
+          items: incomingItems.filter(i => i.incomingQty > 0).map(i => ({
+            originalJobId: i.jobId,
+            originalJobItemId: i.id,
+            stockId: i.stockId,
+            qty: i.incomingQty,
+            price: i.price
+          }))
+        };
+      }
+
+      const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(jobData)
       });
-    } else if (scenario === 'INCOMING') {
-      // Incoming edits are complex, usually we just create new ones, 
-      // but if we are editing an existing incoming job:
-      const jobData = {
-        date,
-        receiptNo,
-        accountId: supplierId,
-        items: incomingItems.filter(i => i.incomingQty > 0).map(i => ({
-          originalJobId: i.jobId,
-          originalJobItemId: i.id,
-          stockId: i.stockId,
-          qty: i.incomingQty,
-          price: i.price
-        }))
-      };
-      await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(jobData)
-      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Kaydetme işlemi sırasında bir hata oluştu.');
+      }
+      
+      onSave();
+      onClose();
+    } catch (err: any) {
+      console.error('Save error:', err);
+      setError(err.message);
+    } finally {
+      setIsSaving(false);
     }
-    
-    onSave();
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -334,6 +350,12 @@ export function JobWizardModal({ isOpen, onClose, onSave, editingJob }: JobWizar
 
           {/* Content */}
           <div className="p-6 flex-1 overflow-y-auto">
+            {error && (
+              <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-500 text-sm font-bold">
+                <AlertTriangle size={20} />
+                {error}
+              </div>
+            )}
             {step === 0 && (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -430,7 +452,7 @@ export function JobWizardModal({ isOpen, onClose, onSave, editingJob }: JobWizar
                         onChange={(e) => setSupplierId(e.target.value)}
                         className="os-input w-full py-4 text-sm font-bold"
                       >
-                        {suppliers.map(s => (
+                        {(suppliers || []).map(s => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
                       </select>
@@ -731,10 +753,15 @@ export function JobWizardModal({ isOpen, onClose, onSave, editingJob }: JobWizar
               ) : (
                 <button 
                   onClick={handleSave}
-                  className="os-btn bg-grow-main text-pure-white hover:bg-grow-main/90 px-10 shadow-lg shadow-grow-main/20"
+                  disabled={isSaving}
+                  className="os-btn bg-grow-main text-pure-white hover:bg-grow-main/90 px-10 shadow-lg shadow-grow-main/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Save size={18} />
-                  Kaydet ve Onayla
+                  {isSaving ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Save size={18} />
+                  )}
+                  {isSaving ? 'Kaydediliyor...' : 'Kaydet ve Onayla'}
                 </button>
               )}
             </div>

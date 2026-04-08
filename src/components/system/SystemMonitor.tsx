@@ -14,65 +14,24 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'rec
 
 export function SystemMonitor() {
   const [stats, setStats] = useState({
-    cpu: 12,
-    ram: 4.2,
-    network: 2,
-    storage: 64
+    cpu: 0,
+    ram: 0,
+    network: 0,
+    storage: 0
   });
 
   const [history, setHistory] = useState<any[]>([]);
 
-  const [logs, setLogs] = useState<string[]>([
-    "[SYSTEM] Apex Core v4.2.0 initialized",
-    "[KERNEL] Neural Engine linked",
-    "[RENDER] Spatial Canvas active",
-    "[NETWORK] P2P Mesh established",
-    "[AUTH] User: enginnalbant9@gmail.com authenticated"
-  ]);
+  const [logs, setLogs] = useState<string[]>([]);
 
   useEffect(() => {
+    // In production, this would fetch real system metrics
     const interval = setInterval(() => {
-      setStats(prev => {
-        const newCpu = Math.max(5, Math.min(95, prev.cpu + (Math.random() - 0.5) * 10));
-        const newRam = Math.max(2, Math.min(16, prev.ram + (Math.random() - 0.5) * 0.2));
-        const newNetwork = Math.max(1, Math.min(100, prev.network + (Math.random() - 0.5) * 20));
-        
-        return {
-          cpu: Math.round(newCpu),
-          ram: parseFloat(newRam.toFixed(1)),
-          network: Math.round(newNetwork),
-          storage: 64
-        };
-      });
-
-      setHistory(prev => {
-        // We don't have access to the latest stats here easily without another functional update or ref,
-        // but we can just use the previous history and add a dummy value or use a separate effect.
-        // For simplicity, let's just use a fixed value or approximate.
-        const newHistory = [...prev, { time: new Date().toLocaleTimeString(), cpu: Math.random() * 100, ram: Math.random() * 80 }];
-        return newHistory.slice(-20);
-      });
-    }, 2000);
-
-    const logInterval = setInterval(() => {
-      const logPool = [
-        "Build Render Start",
-        "Log: CONNECTED",
-        "Build Render End",
-        "System Check: OK",
-        "Memory Cleanup: Complete",
-        "RPA Agent: Scanning...",
-        "Security: No threats detected",
-        "Kernel: Thread optimized",
-        "UI: Frame synchronized"
-      ];
-      const randomLog = logPool[Math.floor(Math.random() * logPool.length)];
-      setLogs(prev => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] ${randomLog}`]);
-    }, 4000);
+      // Placeholder for real data fetching logic
+    }, 5000);
 
     return () => {
       clearInterval(interval);
-      clearInterval(logInterval);
     };
   }, []);
 
@@ -213,13 +172,13 @@ export function SystemMonitor() {
             Aktif Süreçler
           </h3>
           <div className="space-y-4 flex-1">
-            {[
-              { name: 'Apex Neural Engine', cpu: '4.2%', ram: '1.2GB', status: 'Running' },
-              { name: 'Spatial Render Engine', cpu: '2.8%', ram: '850MB', status: 'Running' },
-              { name: 'RPA Agent Service', cpu: '0.5%', ram: '120MB', status: 'Idle' },
-              { name: 'P2P Sync Service', cpu: '1.2%', ram: '240MB', status: 'Running' },
-              { name: 'Security Shield', cpu: '0.1%', ram: '45MB', status: 'Active' }
-            ].map((proc, i) => (
+            {[].length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full opacity-20 py-10">
+                <Activity size={40} className="text-skel-metal mb-2" />
+                <p className="text-xs font-mono font-bold text-skel-metal uppercase tracking-widest">Süreç Bulunmuyor</p>
+              </div>
+            )}
+            {[].map((proc: any, i) => (
               <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-skel-matte/5 border border-skel-metal/10 hover:bg-skel-matte/10 transition-all">
                 <div>
                   <p className="text-sm font-display font-bold text-text-primary">{proc.name}</p>
@@ -244,6 +203,11 @@ export function SystemMonitor() {
           Çekirdek Konsolu (Kernel Console)
         </h3>
         <div className="bg-black/80 rounded-2xl p-6 font-mono text-xs text-focus-neon h-64 overflow-y-auto custom-scrollbar border border-focus-neon/30 shadow-[0_0_20px_rgba(0,255,159,0.1)]">
+          {logs.length === 0 && (
+            <div className="h-full flex items-center justify-center opacity-30 italic">
+              Sistem logları bekleniyor...
+            </div>
+          )}
           {logs.map((log, i) => (
             <div key={i} className="mb-1 opacity-80 hover:opacity-100 transition-opacity">
               <span className="text-text-secondary mr-2">»</span>

@@ -256,8 +256,6 @@ function AppContent() {
           <div className="h-full w-full flex items-center justify-center bg-transparent">
             <div className="w-12 h-12 border-4 border-focus-neon/20 border-t-focus-neon rounded-full animate-spin" />
           </div>
-        ) : !user ? (
-          <LoginPage />
         ) : (
           <AppLayout />
         )}

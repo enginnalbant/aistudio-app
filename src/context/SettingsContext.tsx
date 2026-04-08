@@ -84,6 +84,7 @@ interface Settings {
   // Admin
   admin_maintenance_mode: boolean;
   admin_registration_open: boolean;
+  navigation_mode: 'sidebar' | 'dock';
 }
 
 interface SettingsContextType {
@@ -162,6 +163,7 @@ const defaultSettings: Settings = {
   background_type: 'default',
   admin_maintenance_mode: false,
   admin_registration_open: true,
+  navigation_mode: 'sidebar',
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -175,6 +177,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/settings');
       const data = await response.json();
       
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch settings');
+      }
       // Convert string values from DB to appropriate types
       const typedData: any = {};
       for (const [key, value] of Object.entries(data)) {

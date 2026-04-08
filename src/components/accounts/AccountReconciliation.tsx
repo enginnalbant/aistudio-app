@@ -38,10 +38,10 @@ export function AccountReconciliation() {
     try {
       const response = await fetch(`/api/accounts/summary?t=${Date.now()}`);
       const data = await response.json();
-      setAccounts(data);
+      setAccounts(Array.isArray(data) ? data : []);
       
       // If an account was selected, update its data too
-      if (selectedAccount) {
+      if (selectedAccount && Array.isArray(data)) {
         const updated = data.find((a: any) => a.id === selectedAccount.id);
         if (updated) setSelectedAccount(updated);
       }
@@ -70,7 +70,7 @@ export function AccountReconciliation() {
     fetchTransactions(account.id);
   };
 
-  const filteredAccounts = accounts.filter(a => {
+  const filteredAccounts = (Array.isArray(accounts) ? accounts : []).filter(a => {
     const matchesSearch = a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (a.series && a.series.toLowerCase().includes(searchTerm.toLowerCase()));
     
@@ -80,8 +80,8 @@ export function AccountReconciliation() {
     return matchesSearch;
   });
 
-  const totalOverdue = accounts.reduce((sum, a) => sum + (a.overdue_debt || 0), 0);
-  const overdueCount = accounts.filter(a => a.overdue_debt > 0).length;
+  const totalOverdue = (Array.isArray(accounts) ? accounts : []).reduce((sum, a) => sum + (a.overdue_debt || 0), 0);
+  const overdueCount = (Array.isArray(accounts) ? accounts : []).filter(a => a.overdue_debt > 0).length;
 
   return (
     <div className="h-full flex flex-col pb-10">

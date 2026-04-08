@@ -54,7 +54,7 @@ export function OpenJobs() {
     fetch('/api/jobs/open')
       .then(res => res.json())
       .then(data => {
-        setOpenJobs(data);
+        setOpenJobs(Array.isArray(data) ? data : []);
         setSelectedJobIds(new Set());
       });
   };
@@ -64,13 +64,15 @@ export function OpenJobs() {
   }, []);
 
   const totalOpenQty = useMemo(() => {
+    if (!Array.isArray(openJobs)) return 0;
     return openJobs.reduce((acc, curr) => {
-      const qty = curr.items.reduce((sum: number, item: any) => sum + (item.qty - item.received_qty), 0);
+      const qty = (curr.items || []).reduce((sum: number, item: any) => sum + (item.qty - item.received_qty), 0);
       return acc + qty;
     }, 0);
   }, [openJobs]);
 
   const filteredJobs = useMemo(() => {
+    if (!Array.isArray(openJobs)) return [];
     let result = smartFilter(
       openJobs,
       searchTerm,
@@ -78,7 +80,7 @@ export function OpenJobs() {
       {
         no: 'receipt_no',
         cari: 'supplier_name',
-        stok: (job) => job.items.map((i: any) => i.stock_name).join(' '),
+        stok: (job) => (job.items || []).map((i: any) => i.stock_name).join(' '),
         durum: 'status'
       }
     ).filter(job => {
@@ -147,7 +149,7 @@ export function OpenJobs() {
       'İş Emri No': job.receipt_no,
       'Tedarikçi': job.supplier_name,
       'Stoklar': job.items.map((i: any) => i.stock_name).join(', '),
-      'Kalan Miktar': job.items.reduce((sum: number, item: any) => sum + (item.qty - item.received_qty), 0),
+      'Kalan Miktar': (job.items || []).reduce((sum: number, item: any) => sum + (item.qty - item.received_qty), 0),
       'Tarih': new Date(job.date).toLocaleDateString('tr-TR'),
       'Durum': job.status
     }));
@@ -165,7 +167,7 @@ export function OpenJobs() {
     const tableRows = filteredJobs.map(job => [
       job.receipt_no,
       job.supplier_name,
-      job.items.reduce((sum: number, item: any) => sum + (item.qty - item.received_qty), 0),
+      (job.items || []).reduce((sum: number, item: any) => sum + (item.qty - item.received_qty), 0),
       new Date(job.date).toLocaleDateString('tr-TR'),
       job.status
     ]);
@@ -290,19 +292,23 @@ export function OpenJobs() {
 
   const supplierBreakdown = useMemo(() => {
     const breakdown: Record<string, number> = {};
-    openJobs.forEach(job => {
-      breakdown[job.supplier_name] = (breakdown[job.supplier_name] || 0) + 1;
-    });
+    if (Array.isArray(openJobs)) {
+      openJobs.forEach(job => {
+        breakdown[job.supplier_name] = (breakdown[job.supplier_name] || 0) + 1;
+      });
+    }
     return Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
   }, [openJobs]);
 
   const stockBreakdown = useMemo(() => {
     const breakdown: Record<string, number> = {};
-    openJobs.forEach(job => {
-      job.items.forEach((item: any) => {
-        breakdown[item.stock_name] = (breakdown[item.stock_name] || 0) + (item.qty - item.received_qty);
+    if (Array.isArray(openJobs)) {
+      openJobs.forEach(job => {
+        (job.items || []).forEach((item: any) => {
+          breakdown[item.stock_name] = (breakdown[item.stock_name] || 0) + (item.qty - item.received_qty);
+        });
       });
-    });
+    }
     return Object.entries(breakdown).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [openJobs]);
 

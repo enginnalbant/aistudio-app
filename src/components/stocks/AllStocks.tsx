@@ -58,7 +58,7 @@ export function AllStocks() {
     fetch('/api/stocks/summary')
       .then(res => res.json())
       .then(data => {
-        setStocks(data);
+        setStocks(Array.isArray(data) ? data : []);
         setIsLoading(false);
       });
   };
@@ -309,11 +309,11 @@ export function AllStocks() {
                     </tr>
                   </thead>
                           <tbody className="text-sm divide-y divide-white/5">
-                            {filteredStocks.map((stock) => {
+                            {filteredStocks.map((stock, index) => {
                               const isCritical = stock.balance < stock.critical_level;
                               return (
                                 <tr 
-                                  key={stock.id} 
+                                  key={stock.id + '-' + index} 
                                   className="hover:bg-skel-matte/10 transition-colors group cursor-pointer"
                                 >
                                   <td className="p-4 font-mono text-skel-glass text-xs" onClick={() => setSelectedStock(stock)}>
@@ -390,14 +390,14 @@ export function AllStocks() {
             </table>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredStocks.map((stock) => {
+              {filteredStocks.map((stock, index) => {
                 const isCritical = stock.balance < stock.critical_level;
                 return (
                   <motion.div
                     layout
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    key={stock.id}
+                    key={stock.id + '-' + index}
                     onClick={() => setSelectedStock(stock)}
                     className="layer-3d p-5 bg-skel-matte/10 border-skel-matte/20 hover:border-skel-matte/20 transition-all cursor-pointer group relative overflow-hidden"
                   >

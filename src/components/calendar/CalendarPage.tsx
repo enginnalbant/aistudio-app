@@ -61,7 +61,7 @@ export function CalendarPage() {
       const data = await response.json();
       if (data.error) throw new Error(data.error);
       
-      const formattedEvents = data.map((e: any) => ({
+      const formattedEvents = (Array.isArray(data) ? data : []).map((e: any) => ({
         ...e,
         date: new Date(e.date)
       }));

@@ -4,12 +4,7 @@ import { useState } from 'react';
 export function Documents() {
   const [search, setSearch] = useState('');
   
-  const docs = [
-    { id: '1', title: 'Kullanım Kılavuzu.pdf', type: 'pdf', size: '2.4 MB' },
-    { id: '2', title: 'Logo Paketi.zip', type: 'archive', size: '15.8 MB' },
-    { id: '3', title: 'Sözleşme Taslağı.docx', type: 'doc', size: '45 KB' },
-    { id: '4', title: 'Ekran Görüntüsü.png', type: 'image', size: '1.2 MB' },
-  ];
+  const docs: any[] = [];
 
   return (
     <div className="h-full flex flex-col gap-6">
@@ -31,6 +26,12 @@ export function Documents() {
         />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {docs.length === 0 && (
+          <div className="col-span-full py-20 flex flex-col items-center justify-center opacity-20">
+            <Files size={80} className="text-skel-metal mb-4" />
+            <p className="text-xl font-display font-bold text-skel-metal uppercase tracking-widest">Belge Bulunmuyor</p>
+          </div>
+        )}
         {docs.map(d => (
           <div key={d.id} className="bento-card p-6 hover:border-focus-neon/30 transition-all cursor-pointer group flex flex-col items-center text-center">
             <div className="w-16 h-16 rounded-2xl bg-skel-matte/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">

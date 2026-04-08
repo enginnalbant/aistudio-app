@@ -307,11 +307,16 @@ export const DailyPlanner = () => {
       const res = await fetch(`/api/planner/${date}`);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = (await res.json()) || [];
-      console.log('fetchItems data:', data);
-      setItems(Array.isArray(data) ? data : []);
+      
+      // Only update if the data has actually changed
+      setItems(prev => {
+        const newData = Array.isArray(data) ? data : [];
+        return JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData;
+      });
     } catch (error) {
       console.error('Error fetching planner items:', error);
-      setItems([]);
+      // Only set to empty if not already empty to prevent re-render
+      setItems(prev => prev.length === 0 ? prev : []);
     }
   };
 
@@ -320,10 +325,14 @@ export const DailyPlanner = () => {
       const res = await fetch('/api/planner');
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = (await res.json()) || [];
-      setAllPlannerItems(Array.isArray(data) ? data : []);
+      
+      setAllPlannerItems(prev => {
+        const newData = Array.isArray(data) ? data : [];
+        return JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData;
+      });
     } catch (error) {
       console.error('Error fetching all planner items:', error);
-      setAllPlannerItems([]);
+      setAllPlannerItems(prev => prev.length === 0 ? prev : []);
     }
   };
 
@@ -332,10 +341,12 @@ export const DailyPlanner = () => {
       const res = await fetch(`/api/planner/summary/${date}`);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
-      setSummary(data.summary || '');
+      const newSummary = data.summary || '';
+      
+      setSummary(prev => prev === newSummary ? prev : newSummary);
     } catch (error) {
       console.error('Error fetching summary:', error);
-      setSummary('');
+      setSummary(prev => prev === '' ? prev : '');
     }
   };
 

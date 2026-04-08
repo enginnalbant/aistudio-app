@@ -155,10 +155,14 @@ export const Notes = () => {
       const res = await fetch('/api/notes');
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
-      setNotes(Array.isArray(data) ? data.filter((n: Note) => n.target_date === date) : []);
+      
+      setNotes(prev => {
+        const newData = Array.isArray(data) ? data.filter((n: Note) => n.target_date === date) : [];
+        return JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData;
+      });
     } catch (error) {
       console.error('Error fetching notes:', error);
-      setNotes([]);
+      setNotes(prev => prev.length === 0 ? prev : []);
     }
   };
 

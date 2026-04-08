@@ -9,11 +9,12 @@ export function ShipmentReports() {
   const { shipments } = useShipments();
   const [dateRange, setDateRange] = useState('30d');
 
+  const safeShipments = Array.isArray(shipments) ? shipments : [];
   const stats = {
-    pending: shipments.filter(s => s.status === 'pending' || s.status === 'postponed').length,
-    transit: shipments.filter(s => s.status === 'in-transit').length,
-    delivered: shipments.filter(s => s.status === 'delivered').length,
-    total: shipments.length
+    pending: safeShipments.filter(s => s.status === 'pending' || s.status === 'postponed').length,
+    transit: safeShipments.filter(s => s.status === 'in-transit').length,
+    delivered: safeShipments.filter(s => s.status === 'delivered').length,
+    total: safeShipments.length
   };
 
   const statusData = [

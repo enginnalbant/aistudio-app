@@ -98,7 +98,7 @@ export function ShipmentWizard({ onSave, onClose, initialData }: ShipmentWizardP
       const response = await fetch('/api/accounts');
       if (response.ok) {
         const data = await response.json();
-        setAccounts(data);
+        setAccounts(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Error fetching accounts:', error);
@@ -999,7 +999,7 @@ export function ShipmentWizard({ onSave, onClose, initialData }: ShipmentWizardP
                             list="recipient-accounts"
                           />
                           <datalist id="recipient-accounts">
-                            {accounts.filter(a => a.type === 'customer').map(a => (
+                            {(Array.isArray(accounts) ? accounts : []).filter(a => a.type === 'customer').map(a => (
                               <option key={a.id} value={a.name} />
                             ))}
                           </datalist>
@@ -1047,7 +1047,7 @@ export function ShipmentWizard({ onSave, onClose, initialData }: ShipmentWizardP
                           list="carrier-accounts"
                         />
                         <datalist id="carrier-accounts">
-                          {accounts.filter(a => a.type === 'carrier').map(a => (
+                          {(Array.isArray(accounts) ? accounts : []).filter(a => a.type === 'carrier').map(a => (
                             <option key={a.id} value={a.name} />
                           ))}
                         </datalist>

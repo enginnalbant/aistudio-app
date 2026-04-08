@@ -6,7 +6,7 @@ export class PerformanceService {
    * This should be called periodically or after significant stock updates.
    */
   async refreshStockSummary() {
-    const { error } = await supabase.rpc('refresh_materialized_view', { view_name: 'mv_stock_summary' });
+    const { error } = await (supabase as any).rpc('refresh_materialized_view', { view_name: 'mv_stock_summary' });
     if (error) {
       // If RPC doesn't exist, we might need to use a raw query if allowed, 
       // but usually we'd define a Postgres function for this.
@@ -19,7 +19,7 @@ export class PerformanceService {
 
   async getSlowQueries() {
     // Requires pg_stat_statements extension to be active and configured
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('pg_stat_statements')
       .select('*')
       .order('total_exec_time', { ascending: false })
@@ -32,10 +32,11 @@ export class PerformanceService {
     return data;
   }
 
-  async getStockSummary() {
-    const { data, error } = await supabase
+  async getStockSummary(userId: string) {
+    const { data, error } = await (supabase as any)
       .from('mv_stock_summary')
-      .select('*');
+      .select('*')
+      .eq('user_id', userId);
     
     if (error) throw error;
     return data;

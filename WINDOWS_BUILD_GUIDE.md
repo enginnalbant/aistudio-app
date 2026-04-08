@@ -19,7 +19,7 @@ Bu projeyi Windows'ta build alabilmek için aşağıdaki programların bilgisaya
    - [VS Code İndir](https://code.visualstudio.com/) adresinden kurabilirsiniz.
 
 4. **C++ Build Tools (SQLite için Zorunlu):**
-   - Uygulama `better-sqlite3` kullandığı için Windows'ta derleme yaparken C++ araçlarına ihtiyaç duyar.
+   - Uygulama Supabase kullandığı için internet bağlantısı gerektirir.
    - Eğer Node.js kurarken otomatik araçları kurmadıysanız, yönetici (Administrator) olarak PowerShell açıp şu komutu çalıştırın:
      ```bash
      npm install --global windows-build-tools

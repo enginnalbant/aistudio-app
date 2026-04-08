@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Mail, Lock, Phone, ArrowRight, ArrowLeft, CheckCircle2, Sparkles, ShieldCheck, UserPlus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -28,16 +29,15 @@ const registerSchema = z.object({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 interface RegisterFormProps {
-  onRegister: (data: RegisterFormValues) => void;
   onStateChange: (state: any) => void;
   onSwitchToLogin: () => void;
 }
 
 const RegisterForm: React.FC<RegisterFormProps> = ({
-  onRegister,
   onStateChange,
   onSwitchToLogin,
 }) => {
+  console.log('RegisterForm rendered');
   const [step, setStep] = useState(1);
   const [isError, setIsError] = useState(false);
 
@@ -95,11 +95,22 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     onStateChange('thinking');
   };
 
+  const { signUp } = useAuth();
+
   const onSubmit = async (data: RegisterFormValues) => {
-    try {
-      await onRegister(data);
-    } catch (err) {
+    const { error } = await signUp(data.email, data.password, { 
+      full_name: data.fullName,
+      phone: data.phone 
+    });
+    if (error) {
       setIsError(true);
+      console.error('Registration error:', error);
+      if ('details' in error) {
+        console.error('Error details:', (error as any).details);
+      }
+      if ('hint' in error) {
+        console.error('Error hint:', (error as any).hint);
+      }
     }
   };
 
@@ -342,7 +353,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               whileTap={{ scale: 0.98 }}
               type="button"
               onClick={nextStep}
-              className="flex-[2] flex items-center justify-center gap-2 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-500/25 transition-all"
+              className="flex-[2] flex items-center justify-center gap-2 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-500/25 transition-all border border-red-500"
             >
               Devam Et
               <ArrowRight className="w-5 h-5" />
@@ -353,7 +364,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isSubmitting}
-              className="flex-[2] flex items-center justify-center gap-2 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-500/25 transition-all disabled:opacity-50"
+              className="flex-[2] flex items-center justify-center gap-2 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-500/25 transition-all disabled:opacity-50 border border-red-500"
             >
               {isSubmitting ? 'Kaydediliyor...' : 'Kaydı Tamamla'}
               <ArrowRight className="w-5 h-5" />

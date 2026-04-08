@@ -2,11 +2,12 @@ import { z } from 'zod';
 
 export const accountSchema = z.object({
   name: z.string().min(2).max(100),
-  type: z.enum(['Tedarikçi', 'Müşteri', 'Personel', 'Ortak', 'Diğer']),
-  email: z.string().email().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  tax_number: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
+  type: z.enum(['Müşteri', 'Tedarikçi', 'Fason', 'Hizmet', 'Personel', 'Ortak', 'Diğer']),
+  email: z.union([z.string().email(), z.literal(''), z.null(), z.undefined()]),
+  phone: z.union([z.string(), z.literal(''), z.null(), z.undefined()]),
+  tax_number: z.union([z.string(), z.literal(''), z.null(), z.undefined()]),
+  address: z.union([z.string(), z.literal(''), z.null(), z.undefined()]),
+  payment_term_days: z.number().int().min(0).optional().nullable(),
 });
 
 export const stockSchema = z.object({

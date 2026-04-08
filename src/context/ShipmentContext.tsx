@@ -18,9 +18,13 @@ export function ShipmentProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetch('/api/shipments')
-      .then(res => res.json())
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch shipments');
+        return data;
+      })
       .then(data => {
-        setShipments(data);
+        setShipments(Array.isArray(data) ? data : []);
         setIsLoading(false);
       })
       .catch(err => {

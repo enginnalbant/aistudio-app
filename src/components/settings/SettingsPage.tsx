@@ -490,6 +490,22 @@ export function SettingsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                 <div className="space-y-3 lg:space-y-4">
+                  <span className="label-mono block">Navigasyon Modu</span>
+                  <div className="flex gap-2">
+                    {['sidebar', 'dock'].map((mode) => (
+                      <button 
+                        key={mode}
+                        onClick={() => handleChange('navigation_mode', mode)}
+                        className={`flex-1 py-2.5 lg:py-3 rounded-lg lg:rounded-xl border text-[9px] lg:text-[10px] font-bold uppercase tracking-widest transition-all ${
+                          localSettings.navigation_mode === mode ? 'bg-focus-main text-pure-white border-focus-neon' : 'bg-skel-matte/5 border-skel-metal/10 text-text-secondary hover:border-focus-neon/50'
+                        }`}
+                      >
+                        {mode === 'sidebar' ? 'Kenar Çubuğu' : 'Dock (Alt)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-3 lg:space-y-4">
                   <span className="label-mono block">Arayüz Yoğunluğu</span>
                   <div className="flex gap-2">
                     {['compact', 'comfortable', 'spacious'].map((d) => (

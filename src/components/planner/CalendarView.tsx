@@ -33,12 +33,12 @@ export const CalendarView = ({ date, setDate }: CalendarViewProps) => {
       const end = new Date(year, month + 1, 0).toISOString().split('T')[0];
       try {
         const res = await fetch(`/api/planner/summaries?start_date=${start}&end_date=${end}`);
-        if (res.ok) {
-          const data = await res.json();
-          setMonthEvents(data);
-        }
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        setMonthEvents(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
       } catch (error) {
         console.error('Error fetching month events:', error);
+        setMonthEvents(prev => prev.length === 0 ? prev : []);
       }
     };
     fetchMonthEvents();
@@ -49,13 +49,13 @@ export const CalendarView = ({ date, setDate }: CalendarViewProps) => {
       const fetchPopupItems = async () => {
         try {
           const res = await fetch(`/api/planner/${activePopupDate}`);
-          if (res.ok) {
-            const data = await res.json();
-            setPopupItems(Array.isArray(data) ? data : []);
-          }
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          const data = await res.json();
+          const items = Array.isArray(data) ? data : [];
+          setPopupItems(prev => JSON.stringify(prev) === JSON.stringify(items) ? prev : items);
         } catch (error) {
           console.error('Error fetching popup items:', error);
-          setPopupItems([]);
+          setPopupItems(prev => prev.length === 0 ? prev : []);
         }
       };
       fetchPopupItems();

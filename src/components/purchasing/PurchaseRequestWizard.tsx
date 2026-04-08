@@ -373,7 +373,7 @@ export function PurchaseRequestWizard({ onClose, onSave, initialStockId }: Purch
                                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all text-sm appearance-none cursor-pointer"
                               >
                                 <option value="">Seçiniz...</option>
-                                {accounts.filter(a => a.type === 'supplier').map(a => (
+                                {(Array.isArray(accounts) ? accounts : []).filter(a => a.type === 'supplier').map(a => (
                                   <option key={a.id} value={a.id}>{a.name}</option>
                                 ))}
                               </select>

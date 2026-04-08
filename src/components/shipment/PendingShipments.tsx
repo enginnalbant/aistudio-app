@@ -19,7 +19,8 @@ export function PendingShipments() {
   const tableRef = useRef<HTMLDivElement>(null);
 
   const pendingShipments = useMemo(() => {
-    let filtered = shipments.filter(s => 
+    const safeShipments = Array.isArray(shipments) ? shipments : [];
+    let filtered = safeShipments.filter(s => 
       (s.status === 'pending' || s.status === 'postponed') &&
       (s.recipient?.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
        s.id.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -77,10 +78,11 @@ export function PendingShipments() {
     setIsWizardOpen(true);
   };
 
+  const safeShipments = Array.isArray(shipments) ? shipments : [];
   const statusCounts = {
-    pending: shipments.filter(s => s.status === 'pending' || s.status === 'postponed').length,
-    transit: shipments.filter(s => s.status === 'in-transit').length,
-    total: shipments.length
+    pending: safeShipments.filter(s => s.status === 'pending' || s.status === 'postponed').length,
+    transit: safeShipments.filter(s => s.status === 'in-transit').length,
+    total: safeShipments.length
   };
 
   // Mock data for the chart
@@ -368,11 +370,11 @@ export function PendingShipments() {
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] transition-colors ${
                     activeFilter === filter ? 'bg-white/20' : 'bg-skel-matte/10 group-hover:bg-focus-neon group-hover:text-white'
                   }`}>
-                    {filter === 'Hepsi' ? shipments.filter(s => s.status === 'pending' || s.status === 'postponed').length : 
-                     filter === 'Bugün Çıkacaklar' ? shipments.filter(s => s.status === 'pending' && s.scheduledDate === new Date().toISOString().split('T')[0]).length :
-                     filter === 'Gecikenler' ? shipments.filter(s => (s.status === 'pending' || s.status === 'postponed') && s.scheduledDate < new Date().toISOString().split('T')[0]).length :
-                     filter === 'Yüksek Öncelikli' ? shipments.filter(s => s.priority === 'high').length :
-                     filter === 'Büyük Sevkiyatlar' ? shipments.filter(s => (s.pallets || []).length > 3).length : 0}
+                    {filter === 'Hepsi' ? safeShipments.filter(s => s.status === 'pending' || s.status === 'postponed').length : 
+                     filter === 'Bugün Çıkacaklar' ? safeShipments.filter(s => s.status === 'pending' && s.scheduledDate === new Date().toISOString().split('T')[0]).length :
+                     filter === 'Gecikenler' ? safeShipments.filter(s => (s.status === 'pending' || s.status === 'postponed') && s.scheduledDate < new Date().toISOString().split('T')[0]).length :
+                     filter === 'Yüksek Öncelikli' ? safeShipments.filter(s => s.priority === 'high').length :
+                     filter === 'Büyük Sevkiyatlar' ? safeShipments.filter(s => (s.pallets || []).length > 3).length : 0}
                   </div>
                 </button>
               ))}

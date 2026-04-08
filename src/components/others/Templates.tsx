@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { MessageSquare, Save, History, Sparkles, Copy, Check } from 'lucide-react';
-import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
 
 interface ParsedData {
   name: string;
@@ -18,12 +16,7 @@ export function Templates() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
-    const q = query(collection(db, 'template_extractions'), where('userId', '==', auth.currentUser.uid), orderBy('timestamp', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return unsubscribe;
+    // Firebase logic removed for database rebuild
   }, []);
 
   const parseText = (text: string) => {
@@ -76,22 +69,8 @@ export function Templates() {
   };
 
   const handleSave = async () => {
-    if (!auth.currentUser || !parsedData) return;
-    
-    // Create a clean object to save, removing empty fields
-    const dataToSave: any = {
-      rawText: input,
-      timestamp: serverTimestamp(),
-      userId: auth.currentUser.uid
-    };
-    
-    if (parsedData.name) dataToSave.name = parsedData.name;
-    if (parsedData.phone) dataToSave.phone = parsedData.phone;
-    if (parsedData.email) dataToSave.email = parsedData.email;
-    if (parsedData.taxInfo) dataToSave.taxInfo = parsedData.taxInfo;
-    if (parsedData.address) dataToSave.address = parsedData.address;
-
-    await addDoc(collection(db, 'template_extractions'), dataToSave);
+    // Firebase logic removed for database rebuild
+    console.log('Save triggered (database rebuild in progress)');
   };
 
   const getFormattedOutput = () => {

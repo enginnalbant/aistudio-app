@@ -1,16 +1,18 @@
 import { supabase } from './supabaseClient';
 
 export class StorageService {
-  async uploadFile(bucket: 'nexus-media' | 'nexus-documents', path: string, file: File) {
+  async uploadFile(userId: string, bucket: 'nexus-media' | 'nexus-documents', path: string, file: File) {
     if (!supabase) {
       console.warn('Supabase not initialized, cannot upload file.');
       return null;
     }
 
+    const userPath = `${userId}/${path}`;
+
     try {
       const { data, error } = await supabase.storage
         .from(bucket)
-        .upload(path, file, {
+        .upload(userPath, file, {
           cacheControl: '3600',
           upsert: false
         });
@@ -24,44 +26,52 @@ export class StorageService {
     }
   }
 
-  async getPublicUrl(bucket: 'nexus-media' | 'nexus-documents', path: string) {
+  async getPublicUrl(userId: string, bucket: 'nexus-media' | 'nexus-documents', path: string) {
     if (!supabase) return null;
+
+    const userPath = `${userId}/${path}`;
 
     const { data } = supabase.storage
       .from(bucket)
-      .getPublicUrl(path);
+      .getPublicUrl(userPath);
 
     return data.publicUrl;
   }
 
-  async createSignedUrl(bucket: 'nexus-media' | 'nexus-documents', path: string, expiresIn = 3600) {
+  async createSignedUrl(userId: string, bucket: 'nexus-media' | 'nexus-documents', path: string, expiresIn = 3600) {
     if (!supabase) return null;
+
+    const userPath = `${userId}/${path}`;
 
     const { data, error } = await supabase.storage
       .from(bucket)
-      .createSignedUrl(path, expiresIn);
+      .createSignedUrl(userPath, expiresIn);
 
     if (error) throw error;
     return data.signedUrl;
   }
 
-  async deleteFile(bucket: 'nexus-media' | 'nexus-documents', path: string) {
+  async deleteFile(userId: string, bucket: 'nexus-media' | 'nexus-documents', path: string) {
     if (!supabase) return null;
+
+    const userPath = `${userId}/${path}`;
 
     const { data, error } = await supabase.storage
       .from(bucket)
-      .remove([path]);
+      .remove([userPath]);
 
     if (error) throw error;
     return data;
   }
 
-  async listFiles(bucket: 'nexus-media' | 'nexus-documents', path: string = '') {
+  async listFiles(userId: string, bucket: 'nexus-media' | 'nexus-documents', path: string = '') {
     if (!supabase) return [];
+
+    const userPath = `${userId}/${path}`;
 
     const { data, error } = await supabase.storage
       .from(bucket)
-      .list(path);
+      .list(userPath);
 
     if (error) throw error;
     return data;

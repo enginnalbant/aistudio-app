@@ -52,7 +52,10 @@ interface SidebarProps {
 export const Sidebar = React.memo(function Sidebar({ isOpen, activeModule, setActiveModule, closeSidebar }: SidebarProps) {
   const { settings } = useSettings();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
-    business: true,
+    jobs: true,
+    stocks: false,
+    accounts: false,
+    'reports-menu': false,
     planning: false,
     shipment: false,
     others: false,
@@ -65,18 +68,39 @@ export const Sidebar = React.memo(function Sidebar({ isOpen, activeModule, setAc
 
   const menuItems = [
     {
-      id: 'business',
-      label: 'İş',
+      id: 'jobs',
+      label: 'İşler',
       icon: <Briefcase size={18} />,
       subItems: [
         { id: 'jobs-dashboard', label: 'İşler Dashboard', icon: <LayoutDashboard size={14} /> },
         { id: 'jobs-open', label: 'Açık İşler', icon: <ListTodo size={14} /> },
         { id: 'jobs-all', label: 'Tüm İşler', icon: <CheckCircle2 size={14} /> },
+      ]
+    },
+    {
+      id: 'stocks',
+      label: 'Stoklar',
+      icon: <Box size={18} />,
+      subItems: [
         { id: 'stocks-dashboard', label: 'Stok Dashboard', icon: <LayoutDashboard size={14} /> },
         { id: 'stocks-all', label: 'Tüm Stoklar', icon: <Box size={14} /> },
+      ]
+    },
+    {
+      id: 'accounts',
+      label: 'Cariler',
+      icon: <Users size={18} />,
+      subItems: [
         { id: 'accounts-dashboard', label: 'Cari Dashboard', icon: <LayoutDashboard size={14} /> },
         { id: 'accounts-list', label: 'Cari Listesi', icon: <Contact size={14} /> },
         { id: 'accounts-reconciliation', label: 'Cari Mutabakat', icon: <FileText size={14} /> },
+      ]
+    },
+    {
+      id: 'reports-menu',
+      label: 'Raporlar',
+      icon: <BarChart3 size={18} />,
+      subItems: [
         { id: 'reports', label: 'Genel Raporlar', icon: <BarChart3 size={14} /> },
       ]
     },

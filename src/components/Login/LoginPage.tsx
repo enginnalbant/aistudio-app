@@ -2,13 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
-import CharacterAnimation, { CharacterState } from './CharacterAnimation';
+import CharacterAnimation, { CharacterState, CharacterType } from './CharacterAnimation';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../../context/AuthContext';
+import LoginBackground from './LoginBackground';
 
 const LoginPage: React.FC = () => {
-  const { signInAsGuest } = useAuth();
-  const [view, setView] = useState<'login' | 'register'>('login');
+  const { signIn, signUp, signInAsGuest } = useAuth();
+  const [view, setView] = useState<'login' | 'register'>('register');
   const [charState, setCharState] = useState<CharacterState>('idle');
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -19,32 +20,6 @@ const LoginPage: React.FC = () => {
     setMousePos({ x, y });
   };
 
-  const handleLogin = async (data: any) => {
-    setCharState('success');
-    confetti({
-      particleCount: 150,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#6366f1', '#a855f7', '#ec4899']
-    });
-    
-    setTimeout(() => {
-      signInAsGuest();
-    }, 1000);
-  };
-
-  const handleRegister = async (data: any) => {
-    setCharState('success');
-    confetti({
-      particleCount: 100,
-      spread: 60,
-      origin: { y: 0.6 }
-    });
-    setTimeout(() => {
-      signInAsGuest();
-    }, 1000);
-  };
-
   const handleStateChange = useCallback((state: CharacterState) => {
     setCharState(state);
   }, []);
@@ -52,38 +27,71 @@ const LoginPage: React.FC = () => {
   return (
     <div 
       onMouseMove={handleMouseMove}
-      className="min-h-screen w-full flex items-center justify-center p-4 md:p-8 overflow-hidden selection:bg-indigo-500/30 bg-transparent"
+      className="min-h-screen w-full flex items-center justify-center p-4 md:p-8 overflow-hidden selection:bg-indigo-500/30"
     >
-      <div className="relative z-10 w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+      <LoginBackground />
+      
+      <div className="relative z-10 w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         
         {/* Left Panel: Animation Area */}
         <motion.div 
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
-          className="hidden lg:flex flex-col items-center justify-center space-y-8"
+          className="hidden lg:flex flex-col items-center justify-center space-y-12"
         >
-          <div className="text-center space-y-4 max-w-md">
+          <div className="text-center space-y-4 max-w-lg">
             <motion.div
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
-              className="inline-block px-4 py-1.5 rounded-full bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-widest"
+              className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-bold uppercase tracking-widest border border-indigo-500/20"
             >
               Geleceğin Arayüzü
             </motion.div>
-            <h1 className="text-5xl font-black text-zinc-900 dark:text-white leading-tight">
-              Sizinle Birlikte <span className="text-indigo-600">Yaşayan</span> Bir Deneyim.
+            <h1 className="text-6xl font-black text-white leading-tight tracking-tighter">
+              Sizinle Birlikte <span className="text-indigo-500">Yaşayan</span> Bir Ekip.
             </h1>
-            <p className="text-lg text-zinc-500 dark:text-zinc-400">
-              Karakterimiz hareketlerinize tepki verir. Yazarken, silerken veya şifrenize bakarken onu izleyin!
+            <p className="text-xl text-zinc-400">
+              Nexus ekibi hareketlerinize tepki verir. Onlarla etkileşime geçin!
             </p>
           </div>
+ 
+          <div className="w-full flex justify-center gap-0 items-end h-[450px] relative">
+            {/* Couch/Sofa Visual */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[110%] h-[180px] bg-zinc-800 rounded-[3rem_3rem_1rem_1rem] shadow-2xl border-b-8 border-zinc-900 z-0">
+              {/* Couch Back */}
+              <div className="absolute -top-20 left-0 w-full h-[120px] bg-zinc-800 rounded-[3rem_3rem_0_0] border-t-4 border-zinc-700/30" />
+              {/* Couch Armrests */}
+              <div className="absolute -left-8 top-0 w-12 h-full bg-zinc-700 rounded-full shadow-inner" />
+              <div className="absolute -right-8 top-0 w-12 h-full bg-zinc-700 rounded-full shadow-inner" />
+              {/* Couch Texture/Cushions */}
+              <div className="absolute inset-0 flex">
+                <div className="flex-1 border-r border-zinc-700/20" />
+                <div className="flex-1 border-r border-zinc-700/20" />
+                <div className="flex-1 border-r border-zinc-700/20" />
+                <div className="flex-1" />
+              </div>
+            </div>
 
-          <div className="w-full aspect-square max-w-md relative">
-            <CharacterAnimation 
-              state={charState} 
-              mouseX={mousePos.x} 
-              mouseY={mousePos.y} 
-            />
+            {(['alex', 'sarah', 'leo', 'maya', 'zane'] as CharacterType[]).map((type, idx) => (
+              <motion.div
+                key={type}
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 + 0.5, type: 'spring' }}
+                className="w-32 h-full relative -mx-2 z-10"
+                style={{ 
+                  marginBottom: idx % 2 === 0 ? '20px' : '10px',
+                  zIndex: 10 + idx 
+                }}
+              >
+                <CharacterAnimation 
+                  state={charState} 
+                  type={type}
+                  mouseX={mousePos.x} 
+                  mouseY={mousePos.y} 
+                />
+              </motion.div>
+            ))}
           </div>
         </motion.div>
 
@@ -93,8 +101,7 @@ const LoginPage: React.FC = () => {
           animate={{ opacity: 1, x: 0 }}
           className="flex justify-center items-center"
         >
-          <AnimatePresence mode="wait">
-            {view === 'login' ? (
+          {view === 'login' ? (
               <motion.div
                 key="login"
                 initial={{ opacity: 0, y: 20 }}
@@ -104,18 +111,10 @@ const LoginPage: React.FC = () => {
                 className="w-full flex justify-center"
               >
                 <LoginForm 
-                  onLogin={handleLogin}
                   onStateChange={handleStateChange}
                   onSwitchToRegister={() => setView('register')}
                   onForgotPassword={() => alert('Şifre sıfırlama bağlantısı gönderildi!')}
-                  onGuestLogin={() => {
-                    setCharState('success');
-                    setTimeout(signInAsGuest, 1000);
-                  }}
-                  onDemoLogin={() => {
-                    setCharState('success');
-                    setTimeout(signInAsGuest, 1000);
-                  }}
+                  onGuestLogin={signInAsGuest}
                 />
               </motion.div>
             ) : (
@@ -125,16 +124,14 @@ const LoginPage: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
-                className="w-full flex justify-center"
+                className="w-full flex justify-center bg-red-500"
               >
                 <RegisterForm 
-                  onRegister={handleRegister}
                   onStateChange={handleStateChange}
                   onSwitchToLogin={() => setView('login')}
                 />
               </motion.div>
             )}
-          </AnimatePresence>
         </motion.div>
       </div>
 

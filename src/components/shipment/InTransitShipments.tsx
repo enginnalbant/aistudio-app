@@ -17,7 +17,8 @@ export function InTransitShipments() {
   const tableRef = useRef<HTMLDivElement>(null);
 
   const transitShipments = useMemo(() => {
-    return shipments.filter(s => 
+    const safeShipments = Array.isArray(shipments) ? shipments : [];
+    return safeShipments.filter(s => 
       s.status === 'in-transit' &&
       (s.recipient?.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
        s.id.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -61,10 +62,11 @@ export function InTransitShipments() {
     setIsWizardOpen(true);
   };
 
+  const safeShipments = Array.isArray(shipments) ? shipments : [];
   const statusCounts = {
     transit: transitShipments.length,
-    delivered: shipments.filter(s => s.status === 'delivered').length,
-    total: shipments.length
+    delivered: safeShipments.filter(s => s.status === 'delivered').length,
+    total: safeShipments.length
   };
 
   return (

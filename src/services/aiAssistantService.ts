@@ -1,9 +1,8 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
-import { getDatabaseService } from "./dbService";
+import { supabase as supabaseClient } from "./supabaseClient";
+const supabase = supabaseClient as any;
 import { v4 as uuidv4 } from "uuid";
 import { getAI } from "./aiConfig";
-
-const db = getDatabaseService();
 
 // Function Declarations for AI Tools
 const tools: { functionDeclarations: FunctionDeclaration[] } = {
@@ -113,19 +112,21 @@ export class NexusAI {
    */
   async processMessage(userId: string, conversationId: string, userMessage: string, modelType: 'gemini' | 'perplexity' | 'local' = 'local') {
     // 1. Fetch Context
-    const [profile, history, memories, systemSummary] = await Promise.all([
-      db.getAIProfile(),
-      db.getAIMessages(conversationId),
-      db.getAIMemories(),
-      this.getSystemSummary()
+    const [profileRes, historyRes, memoriesRes, systemSummary] = await Promise.all([
+      supabase.from('ai_profiles').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('ai_messages').select('*').eq('conversation_id', conversationId).eq('user_id', userId).order('created_at', { ascending: true }),
+      supabase.from('ai_memories').select('*').eq('user_id', userId),
+      this.getSystemSummary(userId)
     ]);
+
+    const profile = profileRes.data;
+    const memories = memoriesRes.data || [];
 
     // 2. Build AI Personality & Knowledge
     const personality = profile?.personality || "Professional, helpful, and proactive";
-    const memoryContext = memories.map(m => `[Memory: ${m.category}] ${m.key}: ${m.value}`).join('\n');
+    const memoryContext = memories.map((m: any) => `[Memory: ${m.category}] ${m.key}: ${m.value}`).join('\n');
 
     let assistantMessage = "";
-    let finalModel = this.model;
 
     if (modelType === 'perplexity') {
       const { perplexityService } = await import('./perplexityService');
@@ -150,8 +151,7 @@ export class NexusAI {
         - Search the web for real-time information using 'web_search' (Perplexity AI)
         - Learn from user preferences and store them in memory
         - Provide summaries, reports, and proactive suggestions
-
-        ${modelType === 'local' ? 'LOCAL AI SPECIAL INSTRUCTIONS:\n- You are in autonomous mode. Your goal is to optimize the system and learn from every interaction.\n- If you encounter a complex query, use web_search to augment your knowledge.\n- If the user provides feedback, use add_memory to remember it.' : ''}
+ 
 
         IMPORTANT:
         - When the user asks to "remember" or "don't forget" something, use 'add_memory'.
@@ -195,21 +195,28 @@ export class NexusAI {
     await this.logAction(userId, 'query', 'ai_messages', { conversationId, modelType, messageLength: userMessage.length });
 
     // 7. Save to DB
-    await db.insert('ai_messages', {
-      conversation_id: conversationId,
-      role: 'user',
-      content: userMessage,
-      model: modelType
-    });
+    await supabase.from('ai_messages').insert([
+      {
+        id: uuidv4(),
+        user_id: userId,
+        conversation_id: conversationId,
+        role: 'user',
+        content: userMessage,
+        model: modelType,
+        created_at: new Date().toISOString()
+      },
+      {
+        id: uuidv4(),
+        user_id: userId,
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: assistantMessage,
+        model: modelType,
+        created_at: new Date().toISOString()
+      }
+    ]);
 
-    await db.insert('ai_messages', {
-      conversation_id: conversationId,
-      role: 'assistant',
-      content: assistantMessage,
-      model: modelType
-    });
-
-    await db.update('ai_conversations', conversationId, { updated_at: new Date().toISOString() });
+    await supabase.from('ai_conversations').update({ updated_at: new Date().toISOString() }).eq('id', conversationId).eq('user_id', userId);
 
     return assistantMessage;
   }
@@ -219,9 +226,6 @@ export class NexusAI {
    * Analyzes the interaction to extract patterns or facts.
    */
   private async learnFromInteraction(userId: string, userMessage: string, assistantMessage: string) {
-    // Simple heuristic-based learning for now
-    // In a more advanced version, we could use a separate LLM call to extract insights
-    
     if (userMessage.toLowerCase().includes('tercihim') || userMessage.toLowerCase().includes('sevmem')) {
       await this.learn(userId, `preference_${Date.now()}`, userMessage, 'preference');
     }
@@ -232,10 +236,10 @@ export class NexusAI {
     }
 
     // Increment learning level in profile
-    const profile = await db.getAIProfile();
+    const { data: profile } = await supabase.from('ai_profiles').select('*').eq('user_id', userId).maybeSingle();
     if (profile) {
       const newLevel = Math.min((profile.learning_level || 0) + 0.1, 100);
-      await db.update('ai_profiles', profile.id, { learning_level: newLevel });
+      await supabase.from('ai_profiles').update({ learning_level: newLevel }).eq('id', profile.id).eq('user_id', userId);
     }
   }
 
@@ -248,43 +252,60 @@ export class NexusAI {
     try {
       switch (name) {
         case 'create_task':
-          return await db.insert('ai_tasks', {
+          return await supabase.from('ai_tasks').insert([{
+            id: uuidv4(),
             user_id: userId,
             title: args.title,
             description: args.description,
             due_at: args.due_at,
             status: 'pending',
             action_type: 'task',
-            action_payload: args
-          });
+            action_payload: args,
+            created_at: new Date().toISOString()
+          }]);
 
         case 'send_notification':
-          return await db.insert('notifications', {
+          return await supabase.from('notifications').insert([{
+            id: uuidv4(),
             user_id: userId,
             title: args.title,
             message: args.message,
-            type: args.type || 'ai'
-          });
+            type: args.type || 'ai',
+            date: new Date().toISOString(),
+            is_read: false,
+            created_at: new Date().toISOString()
+          }]);
 
         case 'update_stock_level':
-          return await db.update('stocks', args.stock_id, {
+          return await supabase.from('stock').update({
             current_balance: args.current_balance,
-            critical_level: args.critical_level
-          });
+            critical_level: args.critical_level,
+            updated_at: new Date().toISOString()
+          }).eq('id', args.stock_id).eq('user_id', userId);
 
         case 'add_memory':
           return await this.learn(userId, args.key, args.value, args.category);
 
         case 'create_note':
-          return await db.insert('notes', {
+          return await supabase.from('notes').insert([{
+            id: uuidv4(),
             user_id: userId,
             title: args.title,
             content: args.content,
-            color: args.color
-          });
+            color: args.color,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }]);
 
         case 'get_system_data':
-          return await db.query(args.table, args.filter);
+          let query = supabase.from(args.table).select('*').eq('user_id', userId);
+          if (args.filter) {
+            Object.keys(args.filter).forEach(key => {
+              query = query.eq(key, args.filter[key]);
+            });
+          }
+          const { data } = await query;
+          return data;
 
         case 'web_search':
           const { perplexityService } = await import('./perplexityService');
@@ -303,100 +324,133 @@ export class NexusAI {
    * Periodically called to scan the system and generate proactive insights.
    */
   async generateInsight(userId: string) {
-    console.log('Nexus AI Heartbeat: Analyzing system state...');
+    console.log('Nexus AI Heartbeat: Analyzing system state for user:', userId);
     
-    const [stocks, jobs, payments] = await Promise.all([
-      db.getStocks(),
-      db.getJobs(),
-      db.getPayments()
-    ]);
+    try {
+      const [stocksRes, jobsRes, paymentsRes] = await Promise.all([
+        supabase.from('stock').select('*').eq('user_id', userId),
+        supabase.from('jobs').select('*').eq('user_id', userId),
+        supabase.from('payments').select('*').eq('user_id', userId)
+      ]);
 
-    const insights = [];
+      if (stocksRes.error) throw new Error(`Stocks error: ${stocksRes.error.message}`);
+      if (jobsRes.error) throw new Error(`Jobs error: ${jobsRes.error.message}`);
+      if (paymentsRes.error) throw new Error(`Payments error: ${paymentsRes.error.message}`);
 
-    // 1. Stock Check
-    const criticalStocks = stocks.filter(s => s.current_balance <= s.critical_level);
-    if (criticalStocks.length > 0) {
-      insights.push({
-        type: 'alert',
-        title: 'Kritik Stok Uyarısı',
-        content: `${criticalStocks.length} ürün kritik seviyenin altında. Tedarik planlaması önerilir.`,
-        data: { criticalStocks },
-        priority: 'high'
-      });
-    }
+      const stocks = stocksRes.data || [];
+      const jobs = jobsRes.data || [];
+      const payments = paymentsRes.data || [];
 
-    // 2. Job Delay Check
-    const overdueJobs = jobs.filter(j => j.status !== 'Tamamlandı' && new Date(j.date) < new Date());
-    if (overdueJobs.length > 0) {
-      insights.push({
-        type: 'prediction',
-        title: 'Geciken İşler Analizi',
-        content: `${overdueJobs.length} iş planlanan tarihin gerisinde kalmış görünüyor.`,
-        data: { overdueJobs },
-        priority: 'medium'
-      });
-    }
+      const insights = [];
 
-    // Save insights and notify
-    for (const insight of insights) {
-      await db.insert('ai_insights', { ...insight, user_id: userId });
-      await db.insert('notifications', {
-        user_id: userId,
-        title: `Nexus AI: ${insight.title}`,
-        message: insight.content,
-        type: 'ai'
-      });
-    }
-
-    // Take a system snapshot
-    await db.insert('ai_system_snapshots', {
-      user_id: userId,
-      snapshot_data: {
-        total_stocks: stocks.length,
-        total_jobs: jobs.length,
-        total_payments: payments.length,
-        timestamp: new Date().toISOString()
+      // 1. Stock Check
+      const criticalStocks = stocks.filter((s: any) => s.current_balance <= s.critical_level);
+      if (criticalStocks.length > 0) {
+        insights.push({
+          type: 'alert',
+          title: 'Kritik Stok Uyarısı',
+          content: `${criticalStocks.length} ürün kritik seviyenin altında. Tedarik planlaması önerilir.`,
+          data: { criticalStocks },
+          priority: 'high'
+        });
       }
-    });
+
+      // 2. Job Delay Check
+      const overdueJobs = jobs.filter((j: any) => j.status !== 'Tamamlandı' && new Date(j.date) < new Date());
+      if (overdueJobs.length > 0) {
+        insights.push({
+          type: 'prediction',
+          title: 'Geciken İşler Analizi',
+          content: `${overdueJobs.length} iş planlanan tarihin gerisinde kalmış görünüyor.`,
+          data: { overdueJobs },
+          priority: 'medium'
+        });
+      }
+
+      // Save insights and notify
+      for (const insight of insights) {
+        const { error: insightError } = await supabase.from('ai_insights').insert([{ ...insight, user_id: userId, id: uuidv4(), created_at: new Date().toISOString() }]);
+        if (insightError) console.error('Error saving insight:', insightError);
+        
+        const { error: notificationError } = await supabase.from('notifications').insert([{
+          id: uuidv4(),
+          user_id: userId,
+          title: `Nexus AI: ${insight.title}`,
+          message: insight.content,
+          type: 'ai',
+          date: new Date().toISOString(),
+          is_read: false,
+          created_at: new Date().toISOString()
+        }]);
+        if (notificationError) console.error('Error saving notification:', notificationError);
+      }
+
+      // Take a system snapshot
+      const { error: snapshotError } = await supabase.from('ai_system_snapshots').insert([{
+        id: uuidv4(),
+        user_id: userId,
+        snapshot_data: {
+          total_stocks: stocks.length,
+          total_jobs: jobs.length,
+          total_payments: payments.length,
+          timestamp: new Date().toISOString()
+        },
+        created_at: new Date().toISOString()
+      }]);
+      if (snapshotError) throw new Error(`Snapshot error: ${snapshotError.message}`);
+      
+    } catch (error) {
+      console.error(`Nexus AI Heartbeat Error for user ${userId}:`, error);
+      throw error;
+    }
   }
 
   /**
    * Helper to get a text summary of the entire system for the AI's prompt.
    */
-  private async getSystemSummary() {
-    const [accounts, stocks, jobs, payments] = await Promise.all([
-      db.getAccounts(),
-      db.getStocks(),
-      db.getJobs(),
-      db.getPayments()
+  private async getSystemSummary(userId: string) {
+    const [accountsRes, stocksRes, jobsRes, paymentsRes] = await Promise.all([
+      supabase.from('accounts').select('*').eq('user_id', userId),
+      supabase.from('stock').select('*').eq('user_id', userId),
+      supabase.from('jobs').select('*').eq('user_id', userId),
+      supabase.from('payments').select('*').eq('user_id', userId)
     ]);
+
+    const accounts = accountsRes.data || [];
+    const stocks = stocksRes.data || [];
+    const jobs = jobsRes.data || [];
+    const payments = paymentsRes.data || [];
 
     return `
       - Accounts: ${accounts.length} total.
-      - Stocks: ${stocks.length} items. ${stocks.filter(s => s.current_balance <= s.critical_level).length} critical.
-      - Jobs: ${jobs.length} total. ${jobs.filter(j => j.status === 'Açık').length} open.
+      - Stocks: ${stocks.length} items. ${stocks.filter((s: any) => s.current_balance <= s.critical_level).length} critical.
+      - Jobs: ${jobs.length} total. ${jobs.filter((j: any) => j.status === 'Açık').length} open.
       - Payments: ${payments.length} transactions recorded.
     `;
   }
 
   async learn(userId: string, key: string, value: string, category: string = 'general') {
-    await db.insert('ai_memories', {
+    await supabase.from('ai_memories').insert([{
+      id: uuidv4(),
       user_id: userId,
       key,
       value,
       category,
-      last_accessed: new Date().toISOString()
-    });
+      last_accessed: new Date().toISOString(),
+      created_at: new Date().toISOString()
+    }]);
     await this.logAction(userId, 'learn', 'ai_memories', { key, category });
   }
 
   async logAction(userId: string, action: string, targetTable: string, details: any) {
-    await db.insert('ai_action_history', {
+    await supabase.from('ai_action_history').insert([{
+      id: uuidv4(),
       user_id: userId,
       action,
       target_table: targetTable,
-      details
-    });
+      details,
+      created_at: new Date().toISOString()
+    }]);
   }
 }
 

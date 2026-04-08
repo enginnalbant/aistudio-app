@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Menu, 
-  Search, 
   Bell, 
   Calendar, 
   Settings, 
   LogOut,
-  Zap
+  Zap,
+  PanelBottom,
+  Sidebar as SidebarIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { motion } from 'motion/react';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
+import { AdvancedSearchBar } from './AdvancedSearchBar';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -20,7 +22,7 @@ interface HeaderProps {
 }
 
 export const Header = React.memo(function Header({ toggleSidebar, setActiveModule }: HeaderProps) {
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const { user, signOut } = useAuth();
   const [time, setTime] = useState(new Date());
 
@@ -35,21 +37,16 @@ export const Header = React.memo(function Header({ toggleSidebar, setActiveModul
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-focus-neon/50 to-transparent opacity-0 group-hover/header:opacity-100 transition-opacity duration-700" />
       
       <div className="flex items-center gap-3 lg:gap-6">
-        <button 
-          onClick={toggleSidebar}
-          className="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-xl hover:bg-skel-matte/10 transition-all duration-500 hover:scale-110 active:scale-90 border border-transparent hover:border-skel-metal/10"
-        >
-          <Menu size={18} className="text-text-secondary group-hover/header:text-focus-neon transition-colors lg:w-5 lg:h-5" />
-        </button>
+        {settings.navigation_mode === 'sidebar' && (
+          <button 
+            onClick={toggleSidebar}
+            className="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-xl hover:bg-skel-matte/10 transition-all duration-500 hover:scale-110 active:scale-90 border border-transparent hover:border-skel-metal/10"
+          >
+            <Menu size={18} className="text-text-secondary group-hover/header:text-focus-neon transition-colors lg:w-5 lg:h-5" />
+          </button>
+        )}
         
-        <div className="hidden md:flex items-center bg-skel-space/50 border border-skel-metal/10 rounded-xl px-5 py-2.5 w-80 group focus-within:border-focus-neon/40 focus-within:bg-skel-space/80 focus-within:ring-4 focus-within:ring-focus-neon/5 transition-all duration-500">
-          <Search size={18} className="text-text-secondary/40 group-focus-within:text-focus-neon transition-colors" />
-          <input 
-            type="text" 
-            placeholder="Sistemde Ara..." 
-            className="ml-3 bg-transparent border-none outline-none text-sm w-full placeholder:text-text-secondary/30 text-text-primary font-bold tracking-tight"
-          />
-        </div>
+        <AdvancedSearchBar setActiveModule={setActiveModule} />
 
         {/* Mobile Logo */}
         <div className="flex lg:hidden items-center gap-2">
@@ -93,6 +90,18 @@ export const Header = React.memo(function Header({ toggleSidebar, setActiveModul
             <span className="absolute top-2.5 right-2.5 lg:top-3 lg:right-3 w-1.5 h-1.5 lg:w-2 lg:h-2 bg-focus-neon rounded-full shadow-[0_0_10px_rgba(112,161,255,0.8)] animate-pulse" />
           </button>
           
+          <button 
+            onClick={() => updateSettings({ navigation_mode: settings.navigation_mode === 'sidebar' ? 'dock' : 'sidebar' })}
+            className="w-9 h-9 lg:w-11 lg:h-11 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-focus-neon/10 text-text-secondary hover:text-focus-neon transition-all duration-500 border border-skel-metal/5 hover:border-focus-neon/20"
+            title="Navigasyon Modunu Değiştir"
+          >
+            {settings.navigation_mode === 'sidebar' ? (
+              <PanelBottom size={16} className="lg:w-[18px] lg:h-[18px]" />
+            ) : (
+              <SidebarIcon size={16} className="lg:w-[18px] lg:h-[18px]" />
+            )}
+          </button>
+
           <button 
             onClick={() => setActiveModule('settings-page')}
             className="w-9 h-9 lg:w-11 lg:h-11 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-ai-bright/10 text-text-secondary hover:text-ai-bright transition-all duration-500 border border-skel-metal/5 hover:border-ai-bright/20"

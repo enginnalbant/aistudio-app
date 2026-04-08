@@ -17,7 +17,8 @@ export function AllShipments() {
   const tableRef = useRef<HTMLDivElement>(null);
 
   const filteredShipments = useMemo(() => {
-    return shipments.filter(s => 
+    const safeShipments = Array.isArray(shipments) ? shipments : [];
+    return safeShipments.filter(s => 
       s.recipient?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.carrier?.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -61,10 +62,11 @@ export function AllShipments() {
     setIsWizardOpen(true);
   };
 
+  const safeShipments = Array.isArray(shipments) ? shipments : [];
   const statusCounts = {
-    pending: shipments.filter(s => s.status === 'pending' || s.status === 'postponed').length,
-    transit: shipments.filter(s => s.status === 'in-transit').length,
-    total: shipments.length
+    pending: safeShipments.filter(s => s.status === 'pending' || s.status === 'postponed').length,
+    transit: safeShipments.filter(s => s.status === 'in-transit').length,
+    total: safeShipments.length
   };
 
   return (

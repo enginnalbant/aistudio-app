@@ -82,6 +82,7 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
   }, [isOpen, initialScenario, editingStock]);
 
   const resetManualStock = () => {
+    setError(null);
     setManualStock({
       code: `STK-${Math.floor(Math.random() * 10000)}`,
       name: '',
@@ -116,6 +117,8 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
     description: ''
   });
   const [manualStep, setManualStep] = useState(1); // Sub-steps for manual entry
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Bulk State
   const [bulkItems, setBulkItems] = useState<StockItem[]>([]);
@@ -165,7 +168,10 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
   };
 
   const handleManualSave = async () => {
-    if (manualStock.name && manualStock.code) {
+    const { code, name, category, unit } = manualStock;
+    if (code && name && category && unit) {
+      setIsSaving(true);
+      setError(null);
       try {
         const url = editingStock ? `/api/stocks/${editingStock.id}` : '/api/stocks';
         const method = editingStock ? 'PUT' : 'POST';
@@ -193,10 +199,18 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
         if (response.ok) {
           onSave([]); // Trigger refresh
           onClose();
+        } else {
+          const errData = await response.json();
+          setError(errData.error || 'Stok kaydedilirken bir hata oluştu.');
         }
       } catch (error) {
         console.error('Error saving stock:', error);
+        setError('Sunucuya bağlanırken bir hata oluştu.');
+      } finally {
+        setIsSaving(false);
       }
+    } else {
+      setError('Lütfen zorunlu alanları (Kod, Ad, Kategori, Birim) doldurun.');
     }
   };
 
@@ -210,6 +224,7 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
   const reset = () => {
     setScenario(null);
     setStep(0);
+    setError(null);
     setManualStock({
       code: `STK-${Math.floor(Math.random() * 10000)}`,
       name: '',
@@ -262,6 +277,15 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
 
           {/* Content */}
           <div className="p-6 flex-1 overflow-y-auto">
+            {error && (
+              <div className="mb-6 p-4 rounded-2xl bg-crit-vivid/10 border border-crit-vivid/20 flex items-center gap-3 text-crit-vivid animate-shake">
+                <AlertCircle size={20} />
+                <p className="text-sm font-bold">{error}</p>
+                <button onClick={() => setError(null)} className="ml-auto p-1 hover:bg-crit-vivid/10 rounded-lg">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
             {step === 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 h-full items-center py-10">
                 <button 
@@ -327,7 +351,7 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-skel-metal">Stok Kodu</label>
+                        <label className="text-sm font-medium text-skel-metal">Stok Kodu <span className="text-crit-vivid">*</span></label>
                         <input 
                           type="text" 
                           value={manualStock.code}
@@ -336,7 +360,7 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-skel-metal">Stok Adı</label>
+                        <label className="text-sm font-medium text-skel-metal">Stok Adı <span className="text-crit-vivid">*</span></label>
                         <input 
                           type="text" 
                           value={manualStock.name}
@@ -349,12 +373,13 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-skel-metal">Kategori</label>
+                        <label className="text-sm font-medium text-skel-metal">Kategori <span className="text-crit-vivid">*</span></label>
                         <select 
                           value={manualStock.category}
                           onChange={(e) => setManualStock({...manualStock, category: e.target.value})}
                           className="w-full bg-skel-space/50 border border-skel-matte/20 rounded-xl px-4 py-3 text-skel-glass focus:outline-none focus:border-focus-neon transition-all appearance-none"
                         >
+                          <option value="">Seçiniz...</option>
                           <option value="Mamul">Mamul</option>
                           <option value="Yarı Mamul">Yarı Mamul</option>
                           <option value="Hammadde">Hammadde</option>
@@ -362,12 +387,13 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-skel-metal">Birim</label>
+                        <label className="text-sm font-medium text-skel-metal">Birim <span className="text-crit-vivid">*</span></label>
                         <select 
                           value={manualStock.unit}
                           onChange={(e) => setManualStock({...manualStock, unit: e.target.value})}
                           className="w-full bg-skel-space/50 border border-skel-matte/20 rounded-xl px-4 py-3 text-skel-glass focus:outline-none focus:border-focus-neon transition-all appearance-none"
                         >
+                          <option value="">Seçiniz...</option>
                           <option value="Adet">Adet</option>
                           <option value="Kg">Kg</option>
                           <option value="Metre">Metre</option>
@@ -610,7 +636,7 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
                 manualStep < 3 ? (
                   <button 
                     onClick={() => setManualStep(manualStep + 1)}
-                    disabled={manualStep === 1 && !manualStock.name}
+                    disabled={manualStep === 1 && (!manualStock.name || !manualStock.code || !manualStock.category || !manualStock.unit)}
                     className="os-btn os-btn-primary px-10"
                   >
                     İleri
@@ -619,11 +645,15 @@ export function StockWizardModal({ isOpen, onClose, onSave, initialScenario, edi
                 ) : (
                   <button 
                     onClick={handleManualSave}
-                    disabled={!manualStock.name}
+                    disabled={isSaving || !manualStock.name || !manualStock.code || !manualStock.category || !manualStock.unit}
                     className="os-btn os-btn-primary px-10"
                   >
-                    <Save size={18} />
-                    Stok Kartını Oluştur
+                    {isSaving ? (
+                      <div className="w-5 h-5 border-2 border-skel-dark/20 border-t-skel-dark rounded-full animate-spin" />
+                    ) : (
+                      <Save size={18} />
+                    )}
+                    {isSaving ? 'Kaydediliyor...' : 'Stok Kartını Oluştur'}
                   </button>
                 )
               ) : step === 2 ? (

@@ -16,7 +16,8 @@ import {
   Building2,
   User,
   CreditCard,
-  Calendar
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -52,6 +53,7 @@ export function AccountWizardModal({ isOpen, onClose, onSave, initialScenario, e
   const [manualAccount, setManualAccount] = useState<Partial<AccountItem>>({});
   const [bulkAccounts, setBulkAccounts] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const resetManualAccount = () => {
     setManualAccount({
@@ -69,6 +71,7 @@ export function AccountWizardModal({ isOpen, onClose, onSave, initialScenario, e
       status: 'Aktif',
       payment_term_days: 0
     });
+    setSaveError(null);
   };
 
   useEffect(() => {
@@ -118,7 +121,7 @@ export function AccountWizardModal({ isOpen, onClose, onSave, initialScenario, e
       const ws = wb.Sheets[wsname];
       const data = XLSX.utils.sheet_to_json(ws);
       
-      const mappedData = data.map((item: any) => ({
+      const mappedData = (Array.isArray(data) ? data : []).map((item: any) => ({
         name: item['Cari Adı'] || item['Name'] || '',
         type: item['Tip'] || item['Type'] || 'Müşteri',
         phone: item['Telefon'] || item['Phone'] || '',
@@ -141,6 +144,7 @@ export function AccountWizardModal({ isOpen, onClose, onSave, initialScenario, e
   };
 
   const handleManualSave = async () => {
+    setSaveError(null);
     if (manualAccount.name && manualAccount.type) {
       setIsProcessing(true);
       try {
@@ -159,12 +163,16 @@ export function AccountWizardModal({ isOpen, onClose, onSave, initialScenario, e
         } else {
           const errorData = await response.json();
           console.error('Error saving account:', errorData);
+          setSaveError(errorData.error || 'Cari kaydedilirken bir hata oluştu. Lütfen bilgileri kontrol edin.');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error saving account:', error);
+        setSaveError(error.message || 'Sunucu ile bağlantı kurulamadı.');
       } finally {
         setIsProcessing(false);
       }
+    } else {
+      setSaveError('Lütfen cari adı ve tipi alanlarını doldurun.');
     }
   };
 
@@ -523,7 +531,13 @@ export function AccountWizardModal({ isOpen, onClose, onSave, initialScenario, e
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-skel-metal/10 flex justify-between items-center shrink-0 bg-skel-matte/5">
+        <div className="p-6 border-t border-skel-metal/10 flex justify-between items-center shrink-0 bg-skel-matte/5 relative">
+          {saveError && (
+            <div className="absolute -top-12 left-6 right-6 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm flex items-center gap-2">
+              <AlertCircle size={16} />
+              {saveError}
+            </div>
+          )}
           <button 
             onClick={() => {
               if (step === 0) onClose();
