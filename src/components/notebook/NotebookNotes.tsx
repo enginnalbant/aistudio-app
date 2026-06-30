@@ -219,6 +219,29 @@ export const NotebookNotes = () => {
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderParentId, setNewFolderParentId] = useState<string | null>(null);
 
+  // Custom Delete Confirm State
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    type: 'folder' | 'note' | 'quick';
+    id: string;
+    title: string;
+    message: string;
+  } | null>(null);
+
+  // Custom Toast State
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'info' | 'error';
+  } | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const editorRef = useRef<HTMLDivElement>(null);
 
   // Find active selected note
@@ -290,12 +313,13 @@ export const NotebookNotes = () => {
   // Delete folder note
   const handleDeleteFolderNote = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Bu notu silmek istediğinize emin misiniz?')) {
-      setFolderNotes(prev => prev.filter(n => n.id !== id));
-      if (selectedNoteId === id) {
-        setSelectedNoteId(null);
-      }
-    }
+    const noteToDelete = folderNotes.find(n => n.id === id);
+    setDeleteConfirm({
+      type: 'note',
+      id,
+      title: 'Notu Sil',
+      message: `"${noteToDelete?.title || 'Bu notu'}" silmek istediğinize emin misiniz?`
+    });
   };
 
   // Create folder note
@@ -352,22 +376,13 @@ export const NotebookNotes = () => {
 
   const handleDeleteFolder = (folderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Bu klasörü sildiğinizde, alt klasörleri ve bu klasördeki tüm notlar da silinecektir. Devam etmek istiyor musunuz?')) {
-      const getChildFolderIds = (id: string): string[] => {
-        const directChildren = folders.filter(f => f.parentId === id);
-        return [id, ...directChildren.flatMap(child => getChildFolderIds(child.id))];
-      };
-
-      const foldersToDelete = getChildFolderIds(folderId);
-
-      setFolders(prev => prev.filter(f => !foldersToDelete.includes(f.id)));
-      setFolderNotes(prev => prev.filter(n => !foldersToDelete.includes(n.folderId)));
-      
-      if (selectedFolderId && foldersToDelete.includes(selectedFolderId)) {
-        setSelectedFolderId(null);
-        setSelectedNoteId(null);
-      }
-    }
+    const folderToDelete = folders.find(f => f.id === folderId);
+    setDeleteConfirm({
+      type: 'folder',
+      id: folderId,
+      title: 'Defteri / Klasörü Sil',
+      message: `"${folderToDelete?.name || 'Bu klasörü'}" sildiğinizde, alt klasörleri ve bu klasördeki tüm notlar da silinecektir. Devam etmek istiyor musunuz?`
+    });
   };
 
   const handleStartRenameFolder = (folder: Folder, e: React.MouseEvent) => {
@@ -402,9 +417,47 @@ export const NotebookNotes = () => {
 
   const handleDeleteQuickNote = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (confirm('Bu hızlı notu silmek istediğinize emin misiniz?')) {
+    const quickNoteToDelete = quickNotes.find(q => q.id === id);
+    setDeleteConfirm({
+      type: 'quick',
+      id,
+      title: 'Hızlı Notu Sil',
+      message: `"${quickNoteToDelete?.title || 'Bu hızlı notu'}" silmek istediğinize emin misiniz?`
+    });
+  };
+
+  const executeDelete = () => {
+    if (!deleteConfirm) return;
+    const { type, id } = deleteConfirm;
+
+    if (type === 'note') {
+      setFolderNotes(prev => prev.filter(n => n.id !== id));
+      if (selectedNoteId === id) {
+        setSelectedNoteId(null);
+      }
+      setToast({ message: 'Not başarıyla silindi.', type: 'success' });
+    } else if (type === 'folder') {
+      const getChildFolderIds = (folderId: string): string[] => {
+        const directChildren = folders.filter(f => f.parentId === folderId);
+        return [folderId, ...directChildren.flatMap(child => getChildFolderIds(child.id))];
+      };
+
+      const foldersToDelete = getChildFolderIds(id);
+
+      setFolders(prev => prev.filter(f => !foldersToDelete.includes(f.id)));
+      setFolderNotes(prev => prev.filter(n => !foldersToDelete.includes(n.folderId)));
+      
+      if (selectedFolderId && foldersToDelete.includes(selectedFolderId)) {
+        setSelectedFolderId(null);
+        setSelectedNoteId(null);
+      }
+      setToast({ message: 'Defter ve tüm içeriği silindi.', type: 'success' });
+    } else if (type === 'quick') {
       setQuickNotes(prev => prev.filter(q => q.id !== id));
+      setToast({ message: 'Hızlı not silindi.', type: 'success' });
     }
+
+    setDeleteConfirm(null);
   };
 
   const handleTogglePinQuickNote = (id: string, e?: React.MouseEvent) => {
@@ -419,7 +472,7 @@ export const NotebookNotes = () => {
   // Import quick note text inside active rich editor
   const handleInsertQuickNoteToEditor = (note: QuickNote) => {
     if (!activeNote || !editorRef.current) {
-      alert("Lütfen önce sağda düzenlemek üzere defterlerinizden bir not seçin!");
+      setToast({ message: "Lütfen önce sağda düzenlemek üzere defterlerinizden bir not seçin!", type: 'error' });
       return;
     }
     
@@ -627,7 +680,7 @@ export const NotebookNotes = () => {
   const handleCopyToClipboard = () => {
     if (!activeNote || !editorRef.current) return;
     navigator.clipboard.writeText(editorRef.current.innerText);
-    alert('Not metni panoya kopyalandı.');
+    setToast({ message: 'Not metni panoya kopyalandı.', type: 'success' });
   };
 
   // Recursive Tree Render Component
@@ -1668,7 +1721,7 @@ export const NotebookNotes = () => {
                             <button 
                               onClick={() => {
                                 navigator.clipboard.writeText(note.content);
-                                alert('İçerik panoya kopyalandı.');
+                                setToast({ message: 'İçerik panoya kopyalandı.', type: 'success' });
                               }}
                               className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white"
                               title="Kopyala"
@@ -1819,6 +1872,74 @@ export const NotebookNotes = () => {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* POPUP: DELETE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteConfirm(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            
+            <motion.div 
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 p-5 rounded-2xl shadow-2xl space-y-4"
+            >
+              <h2 className="text-xs font-display font-black text-red-600 dark:text-red-400 uppercase tracking-widest flex items-center gap-2">
+                <Trash2 size={14} />
+                {deleteConfirm.title}
+              </h2>
+              
+              <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 leading-relaxed bg-zinc-50 dark:bg-black/25 p-3 rounded-lg border border-zinc-200 dark:border-white/5">
+                {deleteConfirm.message}
+              </p>
+              
+              <div className="flex items-center justify-end gap-2.5 pt-1">
+                <button 
+                  onClick={() => setDeleteConfirm(null)}
+                  className="px-3.5 py-1.5 text-[9px] font-mono text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white uppercase"
+                >
+                  Vazgeç
+                </button>
+                <button 
+                  onClick={executeDelete}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-white text-[9px] font-mono font-bold uppercase transition-all"
+                >
+                  Sil
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* FLOATING TOAST NOTIFICATION */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed bottom-6 right-6 z-[220] flex items-center gap-2 px-4 py-3 rounded-xl border shadow-lg font-mono text-[10px]"
+            style={{
+              backgroundColor: toast.type === 'error' ? 'rgba(239, 68, 68, 0.95)' : toast.type === 'success' ? 'rgba(16, 185, 129, 0.95)' : 'rgba(59, 130, 246, 0.95)',
+              borderColor: toast.type === 'error' ? '#ef4444' : toast.type === 'success' ? '#10b981' : '#3b82f6',
+              color: '#ffffff'
+            }}
+          >
+            <span>{toast.message}</span>
+            <button onClick={() => setToast(null)} className="ml-2 hover:opacity-80">
+              <X size={10} />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 
