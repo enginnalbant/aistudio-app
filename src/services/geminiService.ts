@@ -1,22 +1,32 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY || "",
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
+let ai: GoogleGenAI | null = null;
+
+const getAi = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  if (!ai) {
+    ai = new GoogleGenAI({ 
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
   }
-});
+  return ai;
+};
 
 export const geminiService = {
   async searchAI(query: string) {
-    if (!process.env.GEMINI_API_KEY) {
+    const client = getAi();
+    if (!client) {
       return "Gemini API anahtarı yapılandırılmamış.";
     }
 
     try {
-      const response = await ai.models.generateContent({
+      const response = await client.models.generateContent({
         model: "gemini-3.5-flash",
         contents: `Kullanıcı şu sorguyu yaptı: "${query}". 
         Bu bir işletim sistemi arayüzü (ApexOS). 
@@ -31,12 +41,13 @@ export const geminiService = {
   },
 
   async assistNote(task: string, content: string) {
-    if (!process.env.GEMINI_API_KEY) {
+    const client = getAi();
+    if (!client) {
       return "Gemini API anahtarı yapılandırılmamış.";
     }
 
     try {
-      const response = await ai.models.generateContent({
+      const response = await client.models.generateContent({
         model: "gemini-3.5-flash",
         contents: `Aşağıdaki metin için şu görevi yerine getir: "${task}".
         

@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
-import { geminiService } from '../../services/geminiService';
 import { 
   Folder, 
   FolderPlus, 
@@ -582,8 +581,13 @@ export const NotebookNotes = () => {
     const sourceText = editorRef.current ? editorRef.current.innerText : activeNote.content;
 
     try {
-      const response = await geminiService.assistNote(task, sourceText);
-      setAiResult(response);
+      const res = await fetch('/api/gemini/assist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task, content: sourceText }),
+      });
+      const data = await res.json();
+      setAiResult(data.text);
     } catch (err) {
       setAiResult("Yapay zeka yanıt oluştururken bir sorunla karşılaştı.");
     } finally {

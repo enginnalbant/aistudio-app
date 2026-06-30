@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Fuse from 'fuse.js';
-import { geminiService } from '../services/geminiService';
 
 interface SearchItem {
   id: string;
@@ -84,8 +83,13 @@ export function SearchBar({ onNavigate }: SearchBarProps) {
     if (query.startsWith('?') || query.length > 20) {
       setIsAiLoading(true);
       setAiResult(null);
-      const response = await geminiService.searchAI(query.replace('?', ''));
-      setAiResult(response);
+      const res = await fetch('/api/gemini/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query.replace('?', '') }),
+      });
+      const data = await res.json();
+      setAiResult(data.text);
       setIsAiLoading(false);
     } else if (query.startsWith('!')) {
       window.open(`https://www.google.com/search?q=${encodeURIComponent(query.slice(1))}`, '_blank');
