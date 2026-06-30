@@ -176,28 +176,28 @@ export const SpatialBackground = React.memo(function SpatialBackground() {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} intensity={1} />
         
-        {settings.background_type === 'default' && (
+        {settings['background_type']?.value === 'default' && (
           <>
             <AnimatedSphere color="#0066FF" />
             <ParticleField />
           </>
         )}
 
-        {settings.background_type === '3d-advanced' && (
+        {settings['background_type']?.value === '3d-advanced' && (
           <>
             <Advanced3D />
             <ParticleField color="#FF0066" />
           </>
         )}
 
-        {settings.background_type === 'accent-synced' && (
+        {settings['background_type']?.value === 'accent-synced' && (
           <>
-            <AnimatedSphere color={settings.accent_color} />
-            <ParticleField color={settings.accent_color} />
+            <AnimatedSphere color={settings['accent_color']?.value} />
+            <ParticleField color={settings['accent_color']?.value} />
           </>
         )}
 
-        {settings.background_type === 'live-weather' && (
+        {settings['background_type']?.value === 'live-weather' && (
           <WeatherBackground />
         )}
       </Canvas>

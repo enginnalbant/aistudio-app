@@ -1,86 +1,107 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import LoginPage from './components/Login/LoginPage';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
-import { JobsDashboard } from './components/jobs/JobsDashboard';
-import { MainDashboard } from './components/MainDashboard';
-import { OpenJobs } from './components/jobs/OpenJobs';
-import { AllJobs } from './components/jobs/AllJobs';
-import { StocksDashboard } from './components/stocks/StocksDashboard';
-import { AllStocks } from './components/stocks/AllStocks';
-import { AccountsDashboard } from './components/accounts/AccountsDashboard';
-import { AccountsList } from './components/accounts/AccountsList';
-import { AccountReconciliation } from './components/accounts/AccountReconciliation';
-import { ReportsDashboard } from './components/reports/ReportsDashboard';
-import { SystemMonitor } from './components/system/SystemMonitor';
-import { Terminal } from './components/system/Terminal';
-import { PlannerDashboard } from './components/planner/PlannerDashboard';
-import { DailyPlanner } from './components/planner/DailyPlanner';
-import { Tasks } from './components/planner/Tasks';
-import { Notes } from './components/planner/Notes';
-import { Reminders } from './components/planner/Reminders';
-import { AIAssistant } from './components/AIAssistant';
 import { SpatialBackground } from './components/SpatialBackground';
+import { SettingsPanel } from './components/SettingsPanel';
+import { NotificationPage } from './components/NotificationPage';
+import { NotificationSettings } from './components/NotificationSettings';
+import { CalendarPage } from './components/CalendarPage';
+import { 
+  PurchasingDashboard,
+  PurchasingRequests,
+  PurchasingLists,
+  PurchasingQuotes,
+  PurchasingPendingOrders,
+  PurchasingSentOrders,
+  PurchasingAllOrders,
+  PurchasingReports,
+  PurchasingAnalytics
+} from './components/PurchasingModules';
+import {
+  FinanceDashboard,
+  FinanceIncomes,
+  FinanceExpenses,
+  FinanceSubscriptions,
+  FinanceInvestments,
+  FinancePurchasing,
+  FinanceAnalytics,
+  FinanceReports
+} from './components/finance';
+import {
+  NotebookDashboard,
+  NotebookNotes,
+  NotebookTodo,
+  NotebookReminders,
+  NotebookBookmarks,
+  NotebookGraph
+} from './components/notebook';
+import {
+  LibraryDashboard,
+  EbookDashboard,
+  Ebooks,
+  EbookPanel,
+  EbookTranslate,
+  MangaDashboard,
+  Mangas,
+  MangaPanel,
+  MangaTranslate
+} from './components/library';
+import {
+  MediaDashboard,
+  RssReader
+} from './components/media';
+import {
+  PlanningDashboard,
+  PlanningScheduler
+} from './components/planning';
+import {
+  FasonDashboard,
+  FasonOutgoing,
+  FasonAll,
+  FasonReports,
+  FasonAnalytics,
+  StocksDashboard,
+  StocksList,
+  StocksReports,
+  StocksAnalytics,
+  ContactsDashboard,
+  ContactsList,
+  ContactsReports,
+  ContactsAnalytics,
+  ReconDashboard,
+  ReconContacts,
+  ReconReports,
+  ReconAnalytics,
+  NotesDashboard,
+  NotesList,
+  NotesTodo,
+  NotesPlanner,
+  NotesDocs
+} from './components/ModulePages';
 import { motion, AnimatePresence } from 'motion/react';
-import { Cpu, Database, Globe, Activity } from 'lucide-react';
-
-import { NotificationsPage } from './components/notifications/NotificationsPage';
-import { CalendarPage } from './components/calendar/CalendarPage';
-import { SettingsPage } from './components/settings/SettingsPage';
-
-import { BudgetDashboard } from './components/budget/BudgetDashboard';
-import { Incomes } from './components/budget/Incomes';
-import { Expenses } from './components/budget/Expenses';
-import { Subscriptions } from './components/budget/Subscriptions';
-import { Investments } from './components/budget/Investments';
-import { Wishlist } from './components/budget/Wishlist';
-import { BudgetReports } from './components/budget/BudgetReports';
-
-import { MediaDashboard } from './components/media/MediaDashboard';
-import { NewsMagazines } from './components/media/NewsMagazines';
-import { Library } from './components/media/Library';
-import { Education } from './components/media/Education';
-import { Records } from './components/media/Records';
-
-import { ShipmentDashboard } from './components/shipment/ShipmentDashboard';
-import { PendingShipments } from './components/shipment/PendingShipments';
-import { InTransitShipments } from './components/shipment/InTransitShipments';
-import { AllShipments } from './components/shipment/AllShipments';
-import { ShipmentReports } from './components/shipment/ShipmentReports';
-import { ShipmentSettings } from './components/shipment/ShipmentSettings';
-
-import { OthersDashboard } from './components/others/OthersDashboard';
-import { CharacterConverter } from './components/others/CharacterConverter';
-import { Translation } from './components/others/Translation';
-import { Templates } from './components/others/Templates';
-import { Documents } from './components/others/Documents';
-import AnswersPage from './components/others/AnswersPage';
-
-import { PurchasingDashboard } from './components/purchasing/PurchasingDashboard';
-import { PurchasingRequests } from './components/purchasing/PurchasingRequests';
-import { PurchasingPlanning } from './components/purchasing/PurchasingPlanning';
-import { PurchasingQuotes } from './components/purchasing/PurchasingQuotes';
-import { PurchasingOrders } from './components/purchasing/PurchasingOrders';
-import { AllOrders } from './components/purchasing/AllOrders';
-import { PurchasingReports } from './components/purchasing/PurchasingReports';
+import { Zap } from 'lucide-react';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
-import { ShipmentProvider } from './context/ShipmentContext';
-import { useTimeLighting } from './hooks/useTimeLighting';
+import { NotificationProvider } from './context/NotificationContext';
 import { useDevice } from './hooks/useDevice';
 
 function AppLayout() {
   const { settings } = useSettings();
   const { isMobile, isDesktop } = useDevice();
   const [activeModule, setActiveModule] = useState('main-dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(isDesktop && settings.sidebar_default === 'expanded');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(isDesktop && settings['sidebar_default']?.value === 'expanded');
   const [isBooting, setIsBooting] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
+    (window as any).openSettingsModal = () => setIsSettingsOpen(true);
     const timer = setTimeout(() => setIsBooting(false), 2500);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      delete (window as any).openSettingsModal;
+    };
   }, []);
 
   // Close sidebar on mobile when module changes
@@ -98,133 +119,225 @@ function AppLayout() {
     setActiveModule(mod);
   }, []);
 
-  const renderContent = useMemo(() => {
-    switch (activeModule) {
-      case 'main-dashboard': return <MainDashboard />;
-      case 'jobs-dashboard': return <JobsDashboard />;
-      case 'jobs-open': return <OpenJobs />;
-      case 'jobs-all': return <AllJobs />;
-      case 'stocks-dashboard': return <StocksDashboard />;
-      case 'stocks-all': return <AllStocks />;
-      case 'accounts-dashboard': return <AccountsDashboard />;
-      case 'accounts-list': return <AccountsList />;
-      case 'accounts-reconciliation': return <AccountReconciliation />;
-      case 'reports': return <ReportsDashboard />;
-      case 'notifications': return <NotificationsPage />;
-      case 'calendar': return <CalendarPage />;
-      case 'settings-page': return <SettingsPage />;
-      case 'system-monitor': return <SystemMonitor />;
-      case 'planner-dashboard': return <PlannerDashboard />;
-      case 'planner-daily': return <DailyPlanner />;
-      case 'planner-tasks': return <Tasks />;
-      case 'planner-notes': return <Notes />;
-      case 'planner-reminders': return <Reminders />;
-      case 'budget-dashboard': return <BudgetDashboard />;
-      case 'budget-incomes': return <Incomes />;
-      case 'budget-expenses': return <Expenses />;
-      case 'budget-subscriptions': return <Subscriptions />;
-      case 'budget-investments': return <Investments />;
-      case 'budget-wishlist': return <Wishlist />;
-      case 'budget-reports': return <BudgetReports />;
-      case 'media-dashboard': return <MediaDashboard />;
-      case 'media-news': return <NewsMagazines />;
-      case 'media-library': return <Library />;
-      case 'media-education': return <Education />;
-      case 'media-records': return <Records />;
-      case 'shipment-dashboard': return <ShipmentDashboard />;
-      case 'shipment-pending': return <PendingShipments />;
-      case 'shipment-transit': return <InTransitShipments />;
-      case 'shipment-all': return <AllShipments />;
-      case 'shipment-reports': return <ShipmentReports />;
-      case 'shipment-settings': return <ShipmentSettings />;
-      case 'others-dashboard': return <OthersDashboard />;
-      case 'others-transliteration': return <CharacterConverter />;
-      case 'others-translation': return <Translation />;
-      case 'others-templates': return <Templates />;
-      case 'others-answers': return <AnswersPage />;
-      case 'others-documents': return <Documents />;
-      case 'purchasing-dashboard': return <PurchasingDashboard />;
-      case 'purchasing-requests': return <PurchasingRequests setActiveModule={handleSetActiveModule} />;
-      case 'purchasing-planning': return <PurchasingPlanning />;
-      case 'purchasing-quotes': return <PurchasingQuotes />;
-      case 'purchasing-orders': return <PurchasingOrders />;
-      case 'purchasing-all': return <AllOrders />;
-      case 'purchasing-reports': return <PurchasingReports />;
-      default: return <JobsDashboard />;
-    }
-  }, [activeModule, handleSetActiveModule]);
+  useEffect(() => {
+    (window as any).setActiveModule = handleSetActiveModule;
+    return () => {
+      delete (window as any).setActiveModule;
+    };
+  }, [handleSetActiveModule]);
 
   return (
-    <div className="h-screen w-full bg-transparent text-skel-glass flex flex-col overflow-hidden">
+    <div className="h-screen w-full bg-transparent text-skel-glass flex flex-col overflow-hidden selection:bg-focus-neon/30">
       <AnimatePresence>
         {isBooting && (
           <motion.div 
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[1000] bg-transparent flex flex-col items-center justify-center gap-8"
+            className="fixed inset-0 z-[1000] bg-skel-obsidian flex flex-col items-center justify-center gap-8"
           >
             <motion.div 
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 1, ease: "easeOut" }}
+              transition={{ duration: 1.2, ease: [0.23, 1, 0.32, 1] }}
               className="relative"
             >
-              <div className="w-32 h-32 rounded-3xl bg-focus-main flex items-center justify-center shadow-[0_0_100px_rgba(30,144,255,0.3)]">
+              <div className="w-40 h-40 rounded-[2.5rem] bg-focus-main flex items-center justify-center shadow-[0_0_120px_rgba(30,144,255,0.4)] relative overflow-hidden">
                 <motion.div 
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                  className="w-16 h-16 border-4 border-pure-white/20 border-t-pure-white rounded-full"
+                  transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                  className="absolute inset-0 border-[6px] border-pure-white/10 border-t-pure-white rounded-full scale-90"
                 />
+                <Zap size={48} className="text-pure-white relative z-10" />
               </div>
-              <div className="absolute inset-0 bg-focus-main blur-3xl opacity-20 animate-pulse" />
+              <div className="absolute inset-0 bg-focus-main blur-[100px] opacity-30 animate-pulse" />
             </motion.div>
-            <div className="space-y-2 text-center">
-              <h1 className="text-4xl font-display font-black tracking-tighter text-pure-white">APEX <span className="text-focus-neon">OS</span></h1>
-              <p className="text-skel-metal font-mono text-[10px] uppercase tracking-[0.5em] animate-pulse">Cognitive AI-OS v4.2.0 Initializing...</p>
+            <div className="space-y-3 text-center">
+              <h1 className="text-5xl font-display font-black tracking-tighter text-pure-white">APEX <span className="text-focus-neon">OS</span></h1>
+              <p className="text-skel-metal font-mono text-[11px] uppercase tracking-[0.6em] animate-pulse">Neural Environment v4.2.0 Initializing...</p>
             </div>
-            <div className="w-64 h-1 bg-skel-metal/10 rounded-full overflow-hidden mt-4">
+            <div className="w-80 h-1.5 bg-skel-metal/10 rounded-full overflow-hidden mt-6 backdrop-blur-md border border-white/5">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: "100%" }}
-                transition={{ duration: 2, ease: "easeInOut" }}
-                className="h-full bg-focus-neon shadow-[0_0_15px_rgba(37,99,235,0.5)]"
+                transition={{ duration: 2.2, ease: [0.65, 0, 0.35, 1] }}
+                className="h-full bg-gradient-to-r from-focus-main to-focus-neon shadow-[0_0_20px_rgba(37,99,235,0.6)]"
               />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <Header 
-        toggleSidebar={toggleSidebar} 
-        setActiveModule={handleSetActiveModule}
-      />
-      
-      <div className="flex flex-1 overflow-hidden p-4 lg:p-6 gap-4 lg:gap-6 relative pb-24 lg:pb-6">
-        <Sidebar 
-          isOpen={isSidebarOpen} 
-          activeModule={activeModule} 
-          setActiveModule={handleSetActiveModule} 
-          closeSidebar={() => setIsSidebarOpen(false)}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        <Header 
+          toggleSidebar={toggleSidebar} 
+          setActiveModule={handleSetActiveModule}
         />
         
-        <div className="flex-1 flex flex-col gap-4 lg:gap-6 min-w-0 overflow-y-auto custom-scrollbar">
-          <main className="flex-1">
+        <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        
+        <div className="flex-1 flex overflow-hidden p-3 lg:p-4 gap-3 lg:gap-4 relative pb-24 lg:pb-4">
+          <Sidebar 
+            isOpen={isSidebarOpen} 
+            activeModule={activeModule} 
+            setActiveModule={handleSetActiveModule} 
+            closeSidebar={() => setIsSidebarOpen(false)}
+            setSidebarOpen={setIsSidebarOpen}
+          />
+          
+          <div className="flex-1 flex flex-col gap-4 min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[40px] rounded-2xl border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.4)] p-4 lg:p-6 transition-all duration-700">
+            <main className="flex-1">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeModule}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-                className="w-full"
+                initial={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
+                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
+                transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+                className="w-full h-full"
               >
-                {renderContent}
+                {activeModule === 'notification-page' ? (
+                  <NotificationPage />
+                ) : activeModule === 'notification-settings' ? (
+                  <NotificationSettings />
+                ) : activeModule === 'calendar-page' ? (
+                  <CalendarPage />
+                ) : activeModule === 'finance-dashboard' ? (
+                  <FinanceDashboard />
+                ) : activeModule === 'finance-incomes' ? (
+                  <FinanceIncomes />
+                ) : activeModule === 'finance-expenses' ? (
+                  <FinanceExpenses />
+                ) : activeModule === 'finance-subscriptions' ? (
+                  <FinanceSubscriptions />
+                ) : activeModule === 'finance-investments' ? (
+                  <FinanceInvestments />
+                ) : activeModule === 'finance-purchasing' ? (
+                  <FinancePurchasing />
+                ) : activeModule === 'finance-analytics' ? (
+                  <FinanceAnalytics />
+                ) : activeModule === 'finance-reports' ? (
+                  <FinanceReports />
+                ) : activeModule === 'notebook-dashboard' ? (
+                  <NotebookDashboard />
+                ) : activeModule === 'notebook-notes' ? (
+                  <NotebookNotes />
+                ) : activeModule === 'notebook-todo' ? (
+                  <NotebookTodo />
+                ) : activeModule === 'notebook-reminders' ? (
+                  <NotebookReminders />
+                ) : activeModule === 'notebook-bookmarks' ? (
+                  <NotebookBookmarks />
+                ) : activeModule === 'notebook-graph' ? (
+                  <NotebookGraph />
+                ) : activeModule === 'library-dashboard' ? (
+                  <LibraryDashboard />
+                ) : activeModule === 'ebook-dashboard' ? (
+                  <EbookDashboard />
+                ) : activeModule === 'ebooks' ? (
+                  <Ebooks />
+                ) : activeModule === 'ebook-panel' ? (
+                  <EbookPanel />
+                ) : activeModule === 'ebook-translate' ? (
+                  <EbookTranslate />
+                ) : activeModule === 'manga-dashboard' ? (
+                  <MangaDashboard />
+                ) : activeModule === 'mangas' ? (
+                  <Mangas />
+                ) : activeModule === 'manga-panel' ? (
+                  <MangaPanel />
+                ) : activeModule === 'manga-translate' ? (
+                  <MangaTranslate />
+                ) : activeModule === 'media-dashboard' ? (
+                  <MediaDashboard />
+                ) : activeModule === 'media-rss' ? (
+                  <RssReader />
+                ) : activeModule === 'planning-dashboard' ? (
+                  <PlanningDashboard />
+                ) : activeModule === 'planning-scheduler' ? (
+                  <PlanningScheduler />
+                ) : activeModule === 'purchasing-dashboard' ? (
+                  <PurchasingDashboard />
+                ) : activeModule === 'purchasing-requests' ? (
+                  <PurchasingRequests />
+                ) : activeModule === 'purchasing-lists' ? (
+                  <PurchasingLists />
+                ) : activeModule === 'purchasing-quotes' ? (
+                  <PurchasingQuotes />
+                ) : activeModule === 'purchasing-pending-orders' ? (
+                  <PurchasingPendingOrders />
+                ) : activeModule === 'purchasing-sent-orders' ? (
+                  <PurchasingSentOrders />
+                ) : activeModule === 'purchasing-all-orders' ? (
+                  <PurchasingAllOrders />
+                ) : activeModule === 'purchasing-reports' ? (
+                  <PurchasingReports />
+                ) : activeModule === 'purchasing-analytics' ? (
+                  <PurchasingAnalytics />
+                ) : activeModule === 'fason-dashboard' ? (
+                  <FasonDashboard />
+                ) : activeModule === 'fason-outgoing' ? (
+                  <FasonOutgoing />
+                ) : activeModule === 'fason-all' ? (
+                  <FasonAll />
+                ) : activeModule === 'fason-reports' ? (
+                  <FasonReports />
+                ) : activeModule === 'fason-analytics' ? (
+                  <FasonAnalytics />
+                ) : activeModule === 'stocks-dashboard' ? (
+                  <StocksDashboard />
+                ) : activeModule === 'stocks-list' ? (
+                  <StocksList />
+                ) : activeModule === 'stocks-reports' ? (
+                  <StocksReports />
+                ) : activeModule === 'stocks-analytics' ? (
+                  <StocksAnalytics />
+                ) : activeModule === 'contacts-dashboard' ? (
+                  <ContactsDashboard />
+                ) : activeModule === 'contacts-list' ? (
+                  <ContactsList />
+                ) : activeModule === 'contacts-reports' ? (
+                  <ContactsReports />
+                ) : activeModule === 'contacts-analytics' ? (
+                  <ContactsAnalytics />
+                ) : activeModule === 'recon-dashboard' ? (
+                  <ReconDashboard />
+                ) : activeModule === 'recon-contacts' ? (
+                  <ReconContacts />
+                ) : activeModule === 'recon-reports' ? (
+                  <ReconReports />
+                ) : activeModule === 'recon-analytics' ? (
+                  <ReconAnalytics />
+                ) : activeModule === 'notes-dashboard' ? (
+                  <NotesDashboard />
+                ) : activeModule === 'notes-list' ? (
+                  <NotesList />
+                ) : activeModule === 'notes-todo' ? (
+                  <NotesTodo />
+                ) : activeModule === 'notes-planner' ? (
+                  <NotesPlanner />
+                ) : activeModule === 'notes-docs' ? (
+                  <NotesDocs />
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h1 className="text-2xl font-display font-black tracking-tight text-text-primary uppercase">
+                        Dashboard
+                      </h1>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bento-card p-8 col-span-full flex items-center justify-center min-h-[400px]">
+                        <div className="text-center space-y-4 text-text-secondary opacity-30">
+                           Dashboard Boş
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             </AnimatePresence>
           </main>
-          
-          <AIAssistant />
         </div>
+      </div>
       </div>
 
       <MobileNav 
@@ -236,9 +349,8 @@ function AppLayout() {
   );
 }
 
-
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   return (
     <div className="h-screen w-full bg-transparent text-skel-glass flex flex-col overflow-hidden relative">
@@ -268,9 +380,9 @@ export default function App() {
   return (
     <AuthProvider>
       <SettingsProvider>
-        <ShipmentProvider>
+        <NotificationProvider>
           <AppContent />
-        </ShipmentProvider>
+        </NotificationProvider>
       </SettingsProvider>
     </AuthProvider>
   );

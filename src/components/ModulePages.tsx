@@ -1,0 +1,54 @@
+import React from 'react';
+import { StockList } from './StockList';
+
+const PageContainer = ({ title, subtitle }: { title: string; subtitle: string }) => (
+  <div className="p-8 bento-card border-skel-metal/10 bg-skel-space/30 backdrop-blur-xl h-full min-h-[400px]">
+    <h1 className="text-2xl font-display font-black text-text-primary uppercase tracking-tight">{title}</h1>
+    <p className="text-text-secondary opacity-60 mt-4 font-mono text-sm uppercase tracking-widest">{subtitle}</p>
+    <div className="mt-12 border-2 border-dashed border-skel-metal/10 rounded-3xl h-64 flex items-center justify-center">
+      <span className="text-text-secondary opacity-20 font-display font-bold uppercase italic">İçerik Hazırlanıyor...</span>
+    </div>
+  </div>
+);
+
+// FASON İŞLER
+export const FasonDashboard = () => <PageContainer title="Fason İşler - Dashboard" subtitle="Fason süreçleri genel özeti" />;
+export const FasonOutgoing = () => <PageContainer title="Giden İşler" subtitle="Fasona gönderilen işlerin listesi" />;
+export const FasonAll = () => <PageContainer title="Tüm İşler" subtitle="Tüm fason operasyonları arşivi" />;
+export const FasonReports = () => <PageContainer title="Fason Raporlar" subtitle="Operasyonel raporlama ekranı" />;
+export const FasonAnalytics = () => <PageContainer title="Fason Analizler" subtitle="Verimlilik ve maliyet analizleri" />;
+
+// STOKLAR
+import { StockDashboard } from './StockDashboard';
+import { StockList as StockListComp } from './StockList';
+import { StockReports } from './StockReports';
+import { StockAnalytics } from './StockAnalytics';
+
+export const StocksDashboard = () => <StockDashboard />;
+export const StocksList = () => <StockListComp />;
+export const StocksReports = () => <StockReports />;
+export const StocksAnalytics = () => <StockAnalytics />;
+
+// CARİLER
+import { ContactDashboard } from './ContactDashboard';
+import { ContactList } from './ContactList';
+import { ContactReports } from './ContactReports';
+import { ContactAnalytics } from './ContactAnalytics';
+
+export const ContactsDashboard = () => <ContactDashboard />;
+export const ContactsList = () => <ContactList />;
+export const ContactsReports = () => <ContactReports />;
+export const ContactsAnalytics = () => <ContactAnalytics />;
+
+// MUTABAKAT
+export const ReconDashboard = () => <PageContainer title="Mutabakat - Dashboard" subtitle="Mutabakat süreçleri takibi" />;
+export const ReconContacts = () => <PageContainer title="Cari Mutabakat" subtitle="Firmalar arası mutabakat işlemleri" />;
+export const ReconReports = () => <PageContainer title="Mutabakat Raporlar" subtitle="Onaylanan ve bekleyen mutabakatlar" />;
+export const ReconAnalytics = () => <PageContainer title="Mutabakat Analizler" subtitle="Süreç performans verileri" />;
+
+// NOTLAR
+export const NotesDashboard = () => <PageContainer title="Notlar - Dashboard" subtitle="Kişisel ve ortak çalışma alanı" />;
+export const NotesList = () => <PageContainer title="Notlarım" subtitle="Tüm kayıtlı notlar" />;
+export const NotesTodo = () => <PageContainer title="Todolist" subtitle="Yapılacaklar listesi ve görev takibi" />;
+export const NotesPlanner = () => <PageContainer title="Planlayıcı" subtitle="Günlük ve haftalık planlar" />;
+export const NotesDocs = () => <PageContainer title="Dokümanlar" subtitle="Sistem içi dökümantasyon deposu" />;

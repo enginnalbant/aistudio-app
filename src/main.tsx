@@ -2,10 +2,6 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { initAuth } from './services/hybridAuth';
-
-// Initialize auth
-initAuth();
 
 // Suppress deprecated THREE.Clock warning from dependencies
 const originalWarn = console.warn;

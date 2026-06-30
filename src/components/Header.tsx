@@ -2,19 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { 
   Menu, 
   Bell, 
-  Calendar, 
-  Settings, 
   LogOut,
   Zap,
-  PanelBottom,
-  Sidebar as SidebarIcon
+  Home,
+  Calendar
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { tr } from 'date-fns/locale';
 import { motion } from 'motion/react';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
-import { AdvancedSearchBar } from './AdvancedSearchBar';
+import Switch from './ui/sky-toggle';
+import { SearchBar } from './SearchBar';
+import { EnvironmentalWidget } from './EnvironmentalWidget';
+import { NotificationsMenu } from './ui/notifications-menu';
+import { CalendarMenu } from './ui/calendar-menu';
+import { useNotifications } from '@/context/NotificationContext';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -22,121 +28,90 @@ interface HeaderProps {
 }
 
 export const Header = React.memo(function Header({ toggleSidebar, setActiveModule }: HeaderProps) {
-  const { settings, updateSettings } = useSettings();
-  const { user, signOut } = useAuth();
-  const [time, setTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const { settings, updateSetting } = useSettings();
+  const { signOut } = useAuth();
+  const { unreadCount } = useNotifications();
 
   return (
-    <header className="h-16 lg:h-20 flex items-center justify-between px-4 lg:px-8 bento-card shrink-0 relative overflow-hidden group/header">
+    <header className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-6 bg-white/[0.03] backdrop-blur-3xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.2)] rounded-2xl mt-3 mx-3 lg:mt-4 lg:mx-4 shrink-0 relative group/header transition-all duration-500 hover:shadow-[0_15px_50px_rgba(0,0,0,0.3)]">
       {/* Ambient Light Streak */}
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-focus-neon/50 to-transparent opacity-0 group-hover/header:opacity-100 transition-opacity duration-700" />
       
-      <div className="flex items-center gap-3 lg:gap-6">
-        {settings.navigation_mode === 'sidebar' && (
-          <button 
-            onClick={toggleSidebar}
-            className="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-xl hover:bg-skel-matte/10 transition-all duration-500 hover:scale-110 active:scale-90 border border-transparent hover:border-skel-metal/10"
-          >
-            <Menu size={18} className="text-text-secondary group-hover/header:text-focus-neon transition-colors lg:w-5 lg:h-5" />
-          </button>
-        )}
-        
-        <AdvancedSearchBar setActiveModule={setActiveModule} />
+      <div className="flex items-center gap-2 lg:gap-4">
+        <button 
+          onClick={() => setActiveModule('main-dashboard')}
+          className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-focus-neon/10 text-focus-neon hover:bg-focus-neon hover:text-pure-white transition-all duration-500 hover:scale-110 active:scale-90 border border-focus-neon/20"
+          title="Ana Menü"
+        >
+          <Home size={16} className="lg:w-4 lg:h-4" />
+        </button>
 
+        <SearchBar onNavigate={setActiveModule} />
+        
         {/* Mobile Logo */}
         <div className="flex lg:hidden items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-focus-main flex items-center justify-center shadow-lg shadow-focus-main/20">
-            <Zap size={16} className="text-pure-white" />
+          <div className="w-7 h-7 rounded-lg bg-focus-main flex items-center justify-center shadow-lg shadow-focus-main/20">
+            <Zap size={14} className="text-pure-white" />
           </div>
-          <span className="text-lg font-display font-black tracking-tighter text-text-primary">
+          <span className="text-base font-display font-black tracking-tighter text-text-primary">
             APEX<span className="text-focus-neon">OS</span>
           </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 lg:gap-8">
-        <div className="hidden lg:flex flex-col items-end justify-center">
-          <motion.div 
-            className="text-2xl font-display font-black tracking-tighter text-text-primary leading-none"
-            whileHover={{ scale: 1.05, filter: 'brightness(1.2)' }}
-          >
-            {format(time, 'HH:mm:ss')}
-          </motion.div>
-          <div className="label-mono text-[9px] opacity-50 mt-1">
-            {format(time, 'EEEE, d MMMM', { locale: tr })}
+      <div className="flex items-center gap-2 lg:gap-4">
+        <EnvironmentalWidget />
+
+        <div className="flex items-center gap-2 lg:gap-2">
+          <div className="mr-1 hidden sm:block">
+            <Switch 
+              checked={settings['theme.mode']?.value === 'dark' || (settings['theme.mode']?.value === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)}
+              onChange={(checked) => updateSetting('theme.mode', checked ? 'dark' : 'light')}
+            />
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 lg:gap-3">
-          <button 
-            onClick={() => setActiveModule('calendar')}
-            className="w-9 h-9 lg:w-11 lg:h-11 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-nrg-sun/10 text-text-secondary hover:text-nrg-sun transition-all duration-500 border border-skel-metal/5 hover:border-nrg-sun/20"
-            title="Takvim"
-          >
-            <Calendar size={16} className="lg:w-[18px] lg:h-[18px]" />
-          </button>
-
-          <button 
-            onClick={() => setActiveModule('notifications')}
-            className="w-9 h-9 lg:w-11 lg:h-11 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-focus-neon/10 text-text-secondary hover:text-focus-neon transition-all duration-500 border border-skel-metal/5 hover:border-focus-neon/20 relative group/btn"
-            title="Bildirimler"
-          >
-            <Bell size={16} className="lg:w-[18px] lg:h-[18px]" />
-            <span className="absolute top-2.5 right-2.5 lg:top-3 lg:right-3 w-1.5 h-1.5 lg:w-2 lg:h-2 bg-focus-neon rounded-full shadow-[0_0_10px_rgba(112,161,255,0.8)] animate-pulse" />
-          </button>
           
-          <button 
-            onClick={() => updateSettings({ navigation_mode: settings.navigation_mode === 'sidebar' ? 'dock' : 'sidebar' })}
-            className="w-9 h-9 lg:w-11 lg:h-11 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-focus-neon/10 text-text-secondary hover:text-focus-neon transition-all duration-500 border border-skel-metal/5 hover:border-focus-neon/20"
-            title="Navigasyon Modunu Değiştir"
-          >
-            {settings.navigation_mode === 'sidebar' ? (
-              <PanelBottom size={16} className="lg:w-[18px] lg:h-[18px]" />
-            ) : (
-              <SidebarIcon size={16} className="lg:w-[18px] lg:h-[18px]" />
-            )}
-          </button>
+          <div className="flex items-center gap-1.5 pl-1">
+            {/* Notification Button with Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button 
+                  className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-skel-matte/10 text-text-secondary hover:text-focus-neon transition-all duration-500 hover:scale-110 active:scale-90 border border-skel-metal/10 relative group/btn"
+                  title="Bildirimler"
+                >
+                  <Bell size={16} className="lg:w-4 lg:h-4" />
+                  {unreadCount > 0 && (
+                    <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-focus-neon rounded-full border-2 border-skel-space shadow-[0_0_10px_rgba(37,99,235,0.8)]" />
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[380px] sm:w-[520px] p-0 border-none bg-transparent shadow-none" align="end" sideOffset={12}>
+                <NotificationsMenu />
+              </PopoverContent>
+            </Popover>
 
-          <button 
-            onClick={() => setActiveModule('settings-page')}
-            className="w-9 h-9 lg:w-11 lg:h-11 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-ai-bright/10 text-text-secondary hover:text-ai-bright transition-all duration-500 border border-skel-metal/5 hover:border-ai-bright/20"
-            title="Ayarlar"
-          >
-            <Settings size={16} className="lg:w-[18px] lg:h-[18px]" />
-          </button>
+            {/* Calendar Button with Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button 
+                  className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-skel-matte/10 text-text-secondary hover:text-focus-neon transition-all duration-500 hover:scale-110 active:scale-90 border border-skel-metal/10 group/btn"
+                  title="Takvim"
+                >
+                  <Calendar size={16} className="lg:w-4 lg:h-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[320px] p-0 border-none bg-transparent shadow-none" align="end" sideOffset={12}>
+                <CalendarMenu />
+              </PopoverContent>
+            </Popover>
 
-          <div className="hidden sm:block w-px h-6 lg:h-8 bg-skel-metal/10 mx-1 lg:mx-2" />
-
-          <div className="flex items-center gap-2 lg:gap-3 pl-1">
-            <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-gradient-to-br from-focus-neon to-ai-royal p-[1.5px] shadow-lg shadow-focus-neon/5">
-              <div className="w-full h-full rounded-[7px] lg:rounded-[9px] bg-skel-space flex items-center justify-center overflow-hidden">
-                <img 
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'User'}`} 
-                  alt="User" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-            <div className="hidden xl:block">
-              <div className="text-sm font-display font-black text-text-primary leading-none tracking-tight">
-                {user?.email?.split('@')[0] || 'Engin Nalbant'}
-              </div>
-              <div className="label-mono text-[8px] mt-1 opacity-50">
-                {user?.email || 'Apex Admin'}
-              </div>
-            </div>
+            <div className="w-[1px] h-5 bg-skel-metal/10 mx-1 lg:mx-1.5" />
             
             <button 
               onClick={signOut}
-              className="w-8 h-8 lg:w-10 lg:h-10 flex items-center justify-center rounded-lg lg:rounded-xl bg-crit-blood/10 hover:bg-crit-blood/20 text-crit-vivid transition-all duration-500 border border-crit-blood/20"
+              className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-crit-blood/5 hover:bg-crit-blood/15 text-crit-vivid transition-all duration-500 border border-crit-blood/10 hover:scale-110 active:scale-90"
               title="Çıkış Yap"
             >
-              <LogOut size={14} className="lg:w-4 lg:h-4" />
+              <LogOut size={16} className="lg:w-4 lg:h-4" />
             </button>
           </div>
         </div>

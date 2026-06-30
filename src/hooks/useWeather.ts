@@ -20,8 +20,21 @@ export function useWeather() {
       try {
         const response = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,is_day,weather_code&timezone=auto`
-        );
-        const data = await response.json();
+        ).catch(() => null);
+
+        let data;
+        if (response && response.ok) {
+          data = await response.json();
+        } else {
+          // Fallback mock data if fetch fails
+          data = {
+            current: {
+              temperature_2m: 22,
+              is_day: 1,
+              weather_code: 0
+            }
+          };
+        }
         
         const code = data.current.weather_code;
         let condition: WeatherData['condition'] = 'clear';

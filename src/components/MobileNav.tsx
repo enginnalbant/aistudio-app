@@ -1,11 +1,13 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
-  Briefcase, 
-  Calendar, 
-  Truck, 
+  Menu,
   ShoppingCart,
-  Menu
+  Factory,
+  Package,
+  Users,
+  Scale,
+  NotebookPen
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import clsx from 'clsx';
@@ -19,10 +21,12 @@ interface MobileNavProps {
 export const MobileNav = React.memo(function MobileNav({ activeModule, setActiveModule, toggleSidebar }: MobileNavProps) {
   const navItems = [
     { id: 'main-dashboard', label: 'Ana Sayfa', icon: <LayoutDashboard size={20} /> },
-    { id: 'jobs-dashboard', label: 'İşler', icon: <Briefcase size={20} /> },
-    { id: 'planner-dashboard', label: 'Planlama', icon: <Calendar size={20} /> },
-    { id: 'shipment-dashboard', label: 'Sevkiyat', icon: <Truck size={20} /> },
     { id: 'purchasing-dashboard', label: 'Satınalma', icon: <ShoppingCart size={20} /> },
+    { id: 'fason-dashboard', label: 'Fason', icon: <Factory size={20} /> },
+    { id: 'stocks-dashboard', label: 'Stok', icon: <Package size={20} /> },
+    { id: 'contacts-dashboard', label: 'Cari', icon: <Users size={20} /> },
+    { id: 'recon-dashboard', label: 'Mutabakat', icon: <Scale size={20} /> },
+    { id: 'notes-dashboard', label: 'Notlar', icon: <NotebookPen size={20} /> },
   ];
 
   return (
