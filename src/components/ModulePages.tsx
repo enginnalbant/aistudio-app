@@ -46,9 +46,3 @@ export const ReconContacts = () => <PageContainer title="Cari Mutabakat" subtitl
 export const ReconReports = () => <PageContainer title="Mutabakat Raporlar" subtitle="Onaylanan ve bekleyen mutabakatlar" />;
 export const ReconAnalytics = () => <PageContainer title="Mutabakat Analizler" subtitle="Süreç performans verileri" />;
 
-// NOTLAR
-export const NotesDashboard = () => <PageContainer title="Notlar - Dashboard" subtitle="Kişisel ve ortak çalışma alanı" />;
-export const NotesList = () => <PageContainer title="Notlarım" subtitle="Tüm kayıtlı notlar" />;
-export const NotesTodo = () => <PageContainer title="Todolist" subtitle="Yapılacaklar listesi ve görev takibi" />;
-export const NotesPlanner = () => <PageContainer title="Planlayıcı" subtitle="Günlük ve haftalık planlar" />;
-export const NotesDocs = () => <PageContainer title="Dokümanlar" subtitle="Sistem içi dökümantasyon deposu" />;

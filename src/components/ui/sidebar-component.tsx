@@ -278,75 +278,6 @@ function getSidebarContent(activeSection: string): SidebarContent {
         },
       ],
     },
-    notebook: {
-      title: "Notebook",
-      sections: [
-        {
-          title: "Yönetim",
-          items: [
-            { id: 'notebook-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'notebook-dashboard' },
-            { id: 'notebook-notes', icon: <BookText size={16} />, label: 'Notlarım', moduleId: 'notebook-notes' },
-            { id: 'notebook-todo', icon: <CheckSquare size={16} />, label: 'TODO', moduleId: 'notebook-todo' },
-            { id: 'notebook-reminders', icon: <Bell size={16} />, label: 'Hatırlatıcı/Bildirim', moduleId: 'notebook-reminders' },
-            { id: 'notebook-bookmarks', icon: <Bookmark size={16} />, label: 'Bookmarks', moduleId: 'notebook-bookmarks' },
-            { id: 'notebook-graph', icon: <Network size={16} />, label: 'Graph', moduleId: 'notebook-graph' },
-          ],
-        },
-      ],
-    },
-    library: {
-      title: "Kütüphane",
-      sections: [
-        {
-          title: "Yönetim",
-          items: [
-            { id: 'library-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'library-dashboard' },
-          ]
-        },
-        {
-          title: "E-Kitap",
-          items: [
-            { id: 'ebook-dashboard', icon: <BookOpen size={16} />, label: 'E-Kitap Dashboard', moduleId: 'ebook-dashboard' },
-            { id: 'ebooks', icon: <Library size={16} />, label: 'E-Kitaplar', moduleId: 'ebooks' },
-            { id: 'ebook-panel', icon: <Settings2 size={16} />, label: 'E-Kitap Paneli', moduleId: 'ebook-panel' },
-            { id: 'ebook-translate', icon: <Languages size={16} />, label: 'E-Kitap Translate', moduleId: 'ebook-translate' },
-          ]
-        },
-        {
-          title: "Manga",
-          items: [
-            { id: 'manga-dashboard', icon: <ImageIcon size={16} />, label: 'Manga Dashboard', moduleId: 'manga-dashboard' },
-            { id: 'mangas', icon: <Library size={16} />, label: 'Mangalar', moduleId: 'mangas' },
-            { id: 'manga-panel', icon: <Settings2 size={16} />, label: 'Manga Paneli', moduleId: 'manga-panel' },
-            { id: 'manga-translate', icon: <Languages size={16} />, label: 'Manga Translate', moduleId: 'manga-translate' },
-          ]
-        }
-      ]
-    },
-    media: {
-      title: "Medya",
-      sections: [
-        {
-          title: "Yönetim",
-          items: [
-            { id: 'media-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'media-dashboard' },
-            { id: 'media-rss', icon: <Rss size={16} />, label: 'Rss Reader', moduleId: 'media-rss' },
-          ]
-        }
-      ]
-    },
-    planning: {
-      title: "Planlama",
-      sections: [
-        {
-          title: "Yönetim",
-          items: [
-            { id: 'planning-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'planning-dashboard' },
-            { id: 'planning-scheduler', icon: <CalendarDays size={16} />, label: 'Planlayıcı', moduleId: 'planning-scheduler' },
-          ]
-        }
-      ]
-    }
   };
 
   return contentMap[activeSection] || contentMap.dashboard;
@@ -401,10 +332,6 @@ function IconNavigation({
 }) {
   const navItems = [
     { id: "finance", icon: <Wallet size={18} />, label: "Kişisel Finans", moduleId: 'finance-dashboard' },
-    { id: "notebook", icon: <BookText size={18} />, label: "Notebook", moduleId: 'notebook-dashboard' },
-    { id: "library", icon: <Library size={18} />, label: "Kütüphane", moduleId: 'library-dashboard' },
-    { id: "media", icon: <PlaySquare size={18} />, label: "Medya", moduleId: 'media-dashboard' },
-    { id: "planning", icon: <CalendarDays size={18} />, label: "Planlama", moduleId: 'planning-dashboard' },
   ];
 
   const handleSectionClick = (item: any) => {
@@ -716,8 +643,6 @@ export function TwoLevelSidebar({ setActiveModule, isOpen, activeModule, setSide
       setActiveSection('contacts');
     } else if (activeModule.startsWith('recon-')) {
       setActiveSection('recon');
-    } else if (activeModule.startsWith('notes-')) {
-      setActiveSection('notes');
     }
   }, [activeModule]);
 

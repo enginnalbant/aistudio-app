@@ -1,0 +1,125 @@
+{
+  "auth": {
+    "enabled": true,
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "collections": [
+      {
+        "name": "users",
+        "description": "User profile and scoped data",
+        "documentId": "uid",
+        "fields": [
+          { "name": "email", "type": "string" },
+          { "name": "createdAt", "type": "timestamp" }
+        ],
+        "rules": [
+          { "allow": "read, write", "condition": "request.auth.uid == uid" }
+        ],
+        "subcollections": [
+          {
+            "name": "incomes",
+            "description": "User income records",
+            "documentId": "auto",
+            "fields": [
+              { "name": "title", "type": "string" },
+              { "name": "amount", "type": "number" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "expenses",
+            "description": "User expense records",
+            "documentId": "auto",
+            "fields": [
+              { "name": "title", "type": "string" },
+              { "name": "amount", "type": "number" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "investments",
+            "description": "User investment records",
+            "documentId": "auto",
+            "fields": [
+              { "name": "name", "type": "string" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "debts",
+            "description": "User debts",
+            "documentId": "auto",
+            "fields": [
+              { "name": "title", "type": "string" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "subscriptions",
+            "description": "User subscriptions",
+            "documentId": "auto",
+            "fields": [
+              { "name": "title", "type": "string" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "savings",
+            "description": "User savings goals",
+            "documentId": "auto",
+            "fields": [
+              { "name": "title", "type": "string" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "reports",
+            "description": "User generated reports",
+            "documentId": "auto",
+            "fields": [
+              { "name": "title", "type": "string" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "purchases",
+            "description": "User purchase planning",
+            "documentId": "auto",
+            "fields": [
+              { "name": "title", "type": "string" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "stock_items",
+            "description": "User stock/inventory items",
+            "documentId": "auto",
+            "fields": [
+              { "name": "name", "type": "string" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

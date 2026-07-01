@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { auth, googleProvider } from '../lib/firebase';
+import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, User } from 'firebase/auth';
 
 interface AuthContextType {
-  user: any | null;
+  user: User | null;
   session: any | null;
   loading: boolean;
   signOut: () => Promise<void>;
@@ -24,44 +26,58 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-const MOCK_USER = {
-  id: '00000000-0000-0000-0000-000000000001',
-  email: 'admin@nexus.com',
-  user_metadata: { full_name: 'Admin User' },
-  app_metadata: {},
-  aud: 'authenticated',
-  created_at: new Date().toISOString(),
-};
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(MOCK_USER);
-  const [session, setSession] = useState<any | null>({ user: MOCK_USER, access_token: 'mock-token' });
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setSession(currentUser ? { user: currentUser } : null);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const signOut = async () => {
-    setUser(null);
-    setSession(null);
+    try {
+      await firebaseSignOut(auth);
+    } catch (error) {
+      console.error("Error signing out", error);
+    }
   };
 
   const signIn = async (email: string, password: string) => {
-    setUser(MOCK_USER);
-    setSession({ user: MOCK_USER, access_token: 'mock-token' });
-    return { data: { user: MOCK_USER }, error: null };
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      return { data: { user: userCredential.user }, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
   };
 
   const signUp = async (email: string, password: string, metadata?: any) => {
-    return { data: { user: MOCK_USER }, error: null };
+    try {
+       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+       return { data: { user: userCredential.user }, error: null };
+    } catch (error) {
+       return { data: null, error };
+    }
   };
 
   const signInWithGoogle = async () => {
-    setUser(MOCK_USER);
-    setSession({ user: MOCK_USER, access_token: 'mock-token' });
-    return { data: { user: MOCK_USER }, error: null };
+    try {
+      const userCredential = await signInWithPopup(auth, googleProvider);
+      return { data: { user: userCredential.user }, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
   };
 
   const signInAsGuest = () => {
-    setUser(MOCK_USER);
-    setSession({ user: MOCK_USER, access_token: 'mock-token' });
+    // Optionally implement anonymous login using signInAnonymously(auth)
   };
 
   return (

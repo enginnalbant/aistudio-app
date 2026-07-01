@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 import { 
   Search, 
   X, 
@@ -50,19 +51,13 @@ interface SearchBarProps {
 export function SearchBar({ onNavigate }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
-  const [recentSearches, setRecentSearches] = useState<SearchItem[]>([]);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [recentSearches, setRecentSearches] = useLocalStorage<SearchItem[]>('apex_recent_searches', []);
+  const [favorites, setFavorites] = useLocalStorage<string[]>('apex_favorites', []);
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Load from localStorage
-  useEffect(() => {
-    const savedRecent = localStorage.getItem('apex_recent_searches');
-    const savedFavs = localStorage.getItem('apex_favorites');
-    if (savedRecent) setRecentSearches(JSON.parse(savedRecent));
-    if (savedFavs) setFavorites(JSON.parse(savedFavs));
-  }, []);
+
 
   const results = useMemo(() => {
     if (!query) return [];
@@ -100,7 +95,6 @@ export function SearchBar({ onNavigate }: SearchBarProps) {
   const addToRecent = (item: SearchItem) => {
     const newRecent = [item, ...recentSearches.filter(i => i.id !== item.id)].slice(0, 5);
     setRecentSearches(newRecent);
-    localStorage.setItem('apex_recent_searches', JSON.stringify(newRecent));
   };
 
   const toggleFavorite = (e: React.MouseEvent, id: string) => {
@@ -109,7 +103,6 @@ export function SearchBar({ onNavigate }: SearchBarProps) {
       ? favorites.filter(f => f !== id) 
       : [...favorites, id];
     setFavorites(newFavs);
-    localStorage.setItem('apex_favorites', JSON.stringify(newFavs));
   };
 
   const handleSelect = (item: SearchItem) => {
@@ -121,7 +114,6 @@ export function SearchBar({ onNavigate }: SearchBarProps) {
     } else if (item.category === 'Komut') {
       if (item.id === 'cmd-clear') {
         setRecentSearches([]);
-        localStorage.removeItem('apex_recent_searches');
       }
       // Diğer komutlar için mantık eklenebilir
     }

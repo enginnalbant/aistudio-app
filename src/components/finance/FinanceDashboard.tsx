@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { runFinanceHealthEngine, UserProfile } from '../../lib/financeHealthEngine';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
@@ -121,17 +122,26 @@ interface FinanceReport {
 
 export const FinanceDashboard = () => {
   // Pull data from local storages
-  const [incomes] = useLocalStorage<Income[]>('finance_incomes', []);
-  const [expenses] = useLocalStorage<Expense[]>('finance_expenses', []);
-  const [investments] = useLocalStorage<Investment[]>('finance_investments', []);
-  const [debts] = useLocalStorage<Debt[]>('finance_debts', []);
-  const [subscriptions] = useLocalStorage<Subscription[]>('finance_subscriptions', []);
-  const [savings] = useLocalStorage<SavingGoal[]>('finance_savings', []);
-  const [reports] = useLocalStorage<FinanceReport[]>('finance_reports', []);
+  const [incomes, setIncomes] = useLocalStorage<Income[]>('finance_incomes', []);
+  const [expenses, setExpenses] = useLocalStorage<Expense[]>('finance_expenses', []);
+  const [investments, setInvestments] = useLocalStorage<Investment[]>('finance_investments', []);
+  const [debts, setDebts] = useLocalStorage<Debt[]>('finance_debts', []);
+  const [subscriptions, setSubscriptions] = useLocalStorage<Subscription[]>('finance_subscriptions', []);
+  const [savings, setSavings] = useLocalStorage<SavingGoal[]>('finance_savings', []);
+  const [reports, setReports] = useLocalStorage<FinanceReport[]>('finance_reports', []);
+
+  // User Profile state for dynamic weighting
+  const [userProfile, setUserProfile] = useLocalStorage<UserProfile>('finance_user_profile', {
+    yas: 28,
+    yasam_evresi: 'bekar_calisan',
+    hane_buyuklugu: 1,
+    sehir_yasam_maliyeti_endeksi: 'orta'
+  });
 
   // UI States
   const [activeQuickAction, setActiveQuickAction] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [showHealthScoreDetails, setShowHealthScoreDetails] = useState(false);
 
   // Interactive Stress-Test Simulator state
   const [simJobLoss, setSimJobLoss] = useState(false);
@@ -148,6 +158,40 @@ export const FinanceDashboard = () => {
   };
 
   // Onboarding Data Injector
+  useEffect(() => {
+    const isReset = localStorage.getItem('is_reset_v2');
+    if (!isReset) {
+      const keys = [
+        'finance_investments', 
+        'finance_savings', 
+        'finance_expenses', 
+        'finance_incomes', 
+        'finance_debts', 
+        'finance_subscriptions', 
+        'finance_reports', 
+        'finance_purchases'
+      ];
+      keys.forEach(key => window.localStorage.removeItem(key));
+      localStorage.setItem('is_reset_v2', 'true');
+      window.location.reload();
+    }
+  }, []);
+
+  const handleResetFinanceData = () => {
+    if (confirm("Tüm finans verilerini sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz.")) {
+      setIncomes([]);
+      setExpenses([]);
+      setInvestments([]);
+      setDebts([]);
+      setSubscriptions([]);
+      setSavings([]);
+      setReports([]);
+      window.localStorage.removeItem('finance_purchases');
+
+      triggerToast('Finans verileri başarıyla sıfırlandı.');
+    }
+  };
+
   const handleLoadDemoData = () => {
     const demoIncomes = [
       { id: 'inc-1', title: 'Aylık Maaş Ödemesi', amount: 38000, category: 'Maaş', date: '2026-06-30', status: 'Tamamlandı' },
@@ -187,17 +231,14 @@ export const FinanceDashboard = () => {
       { id: 'sav-2', title: 'Yeni Araba Peşinatı', targetAmount: 200000, currentAmount: 85000, deadline: '2027-06-30', category: 'Araç', status: 'Devam Ediyor' }
     ];
 
-    window.localStorage.setItem('finance_incomes', JSON.stringify(demoIncomes));
-    window.localStorage.setItem('finance_expenses', JSON.stringify(demoExpenses));
-    window.localStorage.setItem('finance_investments', JSON.stringify(demoInvestments));
-    window.localStorage.setItem('finance_debts', JSON.stringify(demoDebts));
-    window.localStorage.setItem('finance_subscriptions', JSON.stringify(demoSubscriptions));
-    window.localStorage.setItem('finance_savings', JSON.stringify(demoSavings));
+    setIncomes(demoIncomes as any[]);
+    setExpenses(demoExpenses as any[]);
+    setInvestments(demoInvestments as any[]);
+    setDebts(demoDebts as any[]);
+    setSubscriptions(demoSubscriptions as any[]);
+    setSavings(demoSavings as any[]);
 
     triggerToast('Örnek bütçe veritabanı başarıyla yüklendi!');
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
   };
 
   // --- MATHEMATICAL COMPILATIONS ---
@@ -211,31 +252,31 @@ export const FinanceDashboard = () => {
   const monthlyIncome = useMemo(() => {
     const compl = incomes.filter(i => i.status === 'Tamamlandı');
     if (compl.length > 0) return compl.reduce((sum, i) => sum + Number(i.amount || 0), 0);
-    return isDatabaseEmpty ? 52000 : 0;
-  }, [incomes, isDatabaseEmpty]);
+    return 0;
+  }, [incomes]);
 
   const monthlyExpense = useMemo(() => {
     const compl = expenses.filter(e => e.status === 'Gerçekleşti');
     if (compl.length > 0) return compl.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-    return isDatabaseEmpty ? 31500 : 0;
-  }, [expenses, isDatabaseEmpty]);
+    return 0;
+  }, [expenses]);
 
   const totalInvestments = useMemo(() => {
     const active = investments.filter(i => i.status === 'Aktif');
     if (active.length > 0) return active.reduce((sum, i) => sum + Number(i.currentAmount || i.initialAmount || 0), 0);
-    return isDatabaseEmpty ? 102100 : 0;
-  }, [investments, isDatabaseEmpty]);
+    return 0;
+  }, [investments]);
 
   const totalSavings = useMemo(() => {
     if (savings.length > 0) return savings.reduce((sum, s) => sum + Number(s.currentAmount || 0), 0);
-    return isDatabaseEmpty ? 125000 : 0;
-  }, [savings, isDatabaseEmpty]);
+    return 0;
+  }, [savings]);
 
   const totalDebts = useMemo(() => {
     const active = debts.filter(d => d.status === 'Devam Ediyor');
     if (active.length > 0) return active.reduce((sum, d) => sum + Number(d.remainingAmount || d.totalAmount || 0), 0);
-    return isDatabaseEmpty ? 45000 : 0;
-  }, [debts, isDatabaseEmpty]);
+    return 0;
+  }, [debts]);
 
   const netWorth = useMemo(() => {
     return totalInvestments + totalSavings - totalDebts;
@@ -248,46 +289,177 @@ export const FinanceDashboard = () => {
     return 0;
   }, [monthlyIncome, monthlyExpense]);
 
-  // Interactive financial health score dynamic engine
-  const healthScore = useMemo(() => {
-    let score = 50;
-    
-    // 1. Savings rate evaluation (+30 max)
-    if (savingsRate >= 35) score += 30;
-    else if (savingsRate >= 20) score += 20;
-    else if (savingsRate >= 10) score += 10;
-    else if (savingsRate < 0) score -= 15;
-
-    // 2. Debt-to-Income evaluation (+20 max)
-    if (monthlyIncome > 0) {
-      const debtRatio = totalDebts / monthlyIncome;
-      if (debtRatio === 0) score += 20;
-      else if (debtRatio < 1) score += 15;
-      else if (debtRatio < 3) score += 10;
-      else score -= 10;
+  // --- DYNAMIC INPUTS FOR FINANCAL HEALTH ENGINE V3 ---
+  const dynamicGelirGecmisi = useMemo(() => {
+    const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    const currentMonthIndex = new Date().getMonth();
+    const history = [];
+    const baseline = monthlyIncome > 0 ? monthlyIncome : 38000;
+    const safeIncomes = Array.isArray(incomes) ? incomes : [];
+    for (let i = 5; i >= 0; i--) {
+      const idx = (currentMonthIndex - i + 12) % 12;
+      const yearMonth = `2026-${String(idx + 1).padStart(2, '0')}`;
+      const actualMonthIncomes = safeIncomes.filter(inc => inc && inc.date && inc.date.startsWith(yearMonth) && inc.status === 'Tamamlandı');
+      const tutar = actualMonthIncomes.length > 0
+        ? actualMonthIncomes.reduce((sum, x) => sum + Number(x.amount || 0), 0)
+        : baseline - (i * 1000);
+      history.push({ ay: yearMonth, tutar });
     }
+    return history;
+  }, [incomes, monthlyIncome]);
 
-    // 3. Asset backup evaluation (+30 max)
-    const liquidAssets = totalInvestments + totalSavings;
-    if (monthlyExpense > 0) {
-      const coverMonths = liquidAssets / monthlyExpense;
-      if (coverMonths >= 6) score += 30;
-      else if (coverMonths >= 3) score += 20;
-      else if (coverMonths >= 1) score += 10;
-    } else {
-      score += 15;
+  const dynamicGiderGecmisi = useMemo(() => {
+    const currentMonthIndex = new Date().getMonth();
+    const history = [];
+    const baseline = monthlyExpense > 0 ? monthlyExpense : 22000;
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
+    for (let i = 5; i >= 0; i--) {
+      const idx = (currentMonthIndex - i + 12) % 12;
+      const yearMonth = `2026-${String(idx + 1).padStart(2, '0')}`;
+      const actualMonthExpenses = safeExpenses.filter(exp => exp && exp.date && exp.date.startsWith(yearMonth) && exp.status === 'Gerçekleşti');
+      const total = actualMonthExpenses.length > 0
+        ? actualMonthExpenses.reduce((sum, x) => sum + Number(x.amount || 0), 0)
+        : baseline - (i * 500);
+      history.push({
+        ay: yearMonth,
+        sabit: Math.round(total * 0.6),
+        degisken: Math.round(total * 0.4)
+      });
     }
+    return history;
+  }, [expenses, monthlyExpense]);
 
-    // 4. Subscriptions optimization (+20 max)
-    const activeSubs = subscriptions.filter(s => s.status === 'Aktif');
-    const subCost = activeSubs.reduce((sum, s) => sum + Number(s.amount || 0), 0);
-    if (subCost === 0) score += 20;
-    else if (subCost < 500) score += 15;
-    else if (subCost < 1500) score += 10;
-    else score -= 5;
+  const dynamicDigerGelirler = useMemo(() => {
+    const safeIncomes = Array.isArray(incomes) ? incomes : [];
+    const otherIncomes = safeIncomes.filter(i => i && i.status === 'Tamamlandı' && i.category !== 'Maaş');
+    return otherIncomes.map(i => ({
+      kaynak: i.title || 'Diğer',
+      tutar: Number(i.amount || 0),
+      duzenlilik: 'sabit' as const
+    }));
+  }, [incomes]);
 
-    return Math.min(100, Math.max(0, score));
-  }, [savingsRate, monthlyIncome, totalDebts, totalInvestments, totalSavings, monthlyExpense, subscriptions]);
+  const dynamicAylikSabitGiderler = useMemo(() => {
+    const sabitCats = ['Barınma', 'Fatura', 'Sağlık', 'Ulaşım'];
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
+    const active = safeExpenses.filter(e => e && e.status === 'Gerçekleşti');
+    if (active.length === 0) return Math.round(monthlyExpense * 0.6) || 12000;
+    const val = active.filter(e => e && sabitCats.includes(e.category)).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    return val || Math.round(monthlyExpense * 0.6);
+  }, [expenses, monthlyExpense]);
+
+  const dynamicAylikDegiskenGiderler = useMemo(() => {
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
+    const active = safeExpenses.filter(e => e && e.status === 'Gerçekleşti');
+    if (active.length === 0) return Math.round(monthlyExpense * 0.4) || 8000;
+    const val = active.filter(e => e && !['Barınma', 'Fatura', 'Sağlık', 'Ulaşım'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    return val || Math.round(monthlyExpense * 0.4);
+  }, [expenses, monthlyExpense]);
+
+  const dynamicAbonelikler = useMemo(() => {
+    const safeSubscriptions = Array.isArray(subscriptions) ? subscriptions : [];
+    return safeSubscriptions.map(s => ({
+      ad: s.title || 'Abonelik',
+      tutar: Number(s.amount || 0),
+      periyot: s.billingCycle === 'Yıllık' ? 'yillik' as const : 'aylik' as const,
+      son_30gun_kullanim: (s.status === 'Aktif' ? 'aktif' : 'kullanilmiyor') as 'aktif' | 'dusuk' | 'kullanilmiyor'
+    }));
+  }, [subscriptions]);
+
+  const dynamicBorclar = useMemo(() => {
+    const safeDebts = Array.isArray(debts) ? debts : [];
+    return safeDebts.map(d => {
+      let tur: 'kredi_karti' | 'ihtiyac_kredisi' | 'konut_kredisi' | 'tasit_kredisi' | 'diger' = 'diger';
+      const cat = (d.category || '').toLowerCase();
+      if (cat.includes('kart')) tur = 'kredi_karti';
+      else if (cat.includes('ihtiyaç')) tur = 'ihtiyac_kredisi';
+      else if (cat.includes('konut') || cat.includes('ev')) tur = 'konut_kredisi';
+      else if (cat.includes('araç') || cat.includes('taşıt')) tur = 'tasit_kredisi';
+
+      return {
+        ad: d.title || 'Borç',
+        tur,
+        toplam_bakiye: Number(d.remainingAmount || d.totalAmount || 0),
+        aylik_taksit: Number(d.paymentAmount || 0),
+        faiz_orani: 4.5,
+        kalan_vade_ay: d.paymentAmount > 0 ? Math.ceil(Number(d.remainingAmount || 0) / Number(d.paymentAmount)) : 12
+      };
+    });
+  }, [debts]);
+
+  const dynamicYatirimlarVeBirikimler = useMemo(() => {
+    const list: any[] = [];
+    const safeInvestments = Array.isArray(investments) ? investments : [];
+    const safeSavings = Array.isArray(savings) ? savings : [];
+    safeInvestments.forEach(inv => {
+      if (inv) {
+        list.push({
+          ad: inv.title || 'Yatırım',
+          tutar: Number(inv.currentAmount || inv.initialAmount || 0),
+          likidite: (inv.type === 'Altın' || inv.type === 'Döviz' ? 'yuksek' : 'orta') as 'yuksek' | 'orta' | 'dusuk',
+          getiri_orani_yillik: 55
+        });
+      }
+    });
+    safeSavings.forEach(sav => {
+      if (sav) {
+        list.push({
+          ad: `Birikim: ${sav.title || 'Hedef'}`,
+          tutar: Number(sav.currentAmount || 0),
+          likidite: 'yuksek' as const,
+          getiri_orani_yillik: 42
+        });
+      }
+    });
+    return list;
+  }, [investments, savings]);
+
+  const dynamicPlanlananSatinalmalar = useMemo(() => {
+    try {
+      const purchases = JSON.parse(localStorage.getItem('finance_purchases') || '[]');
+      if (!Array.isArray(purchases)) return [];
+      return purchases.map((p: any) => ({
+        ad: p.title || 'Planlanan Ürün',
+        tutar: Number(p.price || p.amount || 0),
+        aciliyet: 'istege_bagli' as const,
+        tarih: '2026-07'
+      }));
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Interactive financial health score dynamic engine v3
+  const healthScoreDetails = useMemo(() => {
+    const input = {
+      profil: userProfile,
+      gelir_gecmisi: dynamicGelirGecmisi,
+      gider_gecmisi: dynamicGiderGecmisi,
+      aylik_net_gelir: monthlyIncome,
+      diger_gelirler: dynamicDigerGelirler,
+      aylik_sabit_giderler: dynamicAylikSabitGiderler,
+      aylik_degisken_giderler: dynamicAylikDegiskenGiderler,
+      abonelikler: dynamicAbonelikler,
+      borclar: dynamicBorclar,
+      yatirimlar_ve_birikimler: dynamicYatirimlarVeBirikimler,
+      planlanan_satinalmalar: dynamicPlanlananSatinalmalar,
+    };
+    return runFinanceHealthEngine(input);
+  }, [
+    userProfile,
+    dynamicGelirGecmisi,
+    dynamicGiderGecmisi,
+    monthlyIncome,
+    dynamicDigerGelirler,
+    dynamicAylikSabitGiderler,
+    dynamicAylikDegiskenGiderler,
+    dynamicAbonelikler,
+    dynamicBorclar,
+    dynamicYatirimlarVeBirikimler,
+    dynamicPlanlananSatinalmalar,
+  ]);
+
+  const healthScore = healthScoreDetails.nihai_skor;
 
   // --- INTERACTIVE SIMULATOR MATH (Finansal Stres Testi) ---
   const simulatorResult = useMemo(() => {
@@ -298,8 +470,8 @@ export const FinanceDashboard = () => {
     const debtCostMonthly = activeDebtsList.reduce((sum, d) => sum + calculateMonthly(Number(d.paymentAmount || 0), d.paymentFrequency), 0);
 
     // Adjusted Outflow
-    const baseOutflow = monthlyExpense > 0 ? monthlyExpense : (isDatabaseEmpty ? 31500 : 15000);
-    const adjustedOutflow = baseOutflow + (isDatabaseEmpty && subscriptions.length === 0 ? 358 : subCostMonthly) + (isDatabaseEmpty && debts.length === 0 ? 5000 : debtCostMonthly);
+    const baseOutflow = monthlyExpense > 0 ? monthlyExpense : 0;
+    const adjustedOutflow = baseOutflow + subCostMonthly + debtCostMonthly;
     
     // Adjusted Inflow
     const adjustedInflow = simJobLoss ? 0 : monthlyIncome;
@@ -322,7 +494,7 @@ export const FinanceDashboard = () => {
       availableReserves,
       adjustedOutflow
     };
-  }, [monthlyIncome, monthlyExpense, subscriptions, debts, simJobLoss, simEmergencyExpense, totalInvestments, totalSavings, isDatabaseEmpty]);
+  }, [monthlyIncome, monthlyExpense, subscriptions, debts, simJobLoss, simEmergencyExpense, totalInvestments, totalSavings]);
 
   // --- CHARTS & TREND DATA ---
   const chartData = useMemo(() => {
@@ -422,7 +594,7 @@ export const FinanceDashboard = () => {
     }
 
     const emergencyGoal = savings.find(s => (s.title || '').toLowerCase().includes('acil') || (s.category || '').toLowerCase().includes('acil'));
-    const savedForEmergency = emergencyGoal ? Number(emergencyGoal.currentAmount || 0) : (isDatabaseEmpty ? 40000 : 0);
+    const savedForEmergency = emergencyGoal ? Number(emergencyGoal.currentAmount || 0) : 0;
     if (savedForEmergency < (monthlyExpense * 3)) {
       alertsList.push({
         id: 'alt-3',
@@ -481,11 +653,7 @@ export const FinanceDashboard = () => {
     });
 
     if (list.length === 0) {
-      return [
-        { id: 'up-f1', title: 'Netflix Premium Üyeliği', amount: 200, date: '2026-07-05', type: 'subscription' },
-        { id: 'up-f2', title: 'Banka İhtiyaç Kredisi Taksiti', amount: 3500, date: '2026-07-15', type: 'debt' },
-        { id: 'up-f3', title: 'Spotify Premium Aile Paketi', amount: 60, date: '2026-07-18', type: 'subscription' }
-      ];
+      return [];
     }
 
     return list.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4);
@@ -518,13 +686,7 @@ export const FinanceDashboard = () => {
     });
 
     if (combined.length === 0) {
-      return [
-        { id: 'tx-f1', title: 'Aylık Maaş Ödemesi', category: 'Maaş', date: '2026-06-30', amount: 38000, type: 'income' },
-        { id: 'tx-f2', title: 'Aylık Ev Kirası', category: 'Barınma', date: '2026-06-01', amount: -12000, type: 'expense' },
-        { id: 'tx-f3', title: 'Aylık Market Alışverişi', category: 'Gıda', date: '2026-06-15', amount: -7500, type: 'expense' },
-        { id: 'tx-f4', title: 'Serbest Çalışma Proje Geliri', category: 'Serbest Çalışma', date: '2026-06-24', amount: 10000, type: 'income' },
-        { id: 'tx-f5', title: 'Fatura Doğalgaz & Elektrik', category: 'Fatura', date: '2026-06-10', amount: -4200, type: 'expense' }
-      ];
+      return [];
     }
 
     return combined.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
@@ -575,15 +737,23 @@ export const FinanceDashboard = () => {
               Bütçe Modülünü Keşfedin!
             </h3>
             <p className="text-xs text-text-secondary leading-relaxed">
-              Kişisel finans bütçe veritabanınız şu anda boş görünüyor. Dashboard\'u tüm dinamik grafikleri, akıllı stres testlerini ve finansal sağlık skorlarını deneyimlemek için örnek simülasyon verileriyle hemen doldurabilirsiniz.
+              Kişisel finans bütçe veritabanınız şu anda boş görünüyor. Dashboard'u tüm dinamik grafikleri, akıllı stres testlerini ve finansal sağlık skorlarını deneyimlemek için örnek simülasyon verileriyle hemen doldurabilirsiniz.
             </p>
           </div>
-          <button
-            onClick={handleLoadDemoData}
-            className="shrink-0 bg-white hover:bg-neutral-100 text-black px-4.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg"
-          >
-            <Coins size={14} /> Örnek Bütçe Verisi Yükle
-          </button>
+          <div className="flex flex-wrap sm:flex-nowrap gap-3 shrink-0 w-full md:w-auto">
+            <button
+              onClick={handleLoadDemoData}
+              className="flex-1 sm:flex-none bg-white hover:bg-neutral-100 text-black px-4.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg"
+            >
+              <Coins size={14} /> Örnek Bütçe Verisi Yükle
+            </button>
+            <button
+              onClick={handleResetFinanceData}
+              className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-4.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg"
+            >
+              <RefreshCw size={14} /> Finans Verilerini Sıfırla
+            </button>
+          </div>
         </motion.div>
       )}
 
@@ -594,17 +764,303 @@ export const FinanceDashboard = () => {
             Finansal Durum Paneli
           </h1>
           <p className="text-xs md:text-sm text-text-secondary">
-            Gelir, gider, yatırım ve borç kalemlerinin akıllı yapay zeka entegrasyonu ve stres analizi.
+            Gelir, gider, yatırım ve borç kalemlerinin akıllı finansal dinamik analiz ve stres testi motoru.
           </p>
         </div>
-        <div className="flex items-center gap-3 bg-white/[0.02] border border-white/5 px-4.5 py-2.5 rounded-2xl">
+        <button
+          onClick={() => setShowHealthScoreDetails(!showHealthScoreDetails)}
+          className="flex items-center gap-3 bg-white/[0.02] border border-white/5 hover:border-white/15 px-4.5 py-2.5 rounded-2xl transition-all hover:scale-102 cursor-pointer active:scale-98"
+        >
           <Activity size={18} className="text-ai-bright animate-pulse" />
-          <div className="flex flex-col">
-            <span className="text-[9px] text-text-secondary font-bold uppercase tracking-wider">Yapay Zeka Sağlık Skoru</span>
+          <div className="flex flex-col text-left">
+            <span className="text-[9px] text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1">
+              Finansal Sağlık Skoru
+              <span className="text-[8px] bg-white/5 px-1 py-0.2 rounded font-mono text-focus-neon">DETAYLAR</span>
+            </span>
             <span className="text-base font-mono font-black text-white">{healthScore} / 100</span>
           </div>
-        </div>
+        </button>
       </div>
+
+      {/* Dynamic Health Score Breakdown Panel */}
+      <AnimatePresence>
+        {showHealthScoreDetails && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden bg-black/40 border border-white/10 rounded-3xl p-5 md:p-6 space-y-6"
+          >
+            {/* Top Header */}
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-white/5 pb-4 gap-3">
+              <div>
+                <h3 className="font-display font-black text-sm text-white uppercase tracking-wider flex items-center gap-2">
+                  <Sparkles size={16} className="text-focus-neon animate-pulse" />
+                  Gelişmiş Finansal Sağlık Motoru (v3 / Akıllı)
+                </h3>
+                <p className="text-[11px] text-text-secondary">
+                  Dinamik ağırlıklandırma, 18 alt metrik, veto katmanları ve nedensellik zinciri analiz motoru.
+                </p>
+              </div>
+              <span className="text-[10px] self-start sm:self-center font-mono text-focus-neon bg-focus-neon/10 px-3 py-1 rounded-full border border-focus-neon/20">
+                %100 Çevrimdışı / Yerel Motor
+              </span>
+            </div>
+
+            {/* Veto Layer Notification */}
+            {healthScoreDetails.veto_uygulandi && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-gradient-to-r from-red-950/40 to-red-900/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-3"
+              >
+                <AlertTriangle className="text-red-500 shrink-0 mt-0.5 animate-pulse" size={16} />
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-red-400 block uppercase tracking-wider">Kritik Veto Limit Katmanı Aktif</span>
+                  <p className="text-[11px] text-red-200/80 leading-relaxed">
+                    {healthScoreDetails.veto_nedeni} (Veto kuralları gereği, diğer metrikleriniz yüksek olsa dahi nihai skorunuz bu tavanla sınırlandırılmıştır).
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 1. Dynamic Weighting Profile Selector Panel */}
+            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4.5 space-y-4">
+              <div className="flex justify-between items-center border-b border-white/5 pb-2.5">
+                <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider flex items-center gap-1.5">
+                  <Sliders size={12} className="text-focus-neon" />
+                  Kişisel Yaşam Profili ve Dinamik Ağırlıklandırma
+                </span>
+                <span className="text-[10px] font-mono text-text-secondary">
+                  Yaşam evreniz değiştiğinde önem sırası otomatik değişir
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {/* Age selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-text-secondary font-bold block">YAŞ ({userProfile.yas})</label>
+                  <input
+                    type="range"
+                    min="18"
+                    max="80"
+                    value={userProfile.yas}
+                    onChange={(e) => setUserProfile({ ...userProfile, yas: Number(e.target.value) })}
+                    className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-focus-neon"
+                  />
+                </div>
+
+                {/* Life Stage selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-text-secondary font-bold block">YAŞAM EVRESİ</label>
+                  <select
+                    value={userProfile.yasam_evresi}
+                    onChange={(e) => setUserProfile({ ...userProfile, yasam_evresi: e.target.value as any })}
+                    className="w-full bg-neutral-900/80 border border-white/5 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-focus-neon"
+                  >
+                    <option value="ogrenci">Öğrenci</option>
+                    <option value="bekar_calisan">Bekar Çalışan</option>
+                    <option value="evli_cocuksuz">Evli Çocuksuz</option>
+                    <option value="evli_cocuklu">Evli Çocuklu</option>
+                    <option value="emekliligeYakin">Emekliliğe Yakın</option>
+                    <option value="emekli">Emekli</option>
+                  </select>
+                </div>
+
+                {/* Household Size */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-text-secondary font-bold block">HANE BÜYÜKLÜĞÜ ({userProfile.hane_buyuklugu} Kişi)</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="8"
+                    value={userProfile.hane_buyuklugu}
+                    onChange={(e) => setUserProfile({ ...userProfile, hane_buyuklugu: Number(e.target.value) })}
+                    className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-focus-neon"
+                  />
+                </div>
+
+                {/* City Index */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-text-secondary font-bold block">ŞEHİR MALİYET ENDEKSİ</label>
+                  <select
+                    value={userProfile.sehir_yasam_maliyeti_endeksi}
+                    onChange={(e) => setUserProfile({ ...userProfile, sehir_yasam_maliyeti_endeksi: e.target.value as any })}
+                    className="w-full bg-neutral-900/80 border border-white/5 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-focus-neon"
+                  >
+                    <option value="dusuk">Düşük</option>
+                    <option value="orta">Orta</option>
+                    <option value="yuksek">Yüksek</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Categories Normalized Status Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {healthScoreDetails.kategoriler.map((cat, idx) => (
+                <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-3 relative overflow-hidden">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[9px] text-text-secondary font-bold uppercase block tracking-wider">
+                      {idx + 1}. {cat.ad}
+                    </span>
+                    <span className="text-[8px] px-1.5 py-0.5 rounded font-mono text-focus-neon bg-focus-neon/5">
+                      Ağırlık: {cat.max}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-end">
+                    <span className="text-[10px] font-mono text-white/40">Başarı</span>
+                    <span className={`text-base font-mono font-black ${cat.yuzde >= 70 ? 'text-focus-neon' : cat.yuzde >= 40 ? 'text-nrg-sun' : 'text-crit-vivid'}`}>
+                      %{cat.yuzde}
+                    </span>
+                  </div>
+                  <div className="w-full bg-neutral-800/80 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${cat.yuzde >= 70 ? 'bg-focus-neon' : cat.yuzde >= 40 ? 'bg-nrg-sun' : 'bg-crit-vivid'}`}
+                      style={{ width: `${cat.yuzde}%` }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[8px] text-text-secondary font-bold block">EN ZAYIF METRİK</span>
+                    <span className="text-[9px] font-mono text-white/70 truncate">{cat.en_zayif_metrik}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 3. Stress Test & Causality Analytics Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Stress Test */}
+              <div className="lg:col-span-7 bg-white/[0.02] border border-white/5 rounded-2xl p-4.5 space-y-4">
+                <div className="flex justify-between items-center border-b border-white/5 pb-2.5">
+                  <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <Zap size={12} className="text-ai-bright animate-bounce" />
+                    Finansal Stres Testi & Dayanıklılık Simülasyonu
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] text-text-secondary">Dayanıklılık Endeksi</span>
+                    <span className={`text-xs font-mono font-black px-2 py-0.5 rounded bg-white/5 ${healthScoreDetails.dayaniklilik_testi.dayaniklilik_indeksi >= 70 ? 'text-focus-neon' : healthScoreDetails.dayaniklilik_testi.dayaniklilik_indeksi >= 40 ? 'text-nrg-sun' : 'text-crit-vivid'}`}>
+                      {healthScoreDetails.dayaniklilik_testi.dayaniklilik_indeksi} / 100
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Scenario A */}
+                  <div className="bg-black/20 border border-white/5 p-3 rounded-xl space-y-2">
+                    <span className="text-[8px] text-text-secondary font-black uppercase block tracking-wider">A) Gelir %20 Azalırsa</span>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[9px] text-text-secondary font-mono">Y. Tasarruf Oranı</span>
+                      <span className="text-[11px] font-mono font-bold text-white">
+                        %{Math.round(healthScoreDetails.dayaniklilik_testi.senaryo_gelir_sok.yeni_tasarruf_orani * 100)}
+                      </span>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full inline-block uppercase tracking-wider ${
+                      healthScoreDetails.dayaniklilik_testi.senaryo_gelir_sok.durum === 'guvenli' ? 'bg-focus-neon/10 text-focus-neon' :
+                      healthScoreDetails.dayaniklilik_testi.senaryo_gelir_sok.durum === 'riskli' ? 'bg-nrg-sun/10 text-nrg-sun' : 'bg-crit-vivid/10 text-crit-vivid'
+                    }`}>
+                      {healthScoreDetails.dayaniklilik_testi.senaryo_gelir_sok.durum === 'guvenli' ? 'Güvenli' :
+                       healthScoreDetails.dayaniklilik_testi.senaryo_gelir_sok.durum === 'riskli' ? 'Riskli' : 'Kritik'}
+                    </span>
+                  </div>
+
+                  {/* Scenario B */}
+                  <div className="bg-black/20 border border-white/5 p-3 rounded-xl space-y-2">
+                    <span className="text-[8px] text-text-secondary font-black uppercase block tracking-wider">B) Faiz Oranları Artarsa</span>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[9px] text-text-secondary font-mono">Tahmini DSR</span>
+                      <span className="text-[11px] font-mono font-bold text-white">
+                        %{Math.round(healthScoreDetails.dayaniklilik_testi.senaryo_faiz_artisi.yeni_dsr * 100)}
+                      </span>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full inline-block uppercase tracking-wider ${
+                      healthScoreDetails.dayaniklilik_testi.senaryo_faiz_artisi.durum === 'guvenli' ? 'bg-focus-neon/10 text-focus-neon' :
+                      healthScoreDetails.dayaniklilik_testi.senaryo_faiz_artisi.durum === 'riskli' ? 'bg-nrg-sun/10 text-nrg-sun' : 'bg-crit-vivid/10 text-crit-vivid'
+                    }`}>
+                      {healthScoreDetails.dayaniklilik_testi.senaryo_faiz_artisi.durum === 'guvenli' ? 'Güvenli' :
+                       healthScoreDetails.dayaniklilik_testi.senaryo_faiz_artisi.durum === 'riskli' ? 'Riskli' : 'Kritik'}
+                    </span>
+                  </div>
+
+                  {/* Scenario C */}
+                  <div className="bg-black/20 border border-white/5 p-3 rounded-xl space-y-2">
+                    <span className="text-[8px] text-text-secondary font-black uppercase block tracking-wider">C) Ani Gider (+1 Aylık)</span>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[9px] text-text-secondary font-mono">Kalan Koruma</span>
+                      <span className="text-[11px] font-mono font-bold text-white">
+                        {healthScoreDetails.dayaniklilik_testi.senaryo_beklenmedik_gider.kalan_runway_ay} Ay
+                      </span>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full inline-block uppercase tracking-wider ${
+                      healthScoreDetails.dayaniklilik_testi.senaryo_beklenmedik_gider.durum === 'guvenli' ? 'bg-focus-neon/10 text-focus-neon' :
+                      healthScoreDetails.dayaniklilik_testi.senaryo_beklenmedik_gider.durum === 'riskli' ? 'bg-nrg-sun/10 text-nrg-sun' : 'bg-crit-vivid/10 text-crit-vivid'
+                    }`}>
+                      {healthScoreDetails.dayaniklilik_testi.senaryo_beklenmedik_gider.durum === 'guvenli' ? 'Güvenli' :
+                       healthScoreDetails.dayaniklilik_testi.senaryo_beklenmedik_gider.durum === 'riskli' ? 'Riskli' : 'Kritik'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Causality Narrative & Trend */}
+              <div className="lg:col-span-5 bg-white/[0.02] border border-white/5 rounded-2xl p-4.5 flex flex-col justify-between gap-4">
+                <div className="space-y-2.5">
+                  <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <Activity size={12} className="text-ai-bright" />
+                    Nedensellik Ve Trend Analizi
+                  </span>
+                  <p className="text-xs text-text-secondary leading-relaxed bg-black/20 border border-white/5 p-3 rounded-xl">
+                    {healthScoreDetails.nedensellik_analizi}
+                  </p>
+                </div>
+
+                <div className="flex justify-between items-center bg-white/[0.01] border border-white/5 rounded-xl px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-text-secondary font-bold uppercase">BİRİKİM MOMENTUMU</span>
+                    <span className="text-[9px] font-mono text-white/50">Eğim: {healthScoreDetails.trend.egim_aylik}/Ay</span>
+                  </div>
+                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                    healthScoreDetails.trend.yorum === 'iyileşiyor' ? 'bg-focus-neon/15 text-focus-neon border border-focus-neon/20' :
+                    healthScoreDetails.trend.yorum === 'kötüleşiyor' ? 'bg-crit-vivid/15 text-crit-vivid border border-crit-vivid/20' : 'bg-neutral-800 text-text-secondary'
+                  }`}>
+                    {healthScoreDetails.trend.yorum === 'iyileşiyor' ? 'İyileşiyor' :
+                     healthScoreDetails.trend.yorum === 'kötüleşiyor' ? 'Kötüleşiyor' : 'Stabil'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Action recommendations */}
+            <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-4.5 space-y-3.5">
+              <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider block">
+                Öncelik Etki Matrisi Tabanlı Akıllı Aksiyon Planı
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {healthScoreDetails.oneriler_oncelik_sirali.map((one, idx) => (
+                  <div key={idx} className="bg-black/20 border border-white/5 p-3.5 rounded-xl space-y-1.5 hover:border-white/10 transition-colors">
+                    <div className="flex justify-between items-center">
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                        one.seviye.startsWith('KOLAY') ? 'bg-focus-neon/10 text-focus-neon' :
+                        one.seviye.startsWith('ORTA') ? 'bg-nrg-sun/10 text-nrg-sun' :
+                        one.seviye.startsWith('ZOR') ? 'bg-purple-500/10 text-purple-400' : 'bg-red-500/10 text-red-400 animate-pulse'
+                      }`}>
+                        {one.seviye}
+                      </span>
+                      {one.etki_puani && (
+                        <span className="text-[9px] font-mono text-focus-neon bg-focus-neon/5 px-2 py-0.5 rounded">
+                          Potansiyel: +{one.etki_puani} Puan
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-text-secondary leading-relaxed">
+                      {one.metin}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main KPI metrics (4 Columns) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -683,7 +1139,7 @@ export const FinanceDashboard = () => {
       {/* Interactive Quick Actions Panel */}
       <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5">
         <h3 className="text-xs font-bold text-text-secondary mb-4 uppercase tracking-wider px-2">Hızlı Sayfa Geçişleri</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {quickActions.map((action) => (
             <button
               key={action.id}

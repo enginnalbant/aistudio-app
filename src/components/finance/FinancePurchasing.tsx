@@ -165,6 +165,17 @@ export const FinancePurchasing = () => {
   const [quickBudgetProduct, setQuickBudgetProduct] = useState<PurchaseItem | null>(null);
   const [quickBudgetAmount, setQuickBudgetAmount] = useState<string>('');
 
+  // Custom Dialog & Notification States
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string; message: string } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   // Live updated product for details modal
   const activeProduct = useMemo(() => {
     if (!selectedProduct) return null;
@@ -267,12 +278,23 @@ export const FinancePurchasing = () => {
   // Delete product
   const handleDeleteProduct = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm("Bu satınalma planını silmek istediğinize emin misiniz?")) {
-      setPurchases(prev => prev.filter(p => p.id !== id));
-      if (selectedProduct?.id === id) {
-        setSelectedProduct(null);
-      }
+    const item = purchases.find(p => p.id === id);
+    setDeleteConfirm({
+      id,
+      title: 'Planı Sil',
+      message: `"${item?.title || 'Bu ürünü'}" satınalma planından silmek istediğinize emin misiniz?`
+    });
+  };
+
+  const executeDeleteProduct = () => {
+    if (!deleteConfirm) return;
+    const { id } = deleteConfirm;
+    setPurchases(prev => prev.filter(p => p.id !== id));
+    if (selectedProduct?.id === id) {
+      setSelectedProduct(null);
     }
+    setDeleteConfirm(null);
+    setToast({ message: 'Satınalma planı başarıyla silindi.', type: 'success' });
   };
 
   // Allocate budget to product
@@ -1175,7 +1197,7 @@ export const FinancePurchasing = () => {
                       });
                       setIsWizardOpen(false);
                     } else {
-                      alert("Lütfen en azından Ürün Adı ve Fiyat alanlarını doldurun.");
+                      setToast({ message: "Lütfen en azından Ürün Adı ve Fiyat alanlarını doldurun.", type: 'error' });
                     }
                   }}
                   className="px-6 py-2.5 bg-focus-neon text-black rounded-xl text-xs font-bold hover:bg-focus-neon/90 transition-colors"
@@ -1674,7 +1696,7 @@ export const FinancePurchasing = () => {
                       handleAllocateBudget(quickBudgetProduct.id, amt);
                       setQuickBudgetProduct(null);
                     } else {
-                      alert("Lütfen geçerli bir bütçe tutarı giriniz.");
+                      setToast({ message: "Lütfen geçerli bir bütçe tutarı giriniz.", type: 'error' });
                     }
                   }} 
                   className="px-5 py-2 bg-focus-neon text-black text-xs font-bold rounded-xl hover:bg-focus-neon/90 transition-colors"
@@ -1684,6 +1706,74 @@ export const FinancePurchasing = () => {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* POPUP: DELETE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteConfirm(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            
+            <motion.div 
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="relative w-full max-w-sm bg-zinc-900 border border-white/10 p-5 rounded-2xl shadow-2xl space-y-4"
+            >
+              <h2 className="text-xs font-display font-black text-red-400 uppercase tracking-widest flex items-center gap-2">
+                <Trash2 size={14} />
+                {deleteConfirm.title}
+              </h2>
+              
+              <p className="text-[11px] font-mono text-zinc-400 leading-relaxed bg-black/25 p-3 rounded-lg border border-white/5">
+                {deleteConfirm.message}
+              </p>
+              
+              <div className="flex items-center justify-end gap-2.5 pt-1">
+                <button 
+                  onClick={() => setDeleteConfirm(null)}
+                  className="px-3.5 py-1.5 text-[9px] font-mono text-zinc-400 hover:text-white uppercase"
+                >
+                  Vazgeç
+                </button>
+                <button 
+                  onClick={executeDeleteProduct}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-white text-[9px] font-mono font-bold uppercase transition-all"
+                >
+                  Sil
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* FLOATING TOAST NOTIFICATION */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed bottom-6 right-6 z-[220] flex items-center gap-2 px-4 py-3 rounded-xl border shadow-lg font-mono text-[10px]"
+            style={{
+              backgroundColor: toast.type === 'error' ? 'rgba(239, 68, 68, 0.95)' : toast.type === 'success' ? 'rgba(16, 185, 129, 0.95)' : 'rgba(59, 130, 246, 0.95)',
+              borderColor: toast.type === 'error' ? '#ef4444' : toast.type === 'success' ? '#10b981' : '#3b82f6',
+              color: '#ffffff'
+            }}
+          >
+            <span>{toast.message}</span>
+            <button onClick={() => setToast(null)} className="ml-2 hover:opacity-80">
+              <X size={10} />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

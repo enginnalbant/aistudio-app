@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 export type NotificationType = 'comment' | 'follow' | 'invitation' | 'file_share' | 'mention' | 'like';
 
@@ -44,51 +44,7 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const initialNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'comment',
-    user: {
-      name: "Amélie",
-      avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=Amélie",
-      fallback: "A",
-    },
-    action: "commented in",
-    target: "Dashboard 2.0",
-    content: "Really love this approach. I think this is the best solution for the document sync UX issue.",
-    timestamp: "Friday 3:12 PM",
-    timeAgo: "2 hours ago",
-    isRead: false,
-  },
-  {
-    id: '2',
-    type: 'follow',
-    user: {
-      name: "Sienna",
-      avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=Sienna",
-      fallback: "S",
-    },
-    action: "followed you",
-    timestamp: "Friday 3:04 PM",
-    timeAgo: "2 hours ago",
-    isRead: false,
-  },
-  {
-    id: '3',
-    type: 'invitation',
-    user: {
-      name: "Ammar",
-      avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=Ammar",
-      fallback: "A",
-    },
-    action: "invited you to",
-    target: "Blog design",
-    timestamp: "Friday 2:22 PM",
-    timeAgo: "3 hours ago",
-    isRead: false,
-    hasActions: true,
-  }
-];
+const initialNotifications: Notification[] = [];
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
@@ -98,6 +54,63 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     mentionAlerts: true,
     followAlerts: true,
   });
+
+  useEffect(() => {
+    const checkFinancialAlerts = () => {
+      const subscriptions = JSON.parse(localStorage.getItem('finance_subscriptions') || '[]');
+      const debts = JSON.parse(localStorage.getItem('finance_debts') || '[]');
+      
+      const newNotifications: Notification[] = [];
+      const today = new Date();
+
+      subscriptions.forEach((sub: any) => {
+        if (sub.status === 'Aktif') {
+          const billingDate = new Date(sub.nextBillingDate);
+          const diffTime = billingDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays >= 0 && diffDays <= 3) {
+            newNotifications.push({
+              id: `sub-${sub.id}`,
+              type: 'comment', // Using comment as a generic alert type for now
+              user: { name: "Finans Sistemi", avatar: "", fallback: "FS" },
+              action: `Ödeme zamanı yaklaştı: ${sub.title}`,
+              content: `${sub.title} aboneliğiniz için ${diffDays === 0 ? 'bugün' : diffDays + ' gün'} sonra ${sub.amount} TL ödemeniz var.`,
+              timestamp: sub.nextBillingDate,
+              timeAgo: diffDays === 0 ? 'Bugün' : `${diffDays} gün sonra`,
+              isRead: false,
+            });
+          }
+        }
+      });
+
+      debts.forEach((debt: any) => {
+        if (debt.status === 'Devam Ediyor') {
+          const paymentDate = new Date(debt.nextPaymentDate);
+          const diffTime = paymentDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays >= 0 && diffDays <= 3) {
+            newNotifications.push({
+              id: `debt-${debt.id}`,
+              type: 'comment',
+              user: { name: "Finans Sistemi", avatar: "", fallback: "FS" },
+              action: `Borç ödemesi yaklaştı: ${debt.title}`,
+              content: `${debt.title} için ${diffDays === 0 ? 'bugün' : diffDays + ' gün'} sonra ${debt.paymentAmount} TL ödemeniz var.`,
+              timestamp: debt.nextPaymentDate,
+              timeAgo: diffDays === 0 ? 'Bugün' : `${diffDays} gün sonra`,
+              isRead: false,
+            });
+          }
+        }
+      });
+
+      setNotifications(newNotifications);
+    };
+
+    checkFinancialAlerts();
+    // In a real app, you might want to run this periodically or listen to localStorage changes
+  }, []);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 

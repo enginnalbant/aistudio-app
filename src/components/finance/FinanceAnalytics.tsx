@@ -21,6 +21,11 @@ export const FinanceAnalytics = () => {
   const [currentAge, setCurrentAge] = useState<number>(32);
   const [targetRetirementAge, setTargetRetirementAge] = useState<number>(55);
 
+  // New detailed interactive analytics states
+  const [riskTolerance, setRiskTolerance] = useState<'conservative' | 'moderate' | 'aggressive'>('moderate');
+  const [expenseCutPercent, setExpenseCutPercent] = useState<number>(10);
+  const [debtPayoffStrategy, setDebtPayoffStrategy] = useState<'snowball' | 'avalanche'>('snowball');
+
   const [incomes] = useLocalStorage<any[]>('finance_incomes', []);
   const [expenses] = useLocalStorage<any[]>('finance_expenses', []);
   const [investments] = useLocalStorage<any[]>('finance_investments', []);
@@ -261,7 +266,7 @@ export const FinanceAnalytics = () => {
       category: 'Tasarruf Oranı',
       value: `%${savingRate.toFixed(1)}`,
       status: savingRate > 20 ? 'excellent' : savingRate > 0 ? 'good' : 'poor',
-      desc: savingRate > 20 ? 'Harika bir tasarruf oranınız var. Zenginlik inşası için ideal.' : savingRate > 0 ? 'Pozitif tasarruf yapıyorsunuz, ancak oranı %20 seviyelerine çıkarmaya çalışın.' : 'Kazandığınızdan fazlasını veya tamamını harcıyorsunuz.'
+      desc: savingRate > 20 ? 'Harika bir tasarruf oranınız var. Zenginlik inşası ve finansal özgürlük (FIRE) için ideal seviyede.' : savingRate > 0 ? 'Pozitif tasarruf yapıyorsunuz, ancak bu oranı en azından %20 seviyelerine çıkarmayı hedefleyin.' : 'Kazandığınızdan fazlasını veya tamamını harcıyorsunuz. Acilen bütçe optimizasyonu yapmalısınız.'
     });
 
     const debtToIncome = monthlyIncome > 0 ? (baseMonthlyDebtPayment / monthlyIncome) * 100 : 0;
@@ -269,7 +274,7 @@ export const FinanceAnalytics = () => {
       category: 'Borç / Gelir Oranı',
       value: `%${debtToIncome.toFixed(1)}`,
       status: debtToIncome < 20 ? 'excellent' : debtToIncome < 40 ? 'good' : 'poor',
-      desc: debtToIncome < 20 ? 'Borç yükünüz çok hafif, finansal esnekliğiniz yüksek.' : debtToIncome < 40 ? 'Kabul edilebilir bir borç yükü ancak dikkatli yönetilmeli.' : 'Kritik seviyede borç yükü! Gelirinizin büyük kısmı doğrudan borca gidiyor.'
+      desc: debtToIncome < 20 ? 'Borç yükünüz oldukça hafif, finansal esnekliğiniz ve acil durumlara karşı koruma gücünüz yüksek.' : debtToIncome < 40 ? 'Kabul edilebilir bir borç yükü ancak yeni borç almadan önce mevcutları eritmeye çalışmalısınız.' : 'Yüksek Risk! Gelirinizin büyük kısmı doğrudan borca gidiyor. Borç yapılandırması veya acil ödeme takvimi şart.'
     });
 
     const subToIncome = monthlyIncome > 0 ? (monthlySubscriptions / monthlyIncome) * 100 : 0;
@@ -277,11 +282,58 @@ export const FinanceAnalytics = () => {
       category: 'Abonelik Yükü',
       value: `%${subToIncome.toFixed(1)}`,
       status: subToIncome < 5 ? 'excellent' : subToIncome < 10 ? 'good' : 'poor',
-      desc: 'Abonelikler sinsi giderlerdir. Düzenli olarak kontrol edip kullanmadıklarınızı iptal edin.'
+      desc: subToIncome < 5 ? 'Abonelik giderleriniz bütçenizi yormuyor, sinsi sızıntılar kontrol altında.' : subToIncome < 10 ? 'Abonelikleriniz kabul edilebilir düzeyde, ancak periyodik olarak kullanmadıklarınızı temizleyebilirsiniz.' : 'Sinsi Harcama! Abonelikler bütçenizde delikler açıyor. Kullanmadıklarınızı derhal iptal edin.'
+    });
+
+    // 4. Emergency Buffer (Acil Durum Rezerv Rasyosu)
+    const currentSavingsOnly = savings.reduce((sum, s) => sum + s.currentAmount, 0) || totalNetWorth;
+    const emergencyBufferMonths = totalOut > 0 ? currentSavingsOnly / totalOut : 0;
+    insights.push({
+      category: 'Acil Durum Tamponu',
+      value: `${emergencyBufferMonths.toFixed(1)} Ay`,
+      status: emergencyBufferMonths >= 6 ? 'excellent' : emergencyBufferMonths >= 3 ? 'good' : 'poor',
+      desc: emergencyBufferMonths >= 6 ? 'Mükemmel! Beklenmedik durumlara karşı tam korumadasınız. 6 aydan fazla süreli koruma kalkanınız var.' : emergencyBufferMonths >= 3 ? 'Kabul edilebilir bir güvenlik koridorunuz mevcut, ancak hedefiniz bunu en az 6 aya taşımak olmalı.' : 'Kritik Durum! Rezerviniz 3 ayın altında. Gelir kaybı veya büyük masraflara karşı çok hassas durumdasınız.'
+    });
+
+    // 5. Investment Efficiency Index (Yatırım Etkinlik Rasyosu)
+    const totalInvestments = investments.reduce((sum, i) => sum + i.currentAmount, 0);
+    const totalWealth = currentSavingsOnly + totalInvestments;
+    const investRatio = totalWealth > 0 ? (totalInvestments / totalWealth) * 100 : 0;
+    insights.push({
+      category: 'Yatırım Dağılım Etkinliği',
+      value: `%${investRatio.toFixed(1)}`,
+      status: investRatio >= 40 ? 'excellent' : investRatio >= 15 ? 'good' : 'poor',
+      desc: investRatio >= 40 ? 'Harika! Paranız enflasyona karşı aktif yatırımlarda değerlendiriliyor ve değer kazanıyor.' : investRatio >= 15 ? 'Birikimleriniz var ancak nakitte veya vadeli mevduatta atıl bekleyen birikimleri de değerlendirebilirsiniz.' : 'Enflasyon Tehdidi! Paranız değer kaybediyor olabilir. Adım adım getiri potansiyeli yüksek fonlara yönelin.'
+    });
+
+    // 6. Overall Financial Health Score (Bütünsel Finansal Sağlık Skoru)
+    let healthScore = 100;
+    if (savingRate < 0) healthScore -= 30;
+    else if (savingRate < 10) healthScore -= 15;
+    else if (savingRate < 20) healthScore -= 5;
+
+    if (debtToIncome > 40) healthScore -= 25;
+    else if (debtToIncome > 20) healthScore -= 10;
+
+    if (subToIncome > 10) healthScore -= 10;
+    else if (subToIncome > 5) healthScore -= 5;
+
+    if (emergencyBufferMonths < 3) healthScore -= 20;
+    else if (emergencyBufferMonths < 6) healthScore -= 5;
+
+    if (investRatio < 15) healthScore -= 15;
+    else if (investRatio < 40) healthScore -= 5;
+
+    const finalHealthScore = Math.max(10, healthScore);
+    insights.push({
+      category: 'Bütünsel Sağlık Skoru',
+      value: `${finalHealthScore}/100`,
+      status: finalHealthScore >= 80 ? 'excellent' : finalHealthScore >= 50 ? 'good' : 'poor',
+      desc: finalHealthScore >= 80 ? 'Tebrikler! Finansal kararlarınız son derece rasyonel, disiplinli ve uzun vadeli büyümeyi hedefliyor.' : finalHealthScore >= 50 ? 'Finansal durumunuz ortalama ancak optimize edilmesi ve sıkılaştırılması gereken zayıf noktalarınız var.' : 'Acil Müdahale Şart! Bütçeniz çok kırılgan durumda. Derhal harcamaları kısıp borçları azaltmalısınız.'
     });
 
     setAnalysisInsights(insights);
-  }, [activeEngine, monthlyIncome, monthlyExpense, monthlySubscriptions, baseMonthlyDebtPayment]);
+  }, [activeEngine, monthlyIncome, monthlyExpense, monthlySubscriptions, baseMonthlyDebtPayment, savings, investments, totalNetWorth]);
 
   // --- DYNAMIC CALCULATIONS FOR REPORTS ---
   // 1. Debt Strategy Calculations
@@ -329,7 +381,40 @@ export const FinanceAnalytics = () => {
     return months;
   }, [activeDebts, baseMonthlyDebtPayment, extraPayment]);
 
-  const debtTimeSaved = Math.max(0, standardDebtMonths - acceleratedDebtMonths);
+  const avalancheDebtMonths = useMemo(() => {
+    let currentDebts = activeDebts.map(d => ({ 
+      ...d, 
+      currentRemaining: d.remainingAmount,
+      interestRate: d.interestRate || (d.category === 'Kredi Kartı' ? 4.5 : d.category === 'Konut Kredisi' ? 2.5 : d.category === 'İhtiyaç Kredisi' ? 3.8 : 3.0)
+    }));
+    let months = 0;
+    while (currentDebts.some(d => d.currentRemaining > 0) && months < 120) {
+      let pool = baseMonthlyDebtPayment + extraPayment;
+      // First pay regular minimums
+      currentDebts.forEach(d => {
+        if (d.currentRemaining > 0) {
+          const payment = calculateMonthly(d.paymentAmount, d.paymentFrequency);
+          const actual = Math.min(payment, d.currentRemaining);
+          d.currentRemaining -= actual;
+          pool -= actual;
+        }
+      });
+      // Sort highest interest first for Avalanche
+      currentDebts.sort((a, b) => b.interestRate - a.interestRate);
+      for (let d of currentDebts) {
+        if (pool <= 0) break;
+        if (d.currentRemaining > 0) {
+          const extra = Math.min(pool, d.currentRemaining);
+          d.currentRemaining -= extra;
+          pool -= extra;
+        }
+      }
+      months++;
+    }
+    return months;
+  }, [activeDebts, baseMonthlyDebtPayment, extraPayment]);
+
+  const debtTimeSaved = Math.max(0, standardDebtMonths - (debtPayoffStrategy === 'snowball' ? acceleratedDebtMonths : avalancheDebtMonths));
   const estimatedInterestSavings = useMemo(() => {
     return debtTimeSaved * (baseMonthlyDebtPayment * 0.18);
   }, [debtTimeSaved, baseMonthlyDebtPayment]);
@@ -370,6 +455,22 @@ export const FinanceAnalytics = () => {
     }
     return m / 12;
   }, [monthlySavings, currentNetAsset, fireTargetAmount, freedomSettings]);
+
+  const optimizedFireYearsToTarget = useMemo(() => {
+    const optSavings = monthlySavings + (adjustedMonthlyLivingCost * expenseCutPercent / 100);
+    const optTarget = fireTargetAmount * (1 - expenseCutPercent / 100);
+    if (optSavings <= 0 && currentNetAsset < optTarget) return Infinity;
+    const realReturnRate = (1 + freedomSettings.returnRate / 100) / (1 + freedomSettings.inflationRate / 100) - 1;
+    const monthlyRealReturn = Math.pow(1 + realReturnRate, 1 / 12) - 1;
+
+    let tempWorth = currentNetAsset;
+    let m = 0;
+    while (tempWorth < optTarget && m < 600) {
+      tempWorth = tempWorth * (1 + monthlyRealReturn) + optSavings;
+      m++;
+    }
+    return m / 12;
+  }, [monthlySavings, adjustedMonthlyLivingCost, expenseCutPercent, fireTargetAmount, currentNetAsset, freedomSettings]);
 
   // 3. Stress Test Calculations
   const currentSavingsOnly = useMemo(() => {
@@ -860,12 +961,115 @@ export const FinanceAnalytics = () => {
               </div>
             </div>
           </div>
+
+          <div className="bg-black/20 border border-white/5 rounded-3xl p-6 mt-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Zap size={16} className="text-nrg-sun" /> Yapay Zeka Stratejik Geri Ödeme Danışmanı
+                </h3>
+                <p className="text-xs text-text-secondary mt-1">Borçlarınızı en verimli şekilde kapatmak için en iyi geri ödeme stratejisini seçin.</p>
+              </div>
+              <div className="flex bg-black/40 border border-white/10 rounded-xl p-1 gap-1">
+                <button
+                  onClick={() => setDebtPayoffStrategy('snowball')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${debtPayoffStrategy === 'snowball' ? 'bg-white/10 text-white' : 'text-text-secondary hover:text-white'}`}
+                >
+                  Kartopu (Küçükten Büyüğe)
+                </button>
+                <button
+                  onClick={() => setDebtPayoffStrategy('avalanche')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${debtPayoffStrategy === 'avalanche' ? 'bg-white/10 text-white' : 'text-text-secondary hover:text-white'}`}
+                >
+                  Çığ (Yüksek Faizden Düşüğe)
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5">
+                <h4 className="text-xs font-bold text-white uppercase mb-2">Seçilen Strateji Etkisi</h4>
+                <div className="space-y-3 mt-4">
+                  <div>
+                    <span className="text-[10px] text-text-secondary block">Kapanma Süresi:</span>
+                    <span className="text-xl font-mono font-black text-focus-neon">
+                      {debtPayoffStrategy === 'snowball' ? acceleratedDebtMonths : avalancheDebtMonths} Ay
+                    </span>
+                    <span className="text-[10px] text-text-secondary block mt-0.5">Standart Plana göre {debtTimeSaved} ay daha kısa!</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-text-secondary block">Tahmini Faiz Tasarrufu:</span>
+                    <span className="text-lg font-mono font-black text-ai-bright">
+                      ₺{Math.round(estimatedInterestSavings).toLocaleString('tr-TR')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="md:col-span-2 p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-4">
+                <h4 className="text-xs font-bold text-white uppercase flex items-center gap-2">
+                  <Activity size={14} className="text-ai-bright" /> Strateji Analizi & Aksiyon Tavsiyeleri
+                </h4>
+                {debtPayoffStrategy === 'snowball' ? (
+                  <div className="text-xs text-text-secondary space-y-3">
+                    <p className="leading-relaxed">
+                      <strong>Kartopu (Snowball)</strong> yöntemi, borçlarınızı faiz oranından bağımsız olarak en küçük bakiye olandan en yüksek bakiye olana doğru listeler. Ekstra ödeme bütçenizi (<span className="text-white font-mono">₺{extraPayment.toLocaleString('tr-TR')}</span>) her zaman listenin en başındaki en küçük borca yönlendirirsiniz.
+                    </p>
+                    <p className="leading-relaxed">
+                      💡 <strong>Psikolojik Zafer:</strong> En küçük borçları hızla listeden silmek, size finansal başarı hissi kazandırır ve motivasyonunuzu yüksek tutar. Sürekli kapanan hesaplar görmek borç kapama sürecini hızlandırır.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-xs text-text-secondary space-y-3">
+                    <p className="leading-relaxed">
+                      <strong>Çığ (Avalanche)</strong> yöntemi, borçlarınızı faiz oranı en yüksek olandan en düşük olana doğru listeler. Ekstra ödeme bütçenizi (<span className="text-white font-mono">₺{extraPayment.toLocaleString('tr-TR')}</span>) her zaman en yüksek faiz oranına sahip borca yönlendirirsiniz.
+                    </p>
+                    <p className="leading-relaxed">
+                      💡 <strong>Matematiksel Üstünlük:</strong> Bu strateji matematiksel olarak en verimli yoldur. En yüksek faiz yükü oluşturan borcu kapatarak, bankalara ödeyeceğiniz kümülatif faiz miktarını en aza indirgemiş olursunuz.
+                    </p>
+                  </div>
+                )}
+                <div className="pt-2 border-t border-white/5 flex flex-wrap gap-2">
+                  <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-1 rounded text-white font-mono">Snowball: {acceleratedDebtMonths} Ay</span>
+                  <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-1 rounded text-white font-mono">Avalanche: {avalancheDebtMonths} Ay</span>
+                  <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-1 rounded text-white font-mono">Fark: {Math.abs(acceleratedDebtMonths - avalancheDebtMonths)} Ay</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
       )}
 
       {/* --- ENGINE 2: FREEDOM --- */}
       {activeEngine === 'freedom' && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+             <div className="bg-black/20 border border-white/5 p-4 rounded-2xl flex flex-col justify-between">
+               <span className="text-[10px] font-bold text-text-secondary uppercase">Mevcut Net Varlık</span>
+               <span className="text-xl font-mono font-bold text-focus-neon mt-2">₺{currentNetAsset.toLocaleString('tr-TR')}</span>
+             </div>
+             <div className="bg-black/20 border border-white/5 p-4 rounded-2xl flex flex-col justify-between">
+               <span className="text-[10px] font-bold text-text-secondary uppercase">FIRE Hedef Tutarı</span>
+               <span className="text-xl font-mono font-bold text-white mt-2">₺{Math.round(fireTargetAmount).toLocaleString('tr-TR')}</span>
+             </div>
+             <div className="bg-black/20 border border-white/5 p-4 rounded-2xl flex flex-col justify-between">
+               <span className="text-[10px] font-bold text-text-secondary uppercase">Yıllık Ek Birikim</span>
+               <span className="text-xl font-mono font-bold text-orange-400 mt-2">₺{(monthlySavings * 12).toLocaleString('tr-TR')}</span>
+             </div>
+             <div className="bg-black/20 border border-white/5 p-4 rounded-2xl flex flex-col justify-between">
+               <span className="text-[10px] font-bold text-text-secondary uppercase">Özgürlük Kapsama %</span>
+               <span className="text-xl font-mono font-bold text-ai-bright mt-2">
+                 %{fireTargetAmount > 0 ? Math.min(100, (currentNetAsset / fireTargetAmount * 100)).toFixed(1) : '0.0'}
+               </span>
+             </div>
+             <div className="bg-black/20 border border-white/5 p-4 rounded-2xl flex flex-col justify-between col-span-2 md:col-span-1">
+               <span className="text-[10px] font-bold text-text-secondary uppercase">Hedefe Kalan Süre</span>
+               <span className="text-xl font-mono font-bold text-nrg-sun mt-2">
+                 {fireYearsToTarget === Infinity ? 'Hesaplanamıyor' : `${fireYearsToTarget.toFixed(1)} Yıl`}
+               </span>
+             </div>
+          </div>
+
           <div className="bg-black/20 border border-white/5 rounded-3xl p-6 mb-6">
              <h3 className="text-sm font-bold text-text-secondary mb-4 uppercase tracking-wider flex items-center gap-2">
                 <Target size={16} /> Motor Parametreleri
@@ -949,58 +1153,259 @@ export const FinanceAnalytics = () => {
               </div>
             </div>
           </div>
+
+          <div className="bg-black/20 border border-white/5 rounded-3xl p-6 mt-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-focus-neon" /> Yapay Zeka Portföy Dağılımı & Varlık Yönetimi
+                </h3>
+                <p className="text-xs text-text-secondary mt-1">Özgürlük portföyünüzün risk toleransınıza göre ideal varlık dağılımı ve stratejisi.</p>
+              </div>
+              <div className="flex bg-black/40 border border-white/10 rounded-xl p-1 gap-1">
+                <button
+                  onClick={() => setRiskTolerance('conservative')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${riskTolerance === 'conservative' ? 'bg-white/10 text-white' : 'text-text-secondary hover:text-white'}`}
+                >
+                  Muhafazakar
+                </button>
+                <button
+                  onClick={() => setRiskTolerance('moderate')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${riskTolerance === 'moderate' ? 'bg-white/10 text-white' : 'text-text-secondary hover:text-white'}`}
+                >
+                  Dengeli
+                </button>
+                <button
+                  onClick={() => setRiskTolerance('aggressive')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${riskTolerance === 'aggressive' ? 'bg-white/10 text-white' : 'text-text-secondary hover:text-white'}`}
+                >
+                  Agresif
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-white uppercase mb-4">Önerilen Portföy Dağılımı</h4>
+                  <div className="space-y-3">
+                    {riskTolerance === 'conservative' && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Altın & Değerli Metaller</span>
+                            <span className="text-white font-mono">%40</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-nrg-sun rounded-full" style={{ width: '40%' }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Mevduat / Hazine Tahvili</span>
+                            <span className="text-white font-mono">%40</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-focus-neon rounded-full" style={{ width: '40%' }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Hisse Senedi / Fonlar</span>
+                            <span className="text-white font-mono">%20</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-ai-bright rounded-full" style={{ width: '20%' }} />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    {riskTolerance === 'moderate' && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Altın & Eurobond</span>
+                            <span className="text-white font-mono">%20</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-nrg-sun rounded-full" style={{ width: '20%' }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Dengeli Fonlar / Tahvil</span>
+                            <span className="text-white font-mono">%30</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-focus-neon rounded-full" style={{ width: '30%' }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Hisse Senedi Fonları</span>
+                            <span className="text-white font-mono">%45</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-ai-bright rounded-full" style={{ width: '45%' }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Alternatif (Kripto vb.)</span>
+                            <span className="text-white font-mono">%5</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-purple-500 rounded-full" style={{ width: '5%' }} />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    {riskTolerance === 'aggressive' && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Değerli Metaller & Eurobond</span>
+                            <span className="text-white font-mono">%10</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-nrg-sun rounded-full" style={{ width: '10%' }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Yüksek Getirili Borçlanma Araçları</span>
+                            <span className="text-white font-mono">%10</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-focus-neon rounded-full" style={{ width: '10%' }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Hisse Senedi / Yabancı Hisse Fonları</span>
+                            <span className="text-white font-mono">%65</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-ai-bright rounded-full" style={{ width: '65%' }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold text-text-secondary">
+                            <span>Alternatif & Kripto Varlıklar</span>
+                            <span className="text-white font-mono">%15</span>
+                          </div>
+                          <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full bg-purple-500 rounded-full" style={{ width: '15%' }} />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="md:col-span-2 p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-4">
+                <h4 className="text-xs font-bold text-white uppercase flex items-center gap-2">
+                  <Activity size={14} className="text-ai-bright" /> Varlık Yönetim Stratejisi & AI Yorumu
+                </h4>
+                {riskTolerance === 'conservative' && (
+                  <div className="text-xs text-text-secondary space-y-3 leading-relaxed">
+                    <p>
+                      🛡️ <strong>Sermaye Koruma Odaklı Yaklaşım:</strong> Bu portföy, yüksek enflasyon ve piyasa dalgalanmalarına karşı ana paranızı korumayı amaçlar. Risk minimumda tutulur.
+                    </p>
+                    <p>
+                      📈 <strong>Nasıl Uygulanır?</strong> Aylık birikiminizin (<span className="text-white font-mono">₺{monthlySavings.toLocaleString('tr-TR')}</span>) yaklaşık %40'ını altın ve gümüş gibi güvenli liman emtialarına, %40'ını hazine tahvilleri veya yüksek korumalı para piyasası fonlarına yatırın. Kalan %20 ile temettü verimi yüksek, hisse senedi fonlarına kademeli giriş yapın.
+                    </p>
+                  </div>
+                )}
+                {riskTolerance === 'moderate' && (
+                  <div className="text-xs text-text-secondary space-y-3 leading-relaxed">
+                    <p>
+                      ⚖️ <strong>Dengeli Büyüme Yaklaşımı:</strong> Orta vadede istikrarlı bir sermaye artışı hedeflenirken, ani piyasa düşüşlerinden korunmak için tahvil ve Eurobond gibi koruyucu kalkanlar barındırır.
+                    </p>
+                    <p>
+                      📈 <strong>Nasıl Uygulanır?</strong> Aylık birikiminizin %45'ini yerli ve yabancı endeks hisse senedi fonlarına düzenli (DCA) olarak yatırın. %30'unu Eurobond ve korumalı değişken fonlarda tutarak dolar bazlı getiri ve kupon ödemesi sağlayın. %20 altın ile enflasyon koruması yaparken, %5'lik bir kısmı Bitcoin veya teknoloji ağırlıklı büyüme hisseleri ile destekleyebilirsiniz.
+                    </p>
+                  </div>
+                )}
+                {riskTolerance === 'aggressive' && (
+                  <div className="text-xs text-text-secondary space-y-3 leading-relaxed">
+                    <p>
+                      🚀 <strong>Maksimum Bileşik Getiri Odaklı Yaklaşım:</strong> Genç yaş grupları veya uzun vadeli yatırım ufkuna sahip bireyler için idealdir. Dalgalanmaları göz ardı ederek servet büyümesini maksimum hıza ulaştırmayı hedefler.
+                    </p>
+                    <p>
+                      📈 <strong>Nasıl Uygulanır?</strong> Aylık birikiminizin %65'ini doğrudan büyüme odaklı teknoloji hisse senetleri fonlarına, yabancı hisse senedi fonlarına ve yerli endeks fonlarına (BIST 100/30) dağıtın. %15'lik payı yüksek getiri potansiyeline sahip kripto varlıklar veya girişim sermayesi fonlarında değerlendirin. Kalan %20'yi ise likit rezerv ve Eurobond ile acil alım fırsatları için yedek akçe olarak kullanın.
+                    </p>
+                  </div>
+                )}
+                <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl text-[11px] text-text-secondary">
+                  <strong>Not:</strong> Aylık <span className="text-focus-neon font-bold">₺{monthlySavings.toLocaleString('tr-TR')}</span> birikim miktarınız bu strateji ile değerlendirildiğinde, bileşik getiri gücü sayesinde hedefinize ulaşma sürenizi hızlandıracaktır.
+                </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
       )}
 
       {/* --- ENGINE 3: ANALYSIS --- */}
       {activeEngine === 'analysis' && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {analysisInsights.map((item, idx) => (
-              <div key={idx} className="bg-black/20 border border-white/5 rounded-3xl p-6 relative overflow-hidden">
-                <div className={`absolute top-0 left-0 w-1 h-full ${
+              <div key={idx} className="bg-black/20 border border-white/5 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+                <div className={`absolute top-0 left-0 w-1.5 h-full ${
                   item.status === 'excellent' ? 'bg-focus-neon' :
                   item.status === 'good' ? 'bg-nrg-sun' : 'bg-crit-vivid'
                 }`} />
-                <h3 className="text-sm font-bold text-text-secondary mb-2">{item.category}</h3>
-                <p className={`text-4xl font-mono font-black mb-4 ${
-                  item.status === 'excellent' ? 'text-focus-neon' :
-                  item.status === 'good' ? 'text-nrg-sun' : 'text-crit-vivid'
-                }`}>{item.value}</p>
-                <p className="text-sm text-white leading-relaxed">{item.desc}</p>
+                <div>
+                  <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">{item.category}</h3>
+                  <p className={`text-3xl font-mono font-black mb-4 ${
+                    item.status === 'excellent' ? 'text-focus-neon' :
+                    item.status === 'good' ? 'text-nrg-sun' : 'text-crit-vivid'
+                  }`}>{item.value}</p>
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed mt-2">{item.desc}</p>
               </div>
             ))}
           </div>
 
-          <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-3xl p-8">
-            <h3 className="text-lg font-display font-bold text-white mb-4 flex items-center gap-2">
-              <Crosshair className="text-ai-bright" /> Yapay Zeka Tavsiyesi
+          <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-3xl p-8 space-y-6">
+            <h3 className="text-lg font-display font-bold text-white flex items-center gap-2">
+              <Crosshair className="text-ai-bright animate-pulse" /> Yapay Zeka Derin Analiz & Aksiyon Yol Haritası
             </h3>
-            <p className="text-text-secondary leading-relaxed mb-6">
-              Mevcut finansal durumunuz baz alınarak üretilen stratejik yol haritası:
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Tüm finansal rasyolarınız, harcama alışkanlıklarınız ve acil durum tamponunuz derin yapay zeka analiz motorumuz tarafından sentezlendi. İşte mali durumunuzu güçlendirmek için atmanız gereken somut adımlar:
             </p>
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <div className="w-8 h-8 shrink-0 rounded-full bg-focus-neon/20 text-focus-neon flex items-center justify-center font-bold">1</div>
-                <div>
-                  <h4 className="font-bold text-white mb-1">Borç Önceliklendirmesi</h4>
-                  <p className="text-sm text-text-secondary">Eğer faiz oranları yüksek borçlarınız varsa, tüm boşta kalan nakitinizi (<span className="text-white font-mono">₺{Math.max(0, monthlyIncome - (monthlyExpense + monthlySubscriptions + baseMonthlyDebtPayment)).toLocaleString('tr-TR')}</span>) ilk olarak bu borçları kapatmaya yönlendirin.</p>
-                </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+              <div className="p-5 rounded-2xl bg-black/40 border border-white/5 space-y-3">
+                <div className="w-8 h-8 rounded-lg bg-focus-neon/20 text-focus-neon flex items-center justify-center font-bold text-sm">1</div>
+                <h4 className="font-bold text-white text-sm">Borç & Kredi Kaldıraç Yönetimi</h4>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Borç ödeme hızınızı artırmak için her ay ekstra en az <strong className="text-white">₺{extraPayment.toLocaleString('tr-TR')}</strong> ödemeyi alışkanlık haline getirin. Bu sayede borçlarınız standart plandan çok daha erken biter ve kümülatif faiz yükünden ciddi oranda tasarruf edersiniz.
+                </p>
               </div>
-              <div className="flex gap-4">
-                <div className="w-8 h-8 shrink-0 rounded-full bg-nrg-sun/20 text-nrg-sun flex items-center justify-center font-bold">2</div>
-                <div>
-                  <h4 className="font-bold text-white mb-1">Acil Durum Fonu</h4>
-                  <p className="text-sm text-text-secondary">Aylık zorunlu giderlerinizin (<span className="text-white font-mono">₺{(monthlyExpense + monthlySubscriptions + baseMonthlyDebtPayment).toLocaleString('tr-TR')}</span>) en az 3 katı kadarını likit (hızlı nakite çevrilebilir) hesaplarda tuttuğunuzdan emin olun.</p>
-                </div>
+
+              <div className="p-5 rounded-2xl bg-black/40 border border-white/5 space-y-3">
+                <div className="w-8 h-8 rounded-lg bg-nrg-sun/20 text-nrg-sun flex items-center justify-center font-bold text-sm">2</div>
+                <h4 className="font-bold text-white text-sm">Nakit Akışı & Likidite Kalkanı</h4>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Aylık zorunlu giderleriniz olan <strong className="text-white">₺{(monthlyExpense + monthlySubscriptions + baseMonthlyDebtPayment).toLocaleString('tr-TR')}</strong> tutarını baz aldığımızda, finansal güvenceniz için likit hesaplarınızda tutmanız gereken ideal acil durum fonu hedefiniz <strong className="text-focus-neon">₺{Math.round((monthlyExpense + monthlySubscriptions + baseMonthlyDebtPayment) * 6).toLocaleString('tr-TR')}</strong> olmalıdır (6 Aylık Tampon).
+                </p>
               </div>
-              <div className="flex gap-4">
-                <div className="w-8 h-8 shrink-0 rounded-full bg-ai-bright/20 text-ai-bright flex items-center justify-center font-bold">3</div>
-                <div>
-                  <h4 className="font-bold text-white mb-1">Otomatik Yatırım</h4>
-                  <p className="text-sm text-text-secondary">Geliriniz yattığı gün ilk ödemeyi kendinize yapın. Tasarruf oranınızı belirleyin ve o parayı hemen yatırım hesabınıza (Özgürlük Fonu) aktarın.</p>
-                </div>
+
+              <div className="p-5 rounded-2xl bg-black/40 border border-white/5 space-y-3">
+                <div className="w-8 h-8 rounded-lg bg-ai-bright/20 text-ai-bright flex items-center justify-center font-bold text-sm">3</div>
+                <h4 className="font-bold text-white text-sm">Varlık Büyütme & Enflasyon Koruması</h4>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Tasarruf oranınız şu an <strong className="text-white">%{(monthlyIncome > 0 ? ((monthlyIncome - (monthlyExpense + monthlySubscriptions + baseMonthlyDebtPayment)) / monthlyIncome * 100) : 0).toFixed(1)}</strong> seviyesinde. Boşta kalan her kuruşu enflasyona ezdirmemek adına hisse senedi fonları, değerli metaller ve Eurobond gibi üretken varlıklara otomatik yatırım talimatı ile yönlendirin.
+                </p>
               </div>
+            </div>
+
+            <div className="pt-6 border-t border-white/5 bg-white/[0.01] p-5 rounded-2xl border border-white/5 text-xs text-text-secondary leading-relaxed">
+              <span className="font-bold text-white block mb-1">💡 Yapay Zeka Stratejik Tavsiyesi:</span>
+              Mali durumunuzu mükemmelleştirmek için "Abonelik Sızıntısı" kontrolü yapmanızı öneririz. Şu an aylık <strong className="text-orange-400">₺{monthlySubscriptions.toLocaleString('tr-TR')}</strong> abonelik ödemeniz var. Kullanım sıklığı "düşük" veya "kullanılmıyor" olan dijital platform üyeliklerinizi dondurarak bütçenize doğrudan ek can suyu sağlayabilirsiniz.
             </div>
           </div>
         </motion.div>

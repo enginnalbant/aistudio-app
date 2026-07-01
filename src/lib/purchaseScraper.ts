@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 
 export interface ScrapedProduct {
   title: string;
@@ -267,86 +266,11 @@ export const scrapeProductDetails = async (url: string, rawHtml?: string): Promi
     logs.push(`[DOM_PARSER] HTML kodları ayrıştırılıyor...`);
     const basicScrapingResult = localHtmlParser(html, url);
     
-    // Check if we can use Gemini AI to make the parsing 100% intelligent
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey) {
-      logs.push(`[GEMINI_AI] Yapay Zeka Destekli Metin Analiz Modülü aktif edildi.`);
-      logs.push(`[GEMINI_AI] Kod blokları optimize ediliyor ve anlamsal veri süzgecine gönderiliyor...`);
-      
-      try {
-        const cleanText = cleanHtmlForAI(html);
-        const ai = new GoogleGenAI({ 
-          apiKey,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build',
-            }
-          }
-        });
-        
-        const prompt = `Aşağıda, kullanıcının satın almak istediği bir ürünün web sayfası kaynak kodundan temizlenmiş metinler yer almaktadır.
-        Senden bu verileri son derece titizlikle analiz edip, bir JSON nesnesi olarak döndürmeni istiyorum.
-        Döndüreceğin JSON yapısı tam olarak şu alanları içermelidir (hiçbir açıklama eklemeden, sadece ham JSON döndür):
-        {
-          "title": "Ürün Adı (Çok uzun olmamalı, temiz ve marka içeren bir başlık)",
-          "price": Fiyat_Sayisal_Değeri (Sadece sayı olmalı örn: 45999 veya 1450.50, para birimi sembolü koyma),
-          "description": "Kısa ve etkileyici ürün açıklaması",
-          "storeName": "Hangi mağaza olduğu (örn: Amazon, Trendyol, Apple, Hepsiburada, ya da Bilinmeyen)",
-          "imageUrl": "Eğer HTML içinden bulabilirsen ürünün gerçek görsel URL'si, bulamazsan boş bırak",
-          "features": ["Özellik 1", "Özellik 2", "Özellik 3", "Özellik 4", "Özellik 5"],
-          "specs": [
-            {"key": "Teknik Özellik Adı", "value": "Değeri"},
-            {"key": "Renk", "value": "Siyah"}
-          ],
-          "rating": 5 üzerinden puanı (Sayısal örn: 4.8),
-          "reviewsCount": Toplam yorum sayısı (Sayısal örn: 1450),
-          "reviews": [
-            {"author": "Kullanıcı Adı", "rating": 5, "comment": "Yorum içeriği", "date": "Tarih"}
-          ]
-        }
-
-        Eğer metinden fiyat veya başlık çıkaramazsan mantıklı değerler tahmin et.
-        Yorumlar kısmına en az 3 adet gerçekçi veya sayfadaki yorumlardan esinlenilmiş Türkçe yorum ekle.
-        Teknik özellikler kısmına en az 5 adet anahtar özellik ekle.
-
-        Analiz edilecek Sayfa Kaynak Kodu / Metni:
-        URL: ${url}
-        TEMİZLENMİŞ METİN:
-        ${cleanText}`;
-
-        const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
-          contents: prompt,
-        });
-
-        const textResponse = response.text || "";
-        // Extract json
-        const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const aiParsed: ScrapedProduct = JSON.parse(jsonMatch[0]);
-          logs.push(`[GEMINI_AI] Ürün adı, fiyat, detaylı özellikler, puanlar ve yorumlar 100% doğrulukla AI tarafından süzüldü!`);
-          
-          // Merge with local image if AI did not find a valid image URL
-          if (!aiParsed.imageUrl || aiParsed.imageUrl.startsWith('/') || !aiParsed.imageUrl.startsWith('http')) {
-            aiParsed.imageUrl = basicScrapingResult.imageUrl;
-          }
-          
-          finalData = aiParsed;
-        } else {
-          logs.push(`[GEMINI_AI] AI geçersiz yanıt verdi, yerel süzme algoritmasına dönülüyor.`);
-          finalData = basicScrapingResult;
-        }
-      } catch (aiError) {
-        console.error("AI scraping error:", aiError);
-        logs.push(`[GEMINI_AI] AI analizinde hata oluştu. Yerel regex ve DOM analiz verileri kullanılacak.`);
-        finalData = basicScrapingResult;
-      }
-    } else {
-      logs.push(`[SİSTEM] Yerel süzme algoritması (Regex + DOM) başarıyla tamamlandı.`);
-      logs.push(`[SİSTEM] Ürün detayları, fiyat tabloları, puanlar ve yorum kartları oluşturuldu.`);
-      finalData = basicScrapingResult;
-    }
-
+    // AI scraping step is disabled as per user request
+    logs.push(`[SİSTEM] Yerel süzme algoritması (Regex + DOM) başarıyla tamamlandı.`);
+    logs.push(`[SİSTEM] Ürün detayları, fiyat tabloları, puanlar ve yorum kartları oluşturuldu.`);
+    finalData = basicScrapingResult;
+    
     if (finalData) {
       logs.push(`[SİSTEM] BAŞARILI: "${finalData.title}" - ₺${finalData.price.toLocaleString('tr-TR')}`);
       return {

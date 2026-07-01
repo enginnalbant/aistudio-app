@@ -27,7 +27,8 @@ import {
   ShieldCheck,
   Building,
   CreditCard,
-  Target
+  Target,
+  Trash2
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -65,78 +66,7 @@ interface FinanceReport {
 }
 
 // Prefilled high-quality realistic reports for the history page
-const DEFAULT_REPORTS: FinanceReport[] = [
-  {
-    id: 'rep-1',
-    title: 'Mayıs 2026 Dönemi Kapsamlı Finansal Analiz Raporu',
-    period: '2026-05',
-    createdAt: '2026-05-31',
-    grade: 'A',
-    personalNotes: 'Bu ay bütçe planlamasına büyük oranda sadık kalındı. Serbest çalışan gelirlerindeki artış tasarruf oranını %30 hedefinin üzerine çıkardı. Eğlence ve dışarıda yemek harcamaları kontrol altındaydı ancak faturalarda ufak bir artış göze çarptı. Yatırım portföyüne planlandığı gibi ₺10,000 ekleme yapıldı.',
-    totalIncome: 52000,
-    totalExpense: 34500,
-    savingsRate: 33.6,
-    netSavings: 17500,
-    incomeBreakdown: [
-      { name: 'Maaş', value: 38000 },
-      { name: 'Serbest Çalışma', value: 10000 },
-      { name: 'Yatırım Getirisi', value: 4000 }
-    ],
-    expenseBreakdown: [
-      { name: 'Barınma', value: 12000 },
-      { name: 'Gıda', value: 7500 },
-      { name: 'Fatura', value: 4200 },
-      { name: 'Ulaşım', value: 2800 },
-      { name: 'Eğlence', value: 3500 },
-      { name: 'Sağlık', value: 1500 },
-      { name: 'Diğer', value: 3000 }
-    ],
-    activeDebtsCount: 2,
-    totalRemainingDebt: 45000,
-    subscriptionsCount: 4,
-    totalSubscriptionCost: 980,
-    goalsProgress: [
-      { title: 'Acil Durum Fonu', current: 40000, target: 50000 },
-      { title: 'Yeni Araba Peşinatı', current: 85000, target: 200000 }
-    ],
-    checkedActions: ['Gıda bütçesini sınırla', 'Yatırım payını otomatik fona aktar']
-  },
-  {
-    id: 'rep-2',
-    title: 'Nisan 2026 Dönemi Finansal Performans Analizi',
-    period: '2026-04',
-    createdAt: '2026-04-30',
-    grade: 'B',
-    personalNotes: 'Nisan ayında araç bakım masrafı ve sağlık sigortası yenilemesi nedeniyle beklenmedik acil harcamalar oluştu. Bu harcamalar bütçede "Diğer" kalemini şişirdi ve tasarruf oranımızı bir miktar düşürdü. Aboneliklerden kullanılmayan iki platform iptal edilerek tasarrufa katkı sağlandı.',
-    totalIncome: 46000,
-    totalExpense: 36200,
-    savingsRate: 21.3,
-    netSavings: 9800,
-    incomeBreakdown: [
-      { name: 'Maaş', value: 38000 },
-      { name: 'Serbest Çalışma', value: 5000 },
-      { name: 'Yatırım Getirisi', value: 3000 }
-    ],
-    expenseBreakdown: [
-      { name: 'Barınma', value: 12000 },
-      { name: 'Gıda', value: 6800 },
-      { name: 'Fatura', value: 3900 },
-      { name: 'Ulaşım', value: 2200 },
-      { name: 'Eğlence', value: 4100 },
-      { name: 'Sağlık', value: 4500 },
-      { name: 'Diğer', value: 2700 }
-    ],
-    activeDebtsCount: 2,
-    totalRemainingDebt: 52000,
-    subscriptionsCount: 6,
-    totalSubscriptionCost: 1420,
-    goalsProgress: [
-      { title: 'Acil Durum Fonu', current: 35000, target: 50000 },
-      { title: 'Yeni Araba Peşinatı', current: 75000, target: 200000 }
-    ],
-    checkedActions: ['Abonelik sızıntılarını durdur']
-  }
-];
+const DEFAULT_REPORTS: FinanceReport[] = [];
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#ef4444', '#64748b'];
 
@@ -163,6 +93,9 @@ export const FinanceReports = () => {
 
   // Toast / Status overlay
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'info'; text: string } | null>(null);
+
+  // Custom Delete Confirm State
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string; message: string } | null>(null);
 
   // Report Creation Form States
   const [formPeriod, setFormPeriod] = useState('2026-06');
@@ -318,13 +251,23 @@ export const FinanceReports = () => {
   // Delete a report
   const handleDeleteReport = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Bu raporu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
-      setReports(reports.filter(r => r.id !== id));
-      if (selectedReportId === id) {
-        setSelectedReportId(null);
-      }
-      triggerAlert('Rapor silindi.', 'info');
+    const r = reports.find(item => item.id === id);
+    setDeleteConfirm({
+      id,
+      title: 'Raporu Sil',
+      message: `"${r?.title || 'Bu raporu'}" silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`
+    });
+  };
+
+  const executeDeleteReport = () => {
+    if (!deleteConfirm) return;
+    const { id } = deleteConfirm;
+    setReports(reports.filter(r => r.id !== id));
+    if (selectedReportId === id) {
+      setSelectedReportId(null);
     }
+    setDeleteConfirm(null);
+    triggerAlert('Rapor silindi.', 'info');
   };
 
   // Save updated notes in reports detail panel
@@ -1243,6 +1186,52 @@ ${getAdvisorComments(report).desc}
           </motion.div>
         </div>
       )}
+
+      {/* POPUP: DELETE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteConfirm(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            
+            <motion.div 
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="relative w-full max-w-sm bg-zinc-900 border border-white/10 p-5 rounded-2xl shadow-2xl space-y-4"
+            >
+              <h2 className="text-xs font-display font-black text-red-400 uppercase tracking-widest flex items-center gap-2">
+                <Trash2 size={14} />
+                {deleteConfirm.title}
+              </h2>
+              
+              <p className="text-[11px] font-mono text-zinc-400 leading-relaxed bg-black/25 p-3 rounded-lg border border-white/5">
+                {deleteConfirm.message}
+              </p>
+              
+              <div className="flex items-center justify-end gap-2.5 pt-1">
+                <button 
+                  onClick={() => setDeleteConfirm(null)}
+                  className="px-3.5 py-1.5 text-[9px] font-mono text-zinc-400 hover:text-white uppercase"
+                >
+                  Vazgeç
+                </button>
+                <button 
+                  onClick={executeDeleteReport}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-white text-[9px] font-mono font-bold uppercase transition-all"
+                >
+                  Sil
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
