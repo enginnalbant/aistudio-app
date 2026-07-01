@@ -84,13 +84,13 @@ export const FinanceAnalytics = () => {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
 
-    // 1. Simulate forward first (0 to 23 months relative to current)
+    // 1. Simulate forward first (0 to 35 months relative to current)
     let currentDebts = activeDebts.map(d => ({ ...d, currentRemaining: d.remainingAmount }));
     let accumulatedCashForward = 0;
     const forwardProjection = [];
     let debtFreeMonthIndex = -1;
 
-    for (let m = 0; m <= 23; m++) {
+    for (let m = 0; m <= 35; m++) {
       let monthlyPaymentThisMonth = 0;
       let activeDebtsList: string[] = [];
       
@@ -127,42 +127,10 @@ export const FinanceAnalytics = () => {
       });
     }
 
-    // 2. Extrapolate backward (-12 to -1 months relative to current)
-    const backwardProjection = [];
-    for (let m = -12; m < 0; m++) {
-      const date = new Date(currentYear, currentMonth + m, 1);
-      
-      // Extrapolate past debt levels: higher as we go back in time
-      const extrapolatedDebt = activeDebts.length > 0 
-        ? totalRemainingDebt + (baseMonthlyDebtPayment * Math.abs(m))
-        : 0;
-
-      const aylikOdenen = activeDebts.length > 0 ? baseMonthlyDebtPayment : 0;
-      const cashLeft = monthlyIncome - (monthlyExpense + monthlySubscriptions) - aylikOdenen;
-      
-      // Estimate past cash level
-      const pastCash = totalNetWorth + (cashLeft * m);
-
-      const activeDebtsList = activeDebts.map(d => `${d.title}: ₺${calculateMonthly(d.paymentAmount, d.paymentFrequency).toLocaleString('tr-TR')}`);
-
-      backwardProjection.push({
-        monthIndex: m,
-        dateObj: date,
-        dateLabel: date.toLocaleDateString('tr-TR', { month: 'short', year: 'numeric' }),
-        aylikGelir: monthlyIncome,
-        aylikGider: monthlyExpense + monthlySubscriptions,
-        toplamKalanBorc: extrapolatedDebt,
-        aylikOdenen: aylikOdenen,
-        eleKalan: cashLeft,
-        birikenNakit: Math.max(0, pastCash),
-        activeDebtsList: activeDebtsList
-      });
-    }
-
-    // Combine into full 36-month timeline
-    const fullProjection = [...backwardProjection, ...forwardProjection];
+    // Combine into full 36-month timeline (only forward)
+    const fullProjection = [...forwardProjection];
     setDebtProjection(fullProjection);
-    setTimelineOffset(12); // Default showing index 12 (Current Month)
+    setTimelineOffset(0); // Default showing index 0 (Current Month)
     setDebtMaxMonths(debtFreeMonthIndex !== -1 ? debtFreeMonthIndex : 0);
 
     // Insights Generation
@@ -721,21 +689,21 @@ export const FinanceAnalytics = () => {
                 <div className="flex bg-black/40 border border-white/10 rounded-xl p-1 gap-1 w-full md:w-auto overflow-x-auto">
                   <button 
                     onClick={() => setTimelineOffset(0)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${timelineOffset === 0 ? 'bg-white/10 text-white' : 'text-text-secondary hover:text-white'}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${timelineOffset === 0 ? 'bg-focus-neon/20 text-focus-neon border border-focus-neon/20' : 'text-text-secondary hover:text-white'}`}
                   >
-                    ⏮ Önceki 12 Ay
+                    ⏺ Bugün (Başlangıç)
                   </button>
                   <button 
                     onClick={() => setTimelineOffset(12)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${timelineOffset === 12 ? 'bg-focus-neon/20 text-focus-neon border border-focus-neon/20' : 'text-text-secondary hover:text-white'}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${timelineOffset === 12 ? 'bg-white/10 text-white' : 'text-text-secondary hover:text-white'}`}
                   >
-                    ⏺ Mevcut Dönem (Şimdi)
+                    ⏭ +12 Ay
                   </button>
                   <button 
                     onClick={() => setTimelineOffset(24)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${timelineOffset === 24 ? 'bg-white/10 text-white' : 'text-text-secondary hover:text-white'}`}
                   >
-                    ⏭ Sonraki 12 Ay
+                    ⏭ +24 Ay
                   </button>
                 </div>
              </div>
@@ -756,7 +724,7 @@ export const FinanceAnalytics = () => {
                             ◀
                           </button>
                           <span className="text-xs font-mono font-bold text-white bg-white/5 px-2 py-0.5 rounded">
-                            Ay {timelineOffset - 12 >= 0 ? `+${timelineOffset - 12}` : timelineOffset - 12}
+                            Ay +{timelineOffset}
                           </span>
                           <button
                             onClick={() => setTimelineOffset(Math.min(debtProjection.length - 12, timelineOffset + 1))}
@@ -809,9 +777,9 @@ export const FinanceAnalytics = () => {
                                    <span className={`absolute top-3 whitespace-nowrap transition-all duration-300 ${
                                      isActive ? 'text-white scale-110 font-bold' : 'text-text-secondary'
                                    }`}>
-                                     {idx === 0 ? 'Önceki 12 Ay (Başlangıç)' : 
-                                      idx === 12 ? 'Şimdi (Mevcut)' : 
-                                      idx === 24 ? 'Sonraki Dönem' : 'Ufuk'}
+                                     {idx === 0 ? 'Bugün (Başlangıç)' : 
+                                      idx === 12 ? '+12 Ay' : 
+                                      idx === 24 ? '+24 Ay' : 'Ufuk'}
                                    </span>
                                  )}
                                </div>

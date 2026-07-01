@@ -30,7 +30,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         const unsubscribeSnapshot = onSnapshot(docRef, (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.data().data as T;
-            if (JSON.stringify(data) !== JSON.stringify(storedValueRef.current) && !isWritingRef.current) {
+            if (data !== undefined && JSON.stringify(data) !== JSON.stringify(storedValueRef.current) && !isWritingRef.current) {
                setStoredValue(data);
                window.localStorage.setItem(key, JSON.stringify(data));
             }

@@ -193,42 +193,38 @@ export const FinanceDashboard = () => {
   };
 
   const handleLoadDemoData = () => {
+    const today = new Date();
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    
     const demoIncomes = [
-      { id: 'inc-1', title: 'Aylık Maaş Ödemesi', amount: 38000, category: 'Maaş', date: '2026-06-30', status: 'Tamamlandı' },
-      { id: 'inc-2', title: 'Serbest Çalışma Geliri', amount: 10000, category: 'Serbest Çalışma', date: '2026-06-24', status: 'Tamamlandı' },
-      { id: 'inc-3', title: 'Yatırım Temettü Getirisi', amount: 4000, category: 'Yatırım', date: '2026-06-18', status: 'Tamamlandı' }
+      { id: 'inc-1', title: 'Aylık Maaş Ödemesi', amount: 38000, category: 'Maaş', date: formatDate(today), status: 'Tamamlandı' },
+      { id: 'inc-2', title: 'Serbest Çalışma Geliri', amount: 10000, category: 'Serbest Çalışma', date: formatDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)), status: 'Tamamlandı' },
+      { id: 'inc-3', title: 'Yatırım Temettü Getirisi', amount: 4000, category: 'Yatırım', date: formatDate(new Date(today.getTime() + 15 * 24 * 60 * 60 * 1000)), status: 'Tamamlandı' }
     ];
 
     const demoExpenses = [
-      { id: 'exp-1', title: 'Ev Kirası', amount: 12000, category: 'Barınma', date: '2026-06-01', status: 'Gerçekleşti' },
-      { id: 'exp-2', title: 'Aylık Market Alışverişi', amount: 7500, category: 'Gıda', date: '2026-06-15', status: 'Gerçekleşti' },
-      { id: 'exp-3', title: 'Doğalgaz & Elektrik', amount: 4200, category: 'Fatura', date: '2026-06-10', status: 'Gerçekleşti' },
-      { id: 'exp-4', title: 'Dışarıda Sosyal Yemek', amount: 3500, category: 'Eğlence', date: '2026-06-20', status: 'Gerçekleşti' },
-      { id: 'exp-5', title: 'Akaryakıt & Ulaşım Kartı', amount: 2800, category: 'Ulaşım', date: '2026-06-12', status: 'Gerçekleşti' },
-      { id: 'exp-6', title: 'Özel Sağlık Sigortası', amount: 1500, category: 'Sağlık', date: '2026-06-18', status: 'Gerçekleşti' }
+      { id: 'exp-1', title: 'Ev Kirası', amount: 12000, category: 'Barınma', date: formatDate(today), status: 'Gerçekleşti' },
+      { id: 'exp-2', title: 'Market Alışverişi', amount: 7500, category: 'Gıda', date: formatDate(new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000)), status: 'Gerçekleşti' },
+      { id: 'exp-3', title: 'Faturalar', amount: 4200, category: 'Fatura', date: formatDate(new Date(today.getTime() + 5 * 24 * 60 * 60 * 1000)), status: 'Gerçekleşti' },
+      { id: 'exp-4', title: 'Sosyal Harcama', amount: 3500, category: 'Eğlence', date: formatDate(new Date(today.getTime() + 8 * 24 * 60 * 60 * 1000)), status: 'Gerçekleşti' },
+      { id: 'exp-5', title: 'Ulaşım Masrafları', amount: 2800, category: 'Ulaşım', date: formatDate(new Date(today.getTime() + 10 * 24 * 60 * 60 * 1000)), status: 'Gerçekleşti' }
     ];
 
     const demoInvestments = [
-      { id: 'inv-1', title: 'BIST100 Endeks Fonu', type: 'Hisse Senedi', initialAmount: 40000, currentAmount: 48500, purchaseDate: '2026-01-10', platform: 'Garanti BBVA', status: 'Aktif' },
-      { id: 'inv-2', title: 'Altın Gram Hesabı', type: 'Altın', initialAmount: 20000, currentAmount: 22400, purchaseDate: '2026-02-15', platform: 'Vakıfbank', status: 'Aktif' },
-      { id: 'inv-3', title: 'Eurobond Tahvili', type: 'Tahvil', initialAmount: 30000, currentAmount: 31200, purchaseDate: '2026-03-20', platform: 'Midas', status: 'Aktif' }
+      { id: 'inv-1', title: 'Hisse Senedi Portföyü', type: 'Hisse Senedi', initialAmount: 40000, currentAmount: 48500, purchaseDate: formatDate(today), platform: 'Yatırım Hesabı', status: 'Aktif' },
+      { id: 'inv-2', title: 'Altın Birikimi', type: 'Altın', initialAmount: 20000, currentAmount: 22400, purchaseDate: formatDate(today), platform: 'Altın Hesabı', status: 'Aktif' }
     ];
 
     const demoDebts = [
-      { id: 'deb-1', title: 'İhtiyaç Kredisi', totalAmount: 60000, remainingAmount: 42000, paymentAmount: 3500, paymentFrequency: 'Aylık', nextPaymentDate: '2026-07-15', category: 'Banka Kredisi', status: 'Devam Ediyor', lender: 'İş Bankası' },
-      { id: 'deb-2', title: 'Kredi Kartı Taksiti', totalAmount: 15000, remainingAmount: 3000, paymentAmount: 1500, paymentFrequency: 'Aylık', nextPaymentDate: '2026-07-20', category: 'Kredi Kartı', status: 'Devam Ediyor', lender: 'Akbank' }
+      { id: 'deb-1', title: 'Kredi Ödemesi', totalAmount: 60000, remainingAmount: 42000, paymentAmount: 3500, paymentFrequency: 'Aylık', nextPaymentDate: formatDate(new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000)), category: 'Banka Kredisi', status: 'Devam Ediyor', lender: 'Banka' }
     ];
 
     const demoSubscriptions = [
-      { id: 'sub-1', title: 'Netflix Premium', amount: 200, billingCycle: 'Aylık', category: 'Eğlence', nextBillingDate: '2026-07-05', status: 'Aktif', platform: 'Netflix' },
-      { id: 'sub-2', title: 'Spotify Premium', amount: 60, billingCycle: 'Aylık', category: 'Eğlence', nextBillingDate: '2026-07-18', status: 'Aktif', platform: 'Spotify' },
-      { id: 'sub-3', title: 'YouTube Premium', amount: 58, billingCycle: 'Aylık', category: 'Eğlence', nextBillingDate: '2026-07-22', status: 'Aktif', platform: 'YouTube' },
-      { id: 'sub-4', title: 'Amazon Prime', amount: 40, billingCycle: 'Aylık', category: 'Alışveriş', nextBillingDate: '2026-07-25', status: 'Aktif', platform: 'Amazon' }
+      { id: 'sub-1', title: 'Premium Servisler', amount: 200, billingCycle: 'Aylık', category: 'Eğlence', nextBillingDate: formatDate(new Date(today.getTime() + 5 * 24 * 60 * 60 * 1000)), status: 'Aktif', platform: 'Online' }
     ];
 
     const demoSavings = [
-      { id: 'sav-1', title: 'Acil Durum Fonu', targetAmount: 50000, currentAmount: 40000, deadline: '2026-12-31', category: 'Güvenlik', status: 'Devam Ediyor' },
-      { id: 'sav-2', title: 'Yeni Araba Peşinatı', targetAmount: 200000, currentAmount: 85000, deadline: '2027-06-30', category: 'Araç', status: 'Devam Ediyor' }
+      { id: 'sav-1', title: 'Acil Durum Fonu', targetAmount: 50000, currentAmount: 40000, deadline: formatDate(new Date(today.getFullYear(), today.getMonth() + 6, 1)), category: 'Güvenlik', status: 'Devam Ediyor' }
     ];
 
     setIncomes(demoIncomes as any[]);
@@ -292,34 +288,40 @@ export const FinanceDashboard = () => {
   // --- DYNAMIC INPUTS FOR FINANCAL HEALTH ENGINE V3 ---
   const dynamicGelirGecmisi = useMemo(() => {
     const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    const currentYear = new Date().getFullYear();
     const currentMonthIndex = new Date().getMonth();
     const history = [];
     const baseline = monthlyIncome > 0 ? monthlyIncome : 38000;
     const safeIncomes = Array.isArray(incomes) ? incomes : [];
-    for (let i = 5; i >= 0; i--) {
-      const idx = (currentMonthIndex - i + 12) % 12;
-      const yearMonth = `2026-${String(idx + 1).padStart(2, '0')}`;
+    // Start from today and go forward (Projections)
+    for (let i = 0; i <= 5; i++) {
+      const idx = (currentMonthIndex + i) % 12;
+      const year = currentYear + Math.floor((currentMonthIndex + i) / 12);
+      const yearMonth = `${year}-${String(idx + 1).padStart(2, '0')}`;
       const actualMonthIncomes = safeIncomes.filter(inc => inc && inc.date && inc.date.startsWith(yearMonth) && inc.status === 'Tamamlandı');
       const tutar = actualMonthIncomes.length > 0
         ? actualMonthIncomes.reduce((sum, x) => sum + Number(x.amount || 0), 0)
-        : baseline - (i * 1000);
+        : baseline + (i * 1000);
       history.push({ ay: yearMonth, tutar });
     }
     return history;
   }, [incomes, monthlyIncome]);
 
   const dynamicGiderGecmisi = useMemo(() => {
+    const currentYear = new Date().getFullYear();
     const currentMonthIndex = new Date().getMonth();
     const history = [];
     const baseline = monthlyExpense > 0 ? monthlyExpense : 22000;
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
-    for (let i = 5; i >= 0; i--) {
-      const idx = (currentMonthIndex - i + 12) % 12;
-      const yearMonth = `2026-${String(idx + 1).padStart(2, '0')}`;
+    // Start from today and go forward (Projections)
+    for (let i = 0; i <= 5; i++) {
+      const idx = (currentMonthIndex + i) % 12;
+      const year = currentYear + Math.floor((currentMonthIndex + i) / 12);
+      const yearMonth = `${year}-${String(idx + 1).padStart(2, '0')}`;
       const actualMonthExpenses = safeExpenses.filter(exp => exp && exp.date && exp.date.startsWith(yearMonth) && exp.status === 'Gerçekleşti');
       const total = actualMonthExpenses.length > 0
         ? actualMonthExpenses.reduce((sum, x) => sum + Number(x.amount || 0), 0)
-        : baseline - (i * 500);
+        : baseline + (i * 500);
       history.push({
         ay: yearMonth,
         sabit: Math.round(total * 0.6),
@@ -499,28 +501,31 @@ export const FinanceDashboard = () => {
   // --- CHARTS & TREND DATA ---
   const chartData = useMemo(() => {
     const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    const currentMonthIndex = new Date().getMonth();
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonthIndex = today.getMonth();
     const result = [];
 
-    // Realistic historical baseline points
-    const mockIncomes = [45000, 46000, 44000, 48000, 52000, monthlyIncome || 48000];
-    const mockExpenses = [29000, 31000, 33000, 30000, 34500, monthlyExpense || 32000];
+    // Realistic baseline points starting from today and going forward
+    const mockIncomes = [monthlyIncome || 48000, 52000, 50000, 55000, 58000, 60000];
+    const mockExpenses = [monthlyExpense || 32000, 31000, 33000, 30000, 34500, 32000];
 
-    for (let i = 5; i >= 0; i--) {
-      const idx = (currentMonthIndex - i + 12) % 12;
+    for (let i = 0; i <= 5; i++) {
+      const idx = (currentMonthIndex + i) % 12;
+      const year = currentYear + Math.floor((currentMonthIndex + i) / 12);
       const monthLabel = monthNames[idx];
       
-      const yearMonth = `2026-${String(idx + 1).padStart(2, '0')}`;
+      const yearMonth = `${year}-${String(idx + 1).padStart(2, '0')}`;
       const actualMonthIncomes = incomes.filter(inc => inc.date && inc.date.startsWith(yearMonth) && inc.status === 'Tamamlandı');
       const actualMonthExpenses = expenses.filter(exp => exp.date && exp.date.startsWith(yearMonth) && exp.status === 'Gerçekleşti');
 
       const gelir = actualMonthIncomes.length > 0 
         ? actualMonthIncomes.reduce((sum, x) => sum + Number(x.amount || 0), 0)
-        : mockIncomes[5 - i];
+        : mockIncomes[i];
 
       const gider = actualMonthExpenses.length > 0
         ? actualMonthExpenses.reduce((sum, x) => sum + Number(x.amount || 0), 0)
-        : mockExpenses[5 - i];
+        : mockExpenses[i];
 
       const birikim = Math.max(0, gelir - gider);
 

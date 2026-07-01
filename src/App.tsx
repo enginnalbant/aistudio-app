@@ -4,7 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { SpatialBackground } from './components/SpatialBackground';
-import { SettingsPanel } from './components/SettingsPanel';
+import { SettingsModal } from './components/ui/SettingsModal';
 import { NotificationPage } from './components/NotificationPage';
 import { NotificationSettings } from './components/NotificationSettings';
 import { CalendarPage } from './components/CalendarPage';
@@ -50,6 +50,7 @@ import {
 } from './components/ModulePages';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap } from 'lucide-react';
+import { ComingSoon } from './components/ui/ComingSoon';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -58,7 +59,7 @@ import { useDevice } from './hooks/useDevice';
 function AppLayout() {
   const { settings } = useSettings();
   const { isMobile, isDesktop } = useDevice();
-  const [activeModule, setActiveModule] = useState('main-dashboard');
+  const [activeModule, setActiveModule] = useState('finance-dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(isDesktop && settings['sidebar_default']?.value === 'expanded');
   const [isBooting, setIsBooting] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -141,7 +142,7 @@ function AppLayout() {
           setActiveModule={handleSetActiveModule}
         />
         
-        <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
         
         <div className="flex-1 flex overflow-hidden p-3 lg:p-4 gap-3 lg:gap-4 relative pb-24 lg:pb-4">
           {/* Backdrop Overlay for Mobiles & Tablets */}
@@ -245,21 +246,23 @@ function AppLayout() {
                   <ReconReports />
                 ) : activeModule === 'recon-analytics' ? (
                   <ReconAnalytics />
+                ) : activeModule.startsWith('library-') ? (
+                  <ComingSoon 
+                    title={activeModule.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
+                    brandName="APEXOS KÜTÜPHANE" 
+                  />
+                ) : activeModule.startsWith('notes-') ? (
+                  <ComingSoon 
+                    title={activeModule.replace('notes-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
+                    brandName="APEXOS NOTLARIM" 
+                  />
+                ) : activeModule.startsWith('bulletin-') ? (
+                  <ComingSoon 
+                    title={activeModule.replace('bulletin-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
+                    brandName="APEXOS BÜLTEN" 
+                  />
                 ) : (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h1 className="text-2xl font-display font-black tracking-tight text-text-primary uppercase">
-                        Dashboard
-                      </h1>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bento-card p-8 col-span-full flex items-center justify-center min-h-[400px]">
-                        <div className="text-center space-y-4 text-text-secondary opacity-30">
-                           Dashboard Boş
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <FinanceDashboard />
                 )}
               </motion.div>
             </AnimatePresence>
@@ -304,7 +307,7 @@ function AppContent() {
                  <div className="mx-auto w-16 h-16 bg-white/5 flex items-center justify-center rounded-2xl mb-6">
                     <Zap size={32} className="text-focus-neon" />
                  </div>
-                 <h1 className="text-2xl font-display font-bold text-white mb-2">Nexus Finans</h1>
+                 <h1 className="text-2xl font-display font-bold text-white mb-2">APEXOS FİNANS</h1>
                  <p className="text-text-secondary mb-8 text-sm">Tüm cihazlarda senkronize çalışmak için giriş yapın.</p>
                  <button 
                     onClick={signInWithGoogle}

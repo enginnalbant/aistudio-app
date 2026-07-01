@@ -1,5 +1,6 @@
 {
-  "name": "Nexus OS - Akıllı Üretim & AI Asistan",
-  "description": "Üretim stoklarını, tedarikçi ilişkilerini ve finansal süreçleri takip eden, kendi kendine öğrenebilen ve raporlayabilen Nexus AI asistanlı dinamik yönetim sistemi.",
-  "requestFramePermissions": ["camera", "geolocation"]
+  "name": "APEXOS - Akıllı İşletim ve Yönetim Sistemi",
+  "description": "APEXOS Finance, Logistics ve Analytics alt markalarıyla entegre, yapay zeka destekli kurumsal yönetim ve takip ekosistemi.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -8,17 +8,11 @@ import {
   ChevronDown,
   Search,
   LogOut,
-  ShoppingCart,
-  ClipboardList,
-  FileSearch,
   Clock,
-  CheckCircle2,
   Package,
   FileBarChart,
   LineChart,
   FileText,
-  Wrench,
-  Factory,
   Box,
   Users,
   Scale,
@@ -44,7 +38,7 @@ import {
   PlaySquare,
   CalendarDays
 } from "lucide-react";
-import { SidebarSettingsModal } from '../SidebarSettingsModal';
+import { SettingsModal } from './SettingsModal';
 import { clsx } from "clsx";
 
 // Softer spring animation curve
@@ -52,27 +46,43 @@ const softSpringEasing = "cubic-bezier(0.25, 1.1, 0.4, 1)";
 
 /* ----------------------------- Brand / Logos ----------------------------- */
 
-function ApexLogo() {
+function ApexLogo({ subBrand = "FİNANS" }: { subBrand?: string }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="w-7 h-7 rounded-lg bg-focus-main flex items-center justify-center shadow-lg shadow-focus-main/20 shrink-0">
-        <Zap size={14} className="text-pure-white" />
+      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shrink-0 transition-all duration-500 ${
+        subBrand === 'FİNANS' ? 'bg-focus-main shadow-focus-main/30' : 
+        subBrand === 'KÜTÜPHANE' ? 'bg-indigo-600 shadow-indigo-600/30' :
+        subBrand === 'NOTLARIM' ? 'bg-amber-600 shadow-amber-600/30' :
+        subBrand === 'BÜLTEN' ? 'bg-rose-600 shadow-rose-600/30' :
+        subBrand === 'LOGISTICS' ? 'bg-blue-600 shadow-blue-600/30' : 'bg-neutral-800'
+      }`}>
+        <Zap size={16} className="text-pure-white" />
       </div>
-      <span className="text-lg font-display font-black tracking-tighter text-text-primary whitespace-nowrap">
-        APEX<span className="text-focus-neon">OS</span>
-      </span>
+      <div className="flex flex-col -space-y-1">
+        <span className="text-lg font-display font-black tracking-tighter text-text-primary whitespace-nowrap">
+          APEX<span className="text-focus-neon">OS</span>
+        </span>
+        <span className={`text-[10px] font-black tracking-[0.2em] uppercase transition-colors duration-500 ${
+          subBrand === 'FİNANS' ? 'text-focus-neon' : 
+          subBrand === 'KÜTÜPHANE' ? 'text-indigo-400' :
+          subBrand === 'NOTLARIM' ? 'text-amber-400' :
+          subBrand === 'BÜLTEN' ? 'text-rose-400' : 'text-text-secondary'
+        }`}>
+          {subBrand}
+        </span>
+      </div>
     </div>
   );
 }
 
-function BrandBadge({ onClick }: { onClick?: () => void }) {
+function BrandBadge({ onClick, subBrand }: { onClick?: () => void, subBrand?: string }) {
   return (
     <div className="relative shrink-0 w-full mb-4">
       <div 
         className="flex items-center p-1 w-full cursor-pointer hover:opacity-80 transition-opacity"
         onClick={onClick}
       >
-        <ApexLogo />
+        <ApexLogo subBrand={subBrand} />
       </div>
     </div>
   );
@@ -159,107 +169,6 @@ interface SidebarContent {
 
 function getSidebarContent(activeSection: string): SidebarContent {
   const contentMap: Record<string, SidebarContent> = {
-    dashboard: {
-      title: "Dashboard",
-      sections: [
-        {
-          title: "Sistem",
-          items: [
-            { id: 'main-dashboard', icon: <LayoutDashboard size={16} />, label: "Genel Bakış", isActive: true },
-          ],
-        },
-      ],
-    },
-    purchasing: {
-      title: "Satınalma",
-      sections: [
-        {
-          title: "Süreç Yönetimi",
-          items: [
-            { id: 'purchasing-requests', icon: <ClipboardList size={16} />, label: "Satınalma Talepleri" },
-            { id: 'purchasing-lists', icon: <FileSearch size={16} />, label: "Satınalma Listeleri" },
-            { id: 'purchasing-quotes', icon: <FileText size={16} />, label: "Fiyat Teklifleri" },
-            { id: 'purchasing-pending-orders', icon: <Clock size={16} />, label: "Onay Bekleyen Siparişler" },
-            { id: 'purchasing-sent-orders', icon: <CheckCircle2 size={16} />, label: "Verilen Siparişler" },
-            { id: 'purchasing-all-orders', icon: <Package size={16} />, label: "Tüm Siparişler" },
-            { id: 'purchasing-reports', icon: <FileBarChart size={16} />, label: "Raporlar" },
-            { id: 'purchasing-analytics', icon: <LineChart size={16} />, label: "Analizler" },
-          ],
-        },
-      ],
-    },
-    fason: {
-      title: "Fason İşler",
-      sections: [
-        {
-          title: "Üretim Takibi",
-          items: [
-            { id: 'fason-dashboard', icon: <LayoutDashboard size={16} />, label: "Dashboard" },
-            { id: 'fason-outgoing', icon: <ClipboardList size={16} />, label: "Giden İşler" },
-            { id: 'fason-all', icon: <Package size={16} />, label: "Tüm İşler" },
-            { id: 'fason-reports', icon: <FileBarChart size={16} />, label: "Raporlar" },
-            { id: 'fason-analytics', icon: <LineChart size={16} />, label: "Analizler" },
-          ],
-        },
-      ],
-    },
-    stocks: {
-      title: "Stoklar",
-      sections: [
-        {
-          title: "Envanter Yönetimi",
-          items: [
-            { id: 'stocks-dashboard', icon: <LayoutDashboard size={16} />, label: "Dashboard" },
-            { id: 'stocks-list', icon: <Box size={16} />, label: "Stok Listesi" },
-            { id: 'stocks-reports', icon: <FileBarChart size={16} />, label: "Stok Raporlar" },
-            { id: 'stocks-analytics', icon: <LineChart size={16} />, label: "Stok Analizler" },
-          ],
-        },
-      ],
-    },
-    contacts: {
-      title: "Cariler",
-      sections: [
-        {
-          title: "Portföy Yönetimi",
-          items: [
-            { id: 'contacts-dashboard', icon: <LayoutDashboard size={16} />, label: "Dashboard" },
-            { id: 'contacts-list', icon: <Users size={16} />, label: "Cari Listesi" },
-            { id: 'contacts-reports', icon: <FileBarChart size={16} />, label: "Cari Raporlar" },
-            { id: 'contacts-analytics', icon: <LineChart size={16} />, label: "Cari Analizler" },
-          ],
-        },
-      ],
-    },
-    recon: {
-      title: "Mutabakat",
-      sections: [
-        {
-          title: "Finansal Kontrol",
-          items: [
-            { id: 'recon-dashboard', icon: <LayoutDashboard size={16} />, label: "Dashboard" },
-            { id: 'recon-contacts', icon: <Scale size={16} />, label: "Cari Mutabakat" },
-            { id: 'recon-reports', icon: <FileBarChart size={16} />, label: "Raporlar" },
-            { id: 'recon-analytics', icon: <LineChart size={16} />, label: "Analizler" },
-          ],
-        },
-      ],
-    },
-    notes: {
-      title: "Notlar",
-      sections: [
-        {
-          title: "Kişisel Alan",
-          items: [
-            { id: 'notes-dashboard', icon: <LayoutDashboard size={16} />, label: "Dashboard" },
-            { id: 'notes-list', icon: <NotebookPen size={16} />, label: "Notlar" },
-            { id: 'notes-todo', icon: <CheckCircle2 size={16} />, label: "Todolist" },
-            { id: 'notes-planner', icon: <Clock size={16} />, label: "Planlayıcı" },
-            { id: 'notes-docs', icon: <FileText size={16} />, label: "Dokümanlar" },
-          ],
-        },
-      ],
-    },
     finance: {
       title: "Kişisel Finans",
       sections: [
@@ -278,9 +187,95 @@ function getSidebarContent(activeSection: string): SidebarContent {
         },
       ],
     },
+    library: {
+      title: "Kütüphane",
+      sections: [
+        {
+          title: "Genel",
+          items: [
+            { id: 'library-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'library-dashboard' },
+          ],
+        },
+        {
+          title: "E-Kitap",
+          items: [
+            { id: 'library-ebook-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'library-ebook-dashboard' },
+            { id: 'library-ebooks', icon: <BookOpen size={16} />, label: 'E-Kitaplar', moduleId: 'library-ebooks' },
+            { id: 'library-ebook-panel', icon: <Settings2 size={16} />, label: 'E-Kitap Panel', moduleId: 'library-ebook-panel' },
+          ],
+        },
+        {
+          title: "Manga",
+          items: [
+            { id: 'library-manga-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'library-manga-dashboard' },
+            { id: 'library-mangas', icon: <ImageIcon size={16} />, label: 'Mangalar', moduleId: 'library-mangas' },
+            { id: 'library-manga-panel', icon: <Settings2 size={16} />, label: 'Manga Paneli', moduleId: 'library-manga-panel' },
+            { id: 'library-manga-universe', icon: <Network size={16} />, label: 'Manga Evreni', moduleId: 'library-manga-universe' },
+          ],
+        },
+        {
+          title: "Dökümanlar",
+          items: [
+            { id: 'library-docs-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'library-docs-dashboard' },
+            { id: 'library-docs', icon: <FileText size={16} />, label: 'Dökümanlar', moduleId: 'library-docs' },
+          ],
+        },
+      ],
+    },
+    notes: {
+      title: "Notlarım",
+      sections: [
+        {
+          title: "Genel",
+          items: [
+            { id: 'notes-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'notes-dashboard' },
+            { id: 'notes-todo', icon: <CheckSquare size={16} />, label: 'Todo', moduleId: 'notes-todo' },
+            { id: 'notes-bookmarks', icon: <Bookmark size={16} />, label: 'Bookmarks', moduleId: 'notes-bookmarks' },
+            { id: 'notes-passwords', icon: <Settings2 size={16} />, label: 'Parolalar', moduleId: 'notes-passwords' },
+          ],
+        },
+        {
+          title: "Planlayıcı",
+          items: [
+            { id: 'notes-planner-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'notes-planner-dashboard' },
+            { id: 'notes-planner-plans', icon: <CalendarDays size={16} />, label: 'Günlük/Haftalık/Aylık', moduleId: 'notes-planner-plans' },
+          ],
+        },
+        {
+          title: "Notlar",
+          items: [
+            { id: 'notes-quick', icon: <Zap size={16} />, label: 'Hızlı Notlar', moduleId: 'notes-quick' },
+            { id: 'notes-notebook', icon: <BookText size={16} />, label: 'Not Defteri', moduleId: 'notes-notebook' },
+          ],
+        },
+      ],
+    },
+    bulletin: {
+      title: "Bülten",
+      sections: [
+        {
+          title: "Genel",
+          items: [
+            { id: 'bulletin-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'bulletin-dashboard' },
+            { id: 'bulletin-news', icon: <Rss size={16} />, label: 'Haberler', moduleId: 'bulletin-news' },
+            { id: 'bulletin-saved', icon: <Bookmark size={16} />, label: 'Kaydedilenler', moduleId: 'bulletin-saved' },
+          ],
+        },
+        {
+          title: "Video & Medya",
+          items: [
+            { id: 'bulletin-video-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'bulletin-video-dashboard' },
+            { id: 'bulletin-series-movies', icon: <PlaySquare size={16} />, label: 'Dizi/Film', moduleId: 'bulletin-series-movies' },
+            { id: 'bulletin-videos', icon: <PlaySquare size={16} />, label: 'Videolar', moduleId: 'bulletin-videos' },
+            { id: 'bulletin-mangas', icon: <ImageIcon size={16} />, label: 'Mangalar', moduleId: 'bulletin-mangas' },
+            { id: 'bulletin-music', icon: <Rss size={16} />, label: 'Müzikler', moduleId: 'bulletin-music' },
+          ],
+        },
+      ],
+    },
   };
 
-  return contentMap[activeSection] || contentMap.dashboard;
+  return contentMap[activeSection] || contentMap.finance;
 }
 
 /* ---------------------------- Left Icon Nav Rail -------------------------- */
@@ -332,6 +327,9 @@ function IconNavigation({
 }) {
   const navItems = [
     { id: "finance", icon: <Wallet size={18} />, label: "Kişisel Finans", moduleId: 'finance-dashboard' },
+    { id: "library", icon: <Library size={18} />, label: "Kütüphane", moduleId: 'library-dashboard' },
+    { id: "notes", icon: <NotebookPen size={18} />, label: "Notlarım", moduleId: 'notes-dashboard' },
+    { id: "bulletin", icon: <Rss size={18} />, label: "Bülten", moduleId: 'bulletin-dashboard' },
   ];
 
   const handleSectionClick = (item: any) => {
@@ -348,11 +346,13 @@ function IconNavigation({
       <div 
         className="mb-3 size-8 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
         onClick={() => {
-          onSectionChange('dashboard');
-          setActiveModule('main-dashboard');
+          onSectionChange('finance');
+          setActiveModule('finance-dashboard');
         }}
       >
-        <div className="w-7 h-7 rounded-lg bg-focus-main flex items-center justify-center shadow-lg shadow-focus-main/20">
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-lg transition-all duration-500 ${
+          activeSection === 'finance' ? 'bg-focus-main shadow-focus-main/30' : 'bg-neutral-800 shadow-black/20'
+        }`}>
           <Zap size={14} className="text-pure-white" />
         </div>
       </div>
@@ -375,7 +375,14 @@ function IconNavigation({
 
       {/* Bottom section */}
       <div className="flex flex-col gap-2 w-full items-center">
-        <div className="size-8 cursor-pointer" onClick={() => (window as any).openSettingsModal?.()}>
+        <IconNavButton 
+          isActive={false} 
+          onClick={() => setIsSettingsOpen(true)} 
+          label="Ayarlar"
+        >
+          <SettingsIcon size={18} />
+        </IconNavButton>
+        <div className="size-8 cursor-pointer mt-1" onClick={() => setIsSettingsOpen(true)}>
           <AvatarCircle />
         </div>
       </div>
@@ -416,6 +423,11 @@ function DetailSidebar({ activeSection, onSectionChange, setActiveModule, active
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [isCollapsed, setIsCollapsed] = useState(false);
   const content = getSidebarContent(activeSection);
+  const subBrand = 
+    activeSection === 'finance' ? 'FİNANS' : 
+    activeSection === 'library' ? 'KÜTÜPHANE' : 
+    activeSection === 'notes' ? 'NOTLARIM' : 
+    activeSection === 'bulletin' ? 'BÜLTEN' : 'OS';
 
   // Auto-expand sections that have children when switching to them
   React.useEffect(() => {
@@ -450,9 +462,9 @@ function DetailSidebar({ activeSection, onSectionChange, setActiveModule, active
       style={{ transitionTimingFunction: softSpringEasing }}
     >
       {!isCollapsed && <BrandBadge onClick={() => {
-        onSectionChange('dashboard');
-        setActiveModule('main-dashboard');
-      }} />}
+        onSectionChange('finance');
+        setActiveModule('finance-dashboard');
+      }} subBrand={subBrand} />}
 
       <SectionTitle title={content.title} onToggleCollapse={toggleCollapse} isCollapsed={isCollapsed} />
       <SearchContainer isCollapsed={isCollapsed} />
@@ -626,23 +638,18 @@ function MenuSection({
 /* --------------------------------- Layout -------------------------------- */
 
 export function TwoLevelSidebar({ setActiveModule, isOpen, activeModule, setSidebarOpen }: { setActiveModule: (mod: string) => void, isOpen: boolean, activeModule: string, setSidebarOpen?: (open: boolean) => void }) {
-  const [activeSection, setActiveSection] = useState("dashboard");
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("finance");
 
   // Sync activeSection with activeModule when it changes from outside (e.g. Header)
   React.useEffect(() => {
-    if (activeModule === 'main-dashboard') {
-      setActiveSection('dashboard');
-    } else if (activeModule.startsWith('purchasing-')) {
-      setActiveSection('purchasing');
-    } else if (activeModule.startsWith('fason-')) {
-      setActiveSection('fason');
-    } else if (activeModule.startsWith('stocks-')) {
-      setActiveSection('stocks');
-    } else if (activeModule.startsWith('contacts-')) {
-      setActiveSection('contacts');
-    } else if (activeModule.startsWith('recon-')) {
-      setActiveSection('recon');
+    if (activeModule.startsWith('finance-')) {
+      setActiveSection('finance');
+    } else if (activeModule.startsWith('library-')) {
+      setActiveSection('library');
+    } else if (activeModule.startsWith('notes-')) {
+      setActiveSection('notes');
+    } else if (activeModule.startsWith('bulletin-')) {
+      setActiveSection('bulletin');
     }
   }, [activeModule]);
 
@@ -652,7 +659,7 @@ export function TwoLevelSidebar({ setActiveModule, isOpen, activeModule, setSide
         activeSection={activeSection} 
         onSectionChange={setActiveSection} 
         setActiveModule={setActiveModule} 
-        setIsSettingsOpen={setIsSettingsOpen} 
+        setIsSettingsOpen={() => (window as any).openSettingsModal?.()} 
         setSidebarOpen={setSidebarOpen} 
       />
       {isOpen && (
@@ -663,7 +670,6 @@ export function TwoLevelSidebar({ setActiveModule, isOpen, activeModule, setSide
           activeModule={activeModule} 
         />
       )}
-      <SidebarSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

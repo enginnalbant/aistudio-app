@@ -5,7 +5,8 @@ import {
   LogOut,
   Zap,
   Home,
-  Calendar
+  Calendar,
+  Settings
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useSettings } from '../context/SettingsContext';
@@ -39,7 +40,7 @@ export const Header = React.memo(function Header({ toggleSidebar, setActiveModul
       
       <div className="flex items-center gap-2 lg:gap-4">
         <button 
-          onClick={() => setActiveModule('main-dashboard')}
+          onClick={() => setActiveModule('finance-dashboard')}
           className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-focus-neon/10 text-focus-neon hover:bg-focus-neon hover:text-pure-white transition-all duration-500 hover:scale-110 active:scale-90 border border-focus-neon/20"
           title="Ana Menü"
         >
@@ -103,6 +104,14 @@ export const Header = React.memo(function Header({ toggleSidebar, setActiveModul
                 <CalendarMenu />
               </PopoverContent>
             </Popover>
+
+            <button 
+              onClick={() => (window as any).openSettingsModal?.()}
+              className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-skel-matte/10 text-text-secondary hover:text-focus-neon transition-all duration-500 hover:scale-110 active:scale-90 border border-skel-metal/10 group/btn"
+              title="Ayarlar"
+            >
+              <Settings size={16} className="lg:w-4 lg:h-4" />
+            </button>
 
             <div className="w-[1px] h-5 bg-skel-metal/10 mx-1 lg:mx-1.5" />
             

@@ -21,21 +21,23 @@ import Fuse from 'fuse.js';
 interface SearchItem {
   id: string;
   title: string;
-  category: 'Modül' | 'Ayarlar' | 'Kullanıcı' | 'Komut' | 'AI' | 'Web';
+  category: 'Modül' | 'Ayarlar' | 'Kullanıcı' | 'Komut' | 'AI' | 'Web' | 'Finans' | 'Kütüphane' | 'Notlar' | 'Bülten';
   description?: string;
   action?: () => void;
   path?: string;
 }
 
 const appData: SearchItem[] = [
-  { id: 'dashboard', title: 'Dashboard', category: 'Modül', description: 'Ana sistem paneli ve özet bilgiler.' },
-  { id: 'analytics', title: 'Analiz', category: 'Modül', description: 'Veri görselleştirme ve raporlama araçları.' },
-  { id: 'projects', title: 'Projeler', category: 'Modül', description: 'Aktif projeler ve görev yönetimi.' },
-  { id: 'team', title: 'Ekip', category: 'Modül', description: 'Ekip üyeleri ve yetkilendirme.' },
-  { id: 'settings', title: 'Sistem Ayarları', category: 'Ayarlar', description: 'Görünüm, güvenlik ve sistem tercihleri.' },
-  { id: 'profile', title: 'Profil', category: 'Kullanıcı', description: 'Kişisel bilgiler ve hesap yönetimi.' },
-  { id: 'cmd-theme', title: '/theme dark|light', category: 'Komut', description: 'Sistem temasını hızlıca değiştir.' },
-  { id: 'cmd-logout', title: '/logout', category: 'Komut', description: 'Oturumu güvenli bir şekilde kapat.' },
+  { id: 'finance-dashboard', title: 'APEXOS FİNANS Dashboard', category: 'Finans', description: 'Kişisel finans özeti ve ana panel.' },
+  { id: 'finance-analytics', title: 'Finansal Analiz', category: 'Finans', description: 'Harcama ve gelir analizleri.' },
+  { id: 'finance-investments', title: 'Yatırımlar', category: 'Finans', description: 'Varlık ve yatırım yönetimi.' },
+  { id: 'library-dashboard', title: 'APEXOS Kütüphane', category: 'Kütüphane', description: 'E-Kitap ve Manga koleksiyonu.' },
+  { id: 'notes-dashboard', title: 'APEXOS Notlarım', category: 'Notlar', description: 'Kişisel notlar ve planlayıcı.' },
+  { id: 'bulletin-dashboard', title: 'APEXOS Bülten', category: 'Bülten', description: 'Haberler ve medya bülteni.' },
+  { id: 'settings', title: 'Sistem Ayarları', category: 'Ayarlar', description: 'Görünüm ve sistem tercihleri.' },
+  { id: 'profile', title: 'Profil', category: 'Kullanıcı', description: 'Kullanıcı bilgileri.' },
+  { id: 'cmd-theme', title: '/theme dark|light', category: 'Komut', description: 'Temayı değiştir.' },
+  { id: 'cmd-logout', title: '/logout', category: 'Komut', description: 'Çıkış yap.' },
   { id: 'cmd-clear', title: '/clear', category: 'Komut', description: 'Arama geçmişini temizle.' },
 ];
 

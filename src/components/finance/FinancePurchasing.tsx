@@ -749,9 +749,27 @@ export const FinancePurchasing = () => {
                       </div>
 
                       {crawlMethod === 'url' ? (
-                        <div className="space-y-3">
+                        <div className="space-y-4">
+                          <div className="p-4 bg-focus-neon/5 border border-focus-neon/10 rounded-2xl flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="size-10 rounded-xl bg-focus-neon/10 border border-focus-neon/20 flex items-center justify-center">
+                                <Globe size={20} className="text-focus-neon" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-white tracking-tight">Bağlantı Motoru Durumu</p>
+                                <p className="text-[10px] text-text-secondary uppercase font-bold tracking-widest">
+                                  {isCrawling ? 'VERİ TRANSFERİ AKTİF' : 'BAĞLANTI BEKLENİYOR'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className={`size-2 rounded-full animate-pulse ${isCrawling ? 'bg-focus-neon' : 'bg-zinc-600'}`} />
+                              <span className="text-[10px] font-mono text-zinc-400">v2.4 Engine</span>
+                            </div>
+                          </div>
+
                           <div>
-                            <label className="block text-xs font-bold text-text-secondary mb-1.5 uppercase">Ürün Web Sayfası Linki</label>
+                            <label className="block text-xs font-bold text-text-secondary mb-1.5 uppercase tracking-widest">Ürün Web Sayfası Linki</label>
                             <div className="flex gap-2">
                               <div className="relative flex-1">
                                 <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" size={14} />
@@ -760,20 +778,20 @@ export const FinancePurchasing = () => {
                                   placeholder="Trendyol, Amazon, Apple vb. ürün linkini yapıştırın"
                                   value={crawlUrl}
                                   onChange={(e) => setCrawlUrl(e.target.value)}
-                                  className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-text-secondary focus:outline-none focus:border-focus-neon/50 transition-colors"
+                                  className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-text-secondary focus:outline-none focus:border-focus-neon/50 transition-colors font-mono"
                                 />
                               </div>
                               <button 
                                 onClick={handleRunCrawler}
                                 disabled={!crawlUrl || isCrawling}
-                                className="px-5 py-2.5 bg-focus-neon text-black rounded-xl text-sm font-bold hover:bg-focus-neon/90 transition-all disabled:opacity-40 flex items-center gap-1.5 whitespace-nowrap font-display"
+                                className="px-6 py-2.5 bg-focus-neon text-black rounded-xl text-sm font-bold hover:bg-focus-neon/90 transition-all disabled:opacity-40 flex items-center gap-2 whitespace-nowrap font-display shadow-lg shadow-focus-neon/20 active:scale-95"
                               >
                                 {isCrawling ? (
-                                  <RefreshCw size={14} className="animate-spin" />
+                                  <RefreshCw size={16} className="animate-spin" />
                                 ) : (
-                                  <Sparkles size={14} />
+                                  <Sparkles size={16} />
                                 )}
-                                Tarat & Çek
+                                APEXOS Motoru ile Bağlan
                               </button>
                             </div>
                           </div>
@@ -821,10 +839,10 @@ export const FinancePurchasing = () => {
                           <button 
                             onClick={handleRunCrawler}
                             disabled={!pastedHtml || isCrawling}
-                            className="w-full py-2.5 bg-focus-neon text-black rounded-xl text-xs font-bold hover:bg-focus-neon/90 transition-all disabled:opacity-40 flex items-center justify-center gap-1.5 font-display"
+                            className="w-full py-3 bg-focus-neon text-black rounded-xl text-xs font-bold hover:bg-focus-neon/90 transition-all disabled:opacity-40 flex items-center justify-center gap-2 font-display shadow-lg shadow-focus-neon/20 active:scale-95"
                           >
-                            {isCrawling ? <RefreshCw size={14} className="animate-spin" /> : <Code size={14} />}
-                            Pasted HTML Kodunu Tara & Analiz Et
+                            {isCrawling ? <RefreshCw size={16} className="animate-spin" /> : <Code size={16} />}
+                            APEXOS HTML Analiz Motorunu Başlat
                           </button>
                         </div>
                       )}
@@ -840,9 +858,9 @@ export const FinancePurchasing = () => {
                         <div className="flex-1 overflow-y-auto custom-scrollbar font-mono text-[10px] text-zinc-400 space-y-1 select-text">
                           {crawlerLogs.map((log, idx) => (
                             <div key={idx} className={
-                              log.includes('[HATA]') ? 'text-crit-vivid font-bold' :
-                              log.includes('[SİSTEM]') ? 'text-focus-neon' :
-                              log.includes('[GEMINI_AI]') ? 'text-ai-bright font-bold' : 'text-zinc-400'
+                              (log || '').includes('[HATA]') ? 'text-crit-vivid font-bold' :
+                              (log || '').includes('[SİSTEM]') ? 'text-focus-neon' :
+                              (log || '').includes('[GEMINI_AI]') ? 'text-ai-bright font-bold' : 'text-zinc-400'
                             }>
                               {log}
                             </div>
