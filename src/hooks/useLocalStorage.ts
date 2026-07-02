@@ -22,6 +22,8 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
   }, [storedValue]);
 
   useEffect(() => {
+    if (!auth || !db) return;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         // Sync data from local storage to Firebase if Firebase is empty, or load from Firebase
@@ -60,7 +62,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         window.dispatchEvent(new Event('local-storage'));
       }
 
-      if (auth.currentUser) {
+      if (auth?.currentUser && db) {
         isWritingRef.current = true;
         const docRef = doc(db, `users/${auth.currentUser.uid}/app_state/${key}`);
         setDoc(docRef, { data: valueToStore }, { merge: true }).finally(() => {

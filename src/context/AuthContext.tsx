@@ -32,6 +32,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setSession(currentUser ? { user: currentUser } : null);
@@ -42,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    if (!auth) return;
     try {
       await firebaseSignOut(auth);
     } catch (error) {
@@ -50,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    if (!auth) return { data: null, error: new Error("Auth not initialized") };
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       return { data: { user: userCredential.user }, error: null };
@@ -59,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, metadata?: any) => {
+    if (!auth) return { data: null, error: new Error("Auth not initialized") };
     try {
        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
        return { data: { user: userCredential.user }, error: null };
@@ -68,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    if (!auth) return { data: null, error: new Error("Auth not initialized") };
     try {
       const userCredential = await signInWithPopup(auth, googleProvider);
       return { data: { user: userCredential.user }, error: null };
