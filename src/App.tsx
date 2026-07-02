@@ -283,6 +283,13 @@ function AppLayout() {
 function AppContent() {
   const { user, loading, signInWithGoogle } = useAuth();
 
+  const handleGoogleSignIn = async () => {
+    const { error } = await signInWithGoogle();
+    if (error) {
+      alert(`Giriş hatası: ${error.message}\n\nİpucu: Vercel kullanıyorsanız, alan adınızı Firebase konsolunda whiteliste eklediğinizden emin olun.`);
+    }
+  };
+
   return (
     <div className="h-screen w-full bg-transparent text-skel-glass flex flex-col overflow-hidden relative">
       <SpatialBackground />
@@ -310,7 +317,7 @@ function AppContent() {
                  <h1 className="text-2xl font-display font-bold text-white mb-2">APEXOS FİNANS</h1>
                  <p className="text-text-secondary mb-8 text-sm">Tüm cihazlarda senkronize çalışmak için giriş yapın.</p>
                  <button 
-                    onClick={signInWithGoogle}
+                    onClick={handleGoogleSignIn}
                     className="w-full bg-white text-black font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-3 hover:bg-white/90 transition-colors"
                  >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">

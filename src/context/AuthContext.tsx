@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, googleProvider } from '../lib/firebase';
-import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, User, browserPopupRedirectResolver } from 'firebase/auth';
+import { doc, getDocFromServer } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -36,6 +38,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
+
+    // Test connection as recommended by guidelines
+    const testConnection = async () => {
+      try {
+        if (db) {
+          await getDocFromServer(doc(db, 'test', 'connection'));
+        }
+      } catch (error) {
+        console.warn("Firebase connection test failed (expected if collection 'test' is empty or rules block it):", error);
+      }
+    };
+    testConnection();
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -78,10 +92,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async () => {
     if (!auth) return { data: null, error: new Error("Auth not initialized") };
     try {
-      const userCredential = await signInWithPopup(auth, googleProvider);
+      console.log("Initiating Google Sign-In popup...");
+      // Explicitly use popup resolver to handle iframe constraints better
+      const userCredential = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+      console.log("Sign-In successful:", userCredential.user.email);
       return { data: { user: userCredential.user }, error: null };
-    } catch (error) {
-      return { data: null, error };
+    } catch (error: any) {
+      console.error("Sign-In Error:", error);
+      // Provide a more helpful error message for common iframe/popup issues
+      let errorMessage = error.message;
+      if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = "Giriş penceresi kapatıldı.";
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        errorMessage = "Giriş isteği iptal edildi.";
+      } else if (error.code === 'auth/popup-blocked') {
+        errorMessage = "Tarayıcı pencereyi engelledi. Lütfen izin verin.";
+      } else if (error.code === 'auth/operation-not-allowed') {
+        errorMessage = "Google ile giriş Firebase konsolunda etkinleştirilmemiş olabilir.";
+      }
+      return { data: null, error: { ...error, message: errorMessage } };
     }
   };
 

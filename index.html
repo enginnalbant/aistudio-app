@@ -7,6 +7,19 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.onerror = function(msg, url, lineNo, columnNo, error) {
+        console.error('APEXOS FATAL STARTUP ERROR:', msg, '\nAt:', url, ':', lineNo, ':', columnNo);
+        const root = document.getElementById('root');
+        if (root && root.innerHTML === '') {
+          root.innerHTML = '<div style="background: black; color: red; padding: 20px; font-family: monospace;"><h1>APEXOS FATAL ERROR</h1><p>' + msg + '</p><p>Check console logs for details.</p></div>';
+        }
+        return false;
+      };
+      window.onunhandledrejection = function(event) {
+        console.error('UNHANDLED REJECTION:', event.reason);
+      };
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
