@@ -30,7 +30,8 @@ import {
   Layers,
   Trash2,
   Heart,
-  Pencil
+  Pencil,
+  Bookmark
 } from 'lucide-react';
 import { scrapeProductDetails, ScrapedProduct } from '../../lib/purchaseScraper';
 
@@ -47,6 +48,7 @@ interface PurchaseItem {
   savedAmount: number;
   imageUrl?: string;
   storeName?: string;
+  tags?: string[];
   // Extracted Scraper Metadata
   features?: string[];
   specs?: { key: string; value: string }[];
@@ -54,6 +56,93 @@ interface PurchaseItem {
   reviewsCount?: number;
   reviews?: { author: string; rating: number; comment: string; date: string }[];
 }
+
+export const getSmartCategory = (title: string, description: string = ''): string => {
+  if (!title) return 'Diğer';
+  
+  const text = `${title} ${description}`.toLowerCase();
+  
+  // Rule definitions
+  const rules = [
+    { category: 'Klavye', keywords: ['klavye', 'keyboard', 'keypad', 'tus takimi', 'klavyesi'] },
+    { category: 'Fare / Mouse', keywords: ['fare', 'mouse', 'mouse\'u', 'fari', 'trackpad', 'faresi'] },
+    { category: 'Kulaklık', keywords: ['kulaklık', 'headset', 'earphone', 'headphone', 'airpods', 'buds', 'kulaklik', 'kulakligi', 'kulaklığı'] },
+    { category: 'Telefon', keywords: ['telefon', 'iphone', 'samsung galaxy', 'xiaomi', 'redmi', 'huawei', 'realme', 'oppo', 'cep tel', 'telefonu'] },
+    { category: 'Tablet', keywords: ['tablet', 'ipad', 'e-kitap okuyucu', 'kindle', 'kobo', 'paperwhite', 'tableti'] },
+    { category: 'Monitör', keywords: ['monitör', 'ekran', 'display', 'screen', 'monitor', 'monitoru', 'monitörü'] },
+    { category: 'Bilgisayar', keywords: ['bilgisayar', 'laptop', 'notebook', 'pc', 'macbook', 'masaüstü', 'desktop', 'anakart', 'ram bellek', 'ekran karti', 'ekran kartı', 'islemci', 'işlemci', 'bilgisayari', 'bilgisayarı'] },
+    { category: 'Televizyon', keywords: ['televizyon', 'tv', 'smart tv', 'oled tv', 'qled', 'televizyonu'] },
+    { category: 'Kamera', keywords: ['kamera', 'camera', 'fotoğraf makinesi', 'dslr', 'webcam', 'kamerasi', 'kamerası'] },
+    { category: 'Hoparlör', keywords: ['hoparlör', 'speaker', 'soundbar', 'hoparlor', 'hoparloru', 'hoparlörü'] },
+    { category: 'Oyun / Konsol', keywords: ['oyun konsolu', 'playstation', 'xbox', 'nintendo', 'ps5', 'ps4', 'gamepad', 'joystick', 'konsolu'] },
+    { category: 'Saat', keywords: ['akıllı saat', 'smart watch', 'saat', 'kol saati', 'akilli saat', 'saati'] },
+    { category: 'Yazıcı', keywords: ['yazıcı', 'printer', 'tarayıcı', 'scanner', 'yazici', 'yazicisi', 'yazıcısı'] },
+    
+    // Ev Aletleri / Mutfak
+    { category: 'Kahve Makinesi', keywords: ['kahve makinesi', 'coffee maker', 'espresso makinesi', 'filtre kahve', 'kahve makineleri'] },
+    { category: 'Fritöz / Airfryer', keywords: ['airfryer', 'fritöz', 'air fryer', 'fritoz'] },
+    { category: 'Süpürge', keywords: ['süpürge', 'vacuum', 'robot süpürge', 'dyson', 'supurge', 'supurgesi', 'süpürgesi'] },
+    { category: 'Ev Aletleri', keywords: ['ütü', 'blender', 'mikrodalga', 'fırın', 'tost makinesi', 'çamaşır makinesi', 'bulaşık makinesi', 'buzdolabı', 'klima', 'vantilatör', 'utu', 'firin', 'makinesi', 'makinası'] },
+    
+    // Mobilya
+    { category: 'Sandalye / Koltuk', keywords: ['sandalye', 'koltuk', 'chair', 'gaming chair', 'oyuncu koltuğu', 'puf', 'sandalyesi', 'koltugu', 'koltuğu'] },
+    { category: 'Masa', keywords: ['masa', 'desk', 'çalışma masası', 'sehpa', 'yemek masası', 'masasi', 'masası'] },
+    { category: 'Mobilya', keywords: ['dolap', 'gardırop', 'yatak', 'baza', 'şifonyer', 'komodin', 'mobilya', 'kitaplık', 'dolabi', 'dolabı'] },
+    
+    // Giyim
+    { category: 'Ayakkabı', keywords: ['ayakkabı', 'sneaker', 'bot', 'çizme', 'terlik', 'spor ayakkabı', 'ayakkabi', 'ayakkabisi', 'ayakkabısı'] },
+    { category: 'Giyim', keywords: ['giyim', 'elbise', 'tişört', 't-shirt', 'pantolon', 'ceket', 'mont', 'hırka', 'kazak', 'gömlek', 'sweatshirt', 'yelek', 'şort', 'kaban', 'elbisesi'] },
+    
+    // Diğer
+    { category: 'Kitap', keywords: ['kitap', 'roman', 'hikaye', 'book', 'dergi', 'kitabi', 'kitabı'] },
+    { category: 'Otomotiv', keywords: ['araba', 'oto', 'otomobil', 'lastik', 'araç', 'aksesuar oto', 'car', 'arabasi', 'arabası'] }
+  ];
+
+  // Try to find matching rule
+  for (const rule of rules) {
+    for (const keyword of rule.keywords) {
+      if (text.includes(keyword)) {
+        return rule.category;
+      }
+    }
+  }
+
+  // Fallback heuristic: Clean up adjectives to extract the core product name
+  const adjectives = [
+    'kablolu', 'kablosuz', 'oyuncu', 'gaming', 'bluetooth', 'mekanik', 'usb', 'rgb', 'mini', 'pro', 'max', 'ultra',
+    'lite', 'akıllı', 'smart', 'taşınabilir', 'portable', 'şarjlı', 'led', 'hd', '4k', 'wireless', 'wired', 'mechanical',
+    'profesyonel', 'professional', 'premium', 'lux', 'lüks', 'sessiz', 'silent', 'hızlı', 'fast'
+  ];
+
+  // Filter out the adjectives from the title words to find the main subject
+  const cleanWords = title
+    .toLowerCase()
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, "") // remove punctuation
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !adjectives.includes(word));
+
+  if (cleanWords.length > 0) {
+    // Return the last prominent word capitalized as category
+    const word = cleanWords[cleanWords.length - 1];
+    
+    // Let's capitalize first letter
+    const capitalizedWord = word.charAt(0).toUpperCase() + word.slice(1);
+    
+    // Handle suffix plurals or suffixes like "leri", "si", etc.
+    if (word.endsWith('leri') || word.endsWith('ları')) {
+      const root = capitalizedWord.slice(0, -4);
+      if (root.length >= 3) return root;
+    }
+    if (word.endsWith('si') || word.endsWith('su') || word.endsWith('se') || word.endsWith('sa')) {
+      const root = capitalizedWord.slice(0, -2);
+      if (root.length >= 3) return root;
+    }
+    
+    return capitalizedWord;
+  }
+
+  return 'Diğer';
+};
 
 const MOCK_PURCHASES: PurchaseItem[] = [
   {
@@ -165,6 +254,16 @@ export const FinancePurchasing = () => {
   const [quickBudgetProduct, setQuickBudgetProduct] = useState<PurchaseItem | null>(null);
   const [quickBudgetAmount, setQuickBudgetAmount] = useState<string>('');
 
+  // Category Customization States
+  const [customCategories, setCustomCategories] = useLocalStorage<string[]>(
+    'finance_purchasing_custom_categories_v2',
+    ['Elektronik', 'Mobilya', 'Giyim', 'Ev Aletleri', 'Otomotiv', 'Kitap / Hobi', 'Diğer']
+  );
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [editingCategoryName, setEditingCategoryName] = useState<string | null>(null);
+  const [editCategoryInput, setEditCategoryInput] = useState('');
+  const [draggedOverCategory, setDraggedOverCategory] = useState<string | null>(null);
+
   // Custom Dialog & Notification States
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string; message: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -224,7 +323,7 @@ export const FinancePurchasing = () => {
           description: result.data.description,
           storeName: result.data.storeName,
           imageUrl: result.data.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=60',
-          category: formData.category || 'Elektronik',
+          category: getSmartCategory(result.data.title, result.data.description),
           status: 'Planlanıyor',
           priority: formData.priority || 'Orta',
           savedAmount: 0,
@@ -273,7 +372,88 @@ export const FinancePurchasing = () => {
     });
   }, [purchases, search, selectedCategory, selectedPriority]);
 
-  const categories = ['Hepsi', 'Elektronik', 'Mobilya', 'Giyim', 'Ev Aletleri', 'Otomotiv', 'Kitap / Hobi', 'Diğer'];
+  // Grouped purchases by category
+  const groupedPurchases = useMemo(() => {
+    const groups: { [key: string]: PurchaseItem[] } = {};
+    filteredPurchases.forEach(item => {
+      const cat = item.category || 'Diğer';
+      if (!groups[cat]) {
+        groups[cat] = [];
+      }
+      groups[cat].push(item);
+    });
+    return groups;
+  }, [filteredPurchases]);
+
+  const categories = useMemo(() => {
+    const custom = purchases.map(p => p.category).filter(Boolean);
+    const unique = Array.from(new Set([...customCategories, ...custom]));
+    return ['Hepsi', ...unique];
+  }, [purchases, customCategories]);
+
+  // Move product to category (handles Drag & Drop)
+  const handleMoveProductToCategory = (itemId: string, newCategory: string) => {
+    setPurchases(prev => prev.map(p => {
+      if (p.id === itemId) {
+        return { ...p, category: newCategory };
+      }
+      return p;
+    }));
+    setToast({ message: `Ürün "${newCategory}" kategorisine taşındı.`, type: 'success' });
+  };
+
+  // Add a new custom category
+  const handleAddCategory = (newCat: string) => {
+    const trimmed = newCat.trim();
+    if (!trimmed) return;
+    if (customCategories.includes(trimmed)) {
+      setToast({ message: 'Bu kategori zaten mevcut.', type: 'error' });
+      return;
+    }
+    setCustomCategories(prev => [...prev, trimmed]);
+    setToast({ message: `"${trimmed}" kategorisi başarıyla eklendi.`, type: 'success' });
+  };
+
+  // Rename an existing category
+  const handleRenameCategory = (oldName: string, newName: string) => {
+    const trimmedNew = newName.trim();
+    if (!trimmedNew || trimmedNew === oldName) return;
+    
+    // Check if new category already exists in custom list
+    if (customCategories.filter(c => c !== oldName).includes(trimmedNew)) {
+      setToast({ message: 'Bu isimde başka bir kategori zaten var.', type: 'error' });
+      return;
+    }
+
+    // Update customCategories list
+    setCustomCategories(prev => prev.map(c => c === oldName ? trimmedNew : c));
+
+    // Update all purchases belonging to the old category
+    setPurchases(prev => prev.map(p => {
+      if (p.category === oldName) {
+        return { ...p, category: trimmedNew };
+      }
+      return p;
+    }));
+
+    if (selectedCategory === oldName) {
+      setSelectedCategory(trimmedNew);
+    }
+
+    setToast({ message: `Kategori "${oldName}" -> "${trimmedNew}" olarak güncellendi.`, type: 'success' });
+  };
+
+  // Delete an empty category
+  const handleDeleteCategory = (catName: string) => {
+    setCustomCategories(prev => prev.filter(c => c !== catName));
+    setPurchases(prev => prev.map(p => {
+      if (p.category === catName) {
+        return { ...p, category: 'Diğer' };
+      }
+      return p;
+    }));
+    setToast({ message: `"${catName}" kategorisi silindi.`, type: 'info' });
+  };
 
   // Delete product
   const handleDeleteProduct = (id: string, e: React.MouseEvent) => {
@@ -479,9 +659,13 @@ export const FinancePurchasing = () => {
               <select 
                 value={selectedCategory} 
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="bg-transparent text-xs text-white border-none focus:outline-none cursor-pointer font-bold"
+                className="bg-transparent text-xs text-white border-none focus:outline-none cursor-pointer font-bold bg-neutral-900"
               >
-                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                {categories.map(cat => (
+                  <option key={cat} value={cat} className="text-neutral-900 bg-white text-xs py-2">
+                    {cat}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -490,175 +674,327 @@ export const FinancePurchasing = () => {
               <select 
                 value={selectedPriority} 
                 onChange={(e) => setSelectedPriority(e.target.value)}
-                className="bg-transparent text-xs text-white border-none focus:outline-none cursor-pointer font-bold"
+                className="bg-transparent text-xs text-white border-none focus:outline-none cursor-pointer font-bold bg-neutral-900"
               >
-                <option value="Hepsi">Tüm Seviyeler</option>
-                <option value="Acil">Acil</option>
-                <option value="Yüksek">Yüksek</option>
-                <option value="Orta">Orta</option>
-                <option value="Düşük">Düşük</option>
+                <option value="Hepsi" className="text-neutral-900 bg-white text-xs py-2">Tüm Seviyeler</option>
+                <option value="Acil" className="text-neutral-900 bg-white text-xs py-2">Acil</option>
+                <option value="Yüksek" className="text-neutral-900 bg-white text-xs py-2">Yüksek</option>
+                <option value="Orta" className="text-neutral-900 bg-white text-xs py-2">Orta</option>
+                <option value="Düşük" className="text-neutral-900 bg-white text-xs py-2">Düşük</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Dynamic Grid Layout of Purchase Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredPurchases.map((item) => {
-            const perc = item.price > 0 ? (item.savedAmount / item.price) * 100 : 0;
-            const priceDiff = item.oldPrice ? item.price - item.oldPrice : 0;
-            
-            return (
-              <div 
-                key={item.id} 
-                onClick={() => {
-                  setSelectedProduct(item);
-                  setDetailsTab('general');
-                }}
-                className="bg-black/30 border border-white/5 rounded-2xl p-5 hover:border-white/20 transition-all group relative flex flex-col h-full cursor-pointer hover:bg-white/[0.02] transform hover:-translate-y-0.5 shadow-lg"
-              >
-                {/* Trash delete & link buttons */}
-                <div className="absolute top-4 right-4 flex gap-1 z-10" onClick={e => e.stopPropagation()}>
-                  <a 
-                    href={item.url} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="p-1.5 bg-white/5 text-text-secondary hover:text-focus-neon rounded-lg transition-colors" 
-                    title="Mağazaya Git"
-                  >
-                    <ExternalLink size={14} />
-                  </a>
-                  <button 
-                    onClick={() => {
-                      setFormData(item);
-                      setWizardTab('manual');
-                      setIsWizardOpen(true);
-                    }}
-                    className="p-1.5 bg-white/5 text-text-secondary hover:text-focus-neon hover:bg-focus-neon/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                    title="Planı Düzenle"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button 
-                    onClick={(e) => handleDeleteProduct(item.id, e)}
-                    className="p-1.5 bg-white/5 text-text-secondary hover:text-crit-vivid hover:bg-crit-vivid/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                    title="Planı Sil"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                
-                {/* Image & Header */}
-                <div className="flex gap-4 items-start mb-4 pr-12">
-                  <img 
-                    src={item.imageUrl} 
-                    alt={item.title} 
-                    className="w-16 h-16 rounded-xl object-cover border border-white/10" 
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=60";
-                    }}
-                  />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap gap-1.5 mb-1">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                        item.status === 'Planlanıyor' ? 'bg-white/10 text-white' :
-                        item.status === 'Para Biriktiriliyor' ? 'bg-ai-bright/10 text-ai-bright' :
-                        item.status === 'Alınabilir' ? 'bg-nrg-sun/10 text-nrg-sun' :
-                        'bg-focus-neon/10 text-focus-neon'
-                      }`}>
-                        {item.status}
-                      </span>
-                      {item.priority === 'Acil' && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-crit-vivid/10 text-crit-vivid">
-                          Acil
-                        </span>
+        {/* Category & Tags Management Toolbar */}
+        <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="p-2 bg-focus-neon/10 text-focus-neon rounded-xl">
+              <Layers size={18} />
+            </span>
+            <div>
+              <p className="text-xs font-bold text-white">Kategori ve Etiket Özelleştirme</p>
+              <p className="text-[10px] text-text-secondary">Ürünleri kategoriler arasında sürükleyip bırakabilir (Drag & Drop), başlıkları çift tıklayarak düzenleyebilirsiniz.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-xl px-2 py-1 max-w-sm w-full md:w-auto">
+            <input
+              type="text"
+              placeholder="Yeni kategori adı..."
+              value={newCategoryInput}
+              onChange={(e) => setNewCategoryInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleAddCategory(newCategoryInput);
+                  setNewCategoryInput('');
+                }
+              }}
+              className="bg-transparent text-xs text-white placeholder-text-secondary focus:outline-none px-2.5 py-1 w-full md:w-40"
+            />
+            <button
+              onClick={() => {
+                handleAddCategory(newCategoryInput);
+                setNewCategoryInput('');
+              }}
+              className="bg-focus-neon text-black font-extrabold text-[10px] px-3 py-1.5 rounded-lg hover:bg-white transition-colors cursor-pointer shrink-0"
+            >
+              Kategori Ekle
+            </button>
+          </div>
+        </div>
+
+        {/* Categorized Grid Layout of Purchase Cards */}
+        <div className="space-y-10">
+          {Object.entries(groupedPurchases).map(([categoryName, items]) => (
+            <div 
+              key={categoryName} 
+              onDragOver={(e) => {
+                e.preventDefault();
+              }}
+              onDragEnter={() => setDraggedOverCategory(categoryName)}
+              onDragLeave={() => setDraggedOverCategory(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDraggedOverCategory(null);
+                const itemId = e.dataTransfer.getData('text/plain');
+                if (itemId) {
+                  handleMoveProductToCategory(itemId, categoryName);
+                }
+              }}
+              className={`space-y-4 p-4 rounded-3xl transition-all duration-300 border ${
+                draggedOverCategory === categoryName 
+                  ? 'bg-focus-neon/5 border-dashed border-focus-neon/40 shadow-lg shadow-focus-neon/5 scale-[1.005]' 
+                  : 'border-transparent'
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <div className="flex items-center gap-3">
+                  <span className="h-2 w-2 rounded-full bg-focus-neon"></span>
+                  {editingCategoryName === categoryName ? (
+                    <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        value={editCategoryInput}
+                        onChange={(e) => setEditCategoryInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleRenameCategory(categoryName, editCategoryInput);
+                            setEditingCategoryName(null);
+                          } else if (e.key === 'Escape') {
+                            setEditingCategoryName(null);
+                          }
+                        }}
+                        className="bg-black/60 border border-focus-neon/50 text-white text-xs px-2.5 py-1 rounded-xl focus:outline-none max-w-[150px] font-bold"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => {
+                          handleRenameCategory(categoryName, editCategoryInput);
+                          setEditingCategoryName(null);
+                        }}
+                        className="p-1 bg-focus-neon text-black rounded hover:bg-white transition-colors cursor-pointer"
+                      >
+                        <Check size={12} />
+                      </button>
+                      <button
+                        onClick={() => setEditingCategoryName(null)}
+                        className="p-1 bg-white/5 text-white rounded hover:bg-white/10 transition-colors cursor-pointer"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 group/cat">
+                      {categoryName}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingCategoryName(categoryName);
+                          setEditCategoryInput(categoryName);
+                        }}
+                        className="opacity-0 group-hover/cat:opacity-100 p-0.5 hover:text-focus-neon rounded transition-all text-text-secondary"
+                        title="Kategoriyi Yeniden Adlandır"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                      {customCategories.includes(categoryName) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCategory(categoryName);
+                          }}
+                          className="opacity-0 group-hover/cat:opacity-100 p-0.5 hover:text-crit-vivid rounded transition-all text-text-secondary"
+                          title="Kategoriyi Sil"
+                        >
+                          <Trash2 size={11} />
+                        </button>
                       )}
-                    </div>
-                    <h3 className="text-base font-bold text-text-primary line-clamp-1 group-hover:text-focus-neon transition-colors">{item.title}</h3>
-                    <p className="text-xs text-text-secondary truncate">{item.storeName ? `${item.storeName} • ` : ''}{item.category}</p>
-                  </div>
+                    </h3>
+                  )}
+                  <span className="px-2 py-0.5 rounded-full bg-white/5 text-[10px] text-text-secondary font-mono font-bold">
+                    {items.length} Ürün
+                  </span>
                 </div>
-                
-                <div className="flex-1 mb-4">
-                  <p className="text-xs text-text-secondary line-clamp-2">{item.description}</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {items.map((item) => {
+                  const perc = item.price > 0 ? (item.savedAmount / item.price) * 100 : 0;
+                  const priceDiff = item.oldPrice ? item.price - item.oldPrice : 0;
                   
-                  {/* Features Quick Badge Preview */}
-                  {item.features && item.features.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {item.features.slice(0, 2).map((feat, idx) => (
-                        <span key={idx} className="bg-white/5 border border-white/5 rounded-md px-1.5 py-0.5 text-[9px] text-text-secondary truncate max-w-[120px]">
-                          ✓ {feat}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Rating indicator */}
-                  {item.rating && (
-                    <div className="mt-2.5 flex items-center gap-1.5">
-                      <div className="flex items-center text-yellow-400">
-                        <Star size={11} fill="currentColor" />
-                        <span className="text-[11px] font-bold ml-0.5 text-white">{item.rating}</span>
+                  return (
+                    <div 
+                      key={item.id} 
+                      onClick={() => {
+                        setSelectedProduct(item);
+                        setDetailsTab('general');
+                      }}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', item.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      className="bg-black/30 border border-white/5 rounded-2xl p-5 hover:border-white/20 transition-all group relative flex flex-col h-full cursor-pointer hover:bg-white/[0.02] transform hover:-translate-y-0.5 shadow-lg select-none active:cursor-grabbing cursor-grab"
+                    >
+                      {/* Trash delete & link buttons */}
+                      <div className="absolute top-4 right-4 flex gap-1 z-10" onClick={e => e.stopPropagation()}>
+                        <a 
+                          href={item.url} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="p-1.5 bg-white/5 text-text-secondary hover:text-focus-neon rounded-lg transition-colors" 
+                          title="Mağazaya Git"
+                        >
+                          <ExternalLink size={14} />
+                        </a>
+                        <button 
+                          onClick={() => {
+                            setFormData(item);
+                            setWizardTab('manual');
+                            setIsWizardOpen(true);
+                          }}
+                          className="p-1.5 bg-white/5 text-text-secondary hover:text-focus-neon hover:bg-focus-neon/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                          title="Planı Düzenle"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button 
+                          onClick={(e) => handleDeleteProduct(item.id, e)}
+                          className="p-1.5 bg-white/5 text-text-secondary hover:text-crit-vivid hover:bg-crit-vivid/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                          title="Planı Sil"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
-                      <span className="text-[10px] text-text-secondary">({item.reviewsCount || 0} Değerlendirme)</span>
-                    </div>
-                  )}
-                </div>
+                      
+                      {/* Image & Header */}
+                      <div className="flex gap-4 items-start mb-4 pr-12">
+                        <img 
+                          src={item.imageUrl} 
+                          alt={item.title} 
+                          className="w-16 h-16 rounded-xl object-cover border border-white/10" 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=60";
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap gap-1.5 mb-1">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                              item.status === 'Planlanıyor' ? 'bg-white/10 text-white' :
+                              item.status === 'Para Biriktiriliyor' ? 'bg-ai-bright/10 text-ai-bright' :
+                              item.status === 'Alınabilir' ? 'bg-nrg-sun/10 text-nrg-sun' :
+                              'bg-focus-neon/10 text-focus-neon'
+                            }`}>
+                              {item.status}
+                            </span>
+                            {item.priority === 'Acil' && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-crit-vivid/10 text-crit-vivid">
+                                Acil
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="text-base font-bold text-text-primary line-clamp-1 group-hover:text-focus-neon transition-colors">{item.title}</h3>
+                          <p className="text-xs text-text-secondary truncate">{item.storeName ? `${item.storeName} • ` : ''}{item.category}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 mb-4">
+                        <p className="text-xs text-text-secondary line-clamp-2">{item.description}</p>
+                        
+                        {/* Features Quick Badge Preview */}
+                        {item.features && item.features.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1">
+                            {item.features.slice(0, 2).map((feat, idx) => (
+                              <span key={idx} className="bg-white/5 border border-white/5 rounded-md px-1.5 py-0.5 text-[9px] text-text-secondary truncate max-w-[120px]">
+                                ✓ {feat}
+                              </span>
+                            ))}
+                          </div>
+                        )}
 
-                <div className="space-y-3 mt-auto">
-                  <div className="flex justify-between items-center bg-white/[0.01] p-2.5 rounded-xl border border-white/5">
-                    <div>
-                      <p className="text-[9px] text-text-secondary uppercase font-bold tracking-wider">FİYAT</p>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-mono font-bold text-text-primary text-base">₺{item.price.toLocaleString('tr-TR')}</span>
-                        {item.oldPrice && item.oldPrice !== item.price && (
-                          <span className={`flex items-center text-[10px] font-bold ${priceDiff > 0 ? 'text-crit-vivid' : 'text-focus-neon'}`}>
-                            {priceDiff > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                            %{(Math.abs(priceDiff) / item.oldPrice * 100).toFixed(0)}
-                          </span>
+                        {/* Rating indicator */}
+                        {item.rating && (
+                          <div className="mt-2.5 flex items-center gap-1.5">
+                            <div className="flex items-center text-yellow-400">
+                              <Star size={11} fill="currentColor" />
+                              <span className="text-[11px] font-bold ml-0.5 text-white">{item.rating}</span>
+                            </div>
+                            <span className="text-[10px] text-text-secondary">({item.reviewsCount || 0} Değerlendirme)</span>
+                          </div>
+                        )}
+
+                        {/* Tags Preview */}
+                        {item.tags && item.tags.length > 0 && (
+                          <div className="mt-2.5 flex flex-wrap gap-1">
+                            {item.tags.map((tag, idx) => (
+                              <span 
+                                key={idx} 
+                                className="bg-focus-neon/15 border border-focus-neon/25 rounded px-1.5 py-0.5 text-[9px] text-focus-neon font-mono font-semibold"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3 mt-auto">
+                        <div className="flex justify-between items-center bg-white/[0.01] p-2.5 rounded-xl border border-white/5">
+                          <div>
+                            <p className="text-[9px] text-text-secondary uppercase font-bold tracking-wider">FİYAT</p>
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="font-mono font-bold text-text-primary text-base">₺{item.price.toLocaleString('tr-TR')}</span>
+                              {item.oldPrice && item.oldPrice !== item.price && (
+                                <span className={`flex items-center text-[10px] font-bold ${priceDiff > 0 ? 'text-crit-vivid' : 'text-focus-neon'}`}>
+                                  {priceDiff > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                                  %{(Math.abs(priceDiff) / item.oldPrice * 100).toFixed(0)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {item.specs && item.specs.length > 0 && (
+                            <span className="text-[10px] bg-white/5 px-2 py-1 rounded text-text-secondary font-mono">
+                              {item.specs.length} Teknik Özellik
+                            </span>
+                          )}
+                        </div>
+
+                        {item.status !== 'Satın Alındı' && (
+                          <div className="space-y-1.5" onClick={e => e.stopPropagation()}>
+                            <div className="flex justify-between items-center text-[11px]">
+                              <span className="font-bold text-text-secondary">Bütçe (%{perc.toFixed(0)})</span>
+                              <span className="font-mono font-bold text-white">₺{item.savedAmount.toLocaleString('tr-TR')} / ₺{item.price.toLocaleString('tr-TR')}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all ${perc >= 100 ? 'bg-nrg-sun shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-ai-bright'}`} 
+                                  style={{ width: `${Math.min(perc, 100)}%` }}
+                                ></div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setQuickBudgetProduct(item);
+                                  setQuickBudgetAmount('');
+                                }}
+                                className="p-1 bg-white/5 text-text-secondary hover:text-focus-neon rounded-md transition-colors shrink-0 animate-pulse"
+                                title="Hızlı Bütçe Ayır"
+                              >
+                                <Plus size={11} />
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
-                    {item.specs && item.specs.length > 0 && (
-                      <span className="text-[10px] bg-white/5 px-2 py-1 rounded text-text-secondary font-mono">
-                        {item.specs.length} Teknik Özellik
-                      </span>
-                    )}
-                  </div>
-
-                  {item.status !== 'Satın Alındı' && (
-                    <div className="space-y-1.5" onClick={e => e.stopPropagation()}>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="font-bold text-text-secondary">Bütçe (%{perc.toFixed(0)})</span>
-                        <span className="font-mono font-bold text-white">₺{item.savedAmount.toLocaleString('tr-TR')} / ₺{item.price.toLocaleString('tr-TR')}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full transition-all ${perc >= 100 ? 'bg-nrg-sun shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-ai-bright'}`} 
-                            style={{ width: `${Math.min(perc, 100)}%` }}
-                          ></div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setQuickBudgetProduct(item);
-                            setQuickBudgetAmount('');
-                          }}
-                          className="p-1 bg-white/5 text-text-secondary hover:text-focus-neon rounded-md transition-colors shrink-0 animate-pulse"
-                          title="Hızlı Bütçe Ayır"
-                        >
-                          <Plus size={11} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
 
           {filteredPurchases.length === 0 && (
-            <div className="col-span-full text-center py-12 text-text-secondary border border-dashed border-white/10 rounded-2xl bg-black/10">
+            <div className="text-center py-12 text-text-secondary border border-dashed border-white/10 rounded-2xl bg-black/10">
               <p className="text-sm">Kriterlere uygun satınalma planı bulunamadı.</p>
               <p className="text-xs text-text-secondary mt-1">Yeni bir ürün planlamak için "Yapay Zeka Sihirbazı ile Ekle" butonuna basın.</p>
             </div>
@@ -1022,7 +1358,7 @@ export const FinancePurchasing = () => {
                                     reviews: scrapedPreview.reviews,
                                     status: 'Planlanıyor',
                                     priority: formData.priority || 'Orta',
-                                    category: formData.category || 'Elektronik',
+                                    category: getSmartCategory(scrapedPreview.title, scrapedPreview.description),
                                     savedAmount: formData.savedAmount || 0,
                                     url: crawlUrl || 'https://www.google.com'
                                   } as PurchaseItem, ...prev]);
@@ -1103,21 +1439,64 @@ export const FinancePurchasing = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-text-secondary mb-2 uppercase">Kategori</label>
-                        <select 
-                          name="category"
-                          value={formData.category || ''}
-                          onChange={handleInputChange}
-                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-focus-neon/50 transition-colors text-xs"
-                        >
-                          <option value="Elektronik">Elektronik</option>
-                          <option value="Mobilya">Mobilya</option>
-                          <option value="Giyim">Giyim</option>
-                          <option value="Ev Aletleri">Ev Aletleri</option>
-                          <option value="Otomotiv">Otomotiv</option>
-                          <option value="Kitap / Hobi">Kitap / Hobi</option>
-                          <option value="Diğer">Diğer</option>
-                        </select>
+                        <label className="block text-xs font-bold text-text-secondary mb-2 uppercase flex items-center gap-1">
+                          Kategori 
+                          <span className="text-[10px] text-focus-neon font-normal flex items-center gap-0.5 font-sans lowercase">
+                            (Akıllı Motor Etkin)
+                          </span>
+                        </label>
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            name="category"
+                            placeholder="Kategori adı girin veya seçin"
+                            value={formData.category || ''}
+                            onChange={handleInputChange}
+                            className="w-full bg-black/40 border border-white/10 rounded-xl pl-4 pr-10 py-3 text-white placeholder-text-secondary focus:outline-none focus:border-focus-neon/50 transition-colors text-xs font-bold"
+                          />
+                          <Sparkles size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-focus-neon animate-pulse pointer-events-none" />
+                        </div>
+                        
+                        {/* Real-time smart category recommendation */}
+                        {(() => {
+                          const recommended = getSmartCategory(formData.title || '', formData.description || '');
+                          if (recommended && recommended !== formData.category) {
+                            return (
+                              <div className="mt-2 flex items-center gap-1.5 bg-focus-neon/5 border border-focus-neon/10 rounded-lg p-2">
+                                <span className="text-[10px] text-focus-neon flex items-center gap-1 font-bold">
+                                  <Sparkles size={11} /> Öneri:
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData(prev => ({ ...prev, category: recommended }))}
+                                  className="text-[10px] font-bold text-black bg-focus-neon hover:bg-white px-2 py-0.5 rounded transition-all flex items-center gap-0.5 cursor-pointer"
+                                  title="Önerilen kategoriyi uygula"
+                                >
+                                  "{recommended}" Yap
+                                </button>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
+                        {/* Quick existing categories selection */}
+                        <div className="mt-2 flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                          {categories.filter(c => c !== 'Hepsi').slice(0, 15).map(cat => (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, category: cat }))}
+                              className={`px-2 py-1 rounded text-[9px] font-bold transition-all cursor-pointer ${
+                                formData.category === cat 
+                                  ? 'bg-focus-neon text-black scale-105 font-black' 
+                                  : 'bg-white/5 text-text-secondary hover:bg-white/10 hover:text-white'
+                              }`}
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-text-secondary mb-2 uppercase">Öncelik Seviyesi</label>
@@ -1127,10 +1506,10 @@ export const FinancePurchasing = () => {
                           onChange={handleInputChange}
                           className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-focus-neon/50 transition-colors text-xs"
                         >
-                          <option value="Düşük">Düşük</option>
-                          <option value="Orta">Orta</option>
-                          <option value="Yüksek">Yüksek</option>
-                          <option value="Acil">Acil</option>
+                          <option value="Düşük" className="text-neutral-900 bg-white text-xs py-2">Düşük</option>
+                          <option value="Orta" className="text-neutral-900 bg-white text-xs py-2">Orta</option>
+                          <option value="Yüksek" className="text-neutral-900 bg-white text-xs py-2">Yüksek</option>
+                          <option value="Acil" className="text-neutral-900 bg-white text-xs py-2">Acil</option>
                         </select>
                       </div>
                       <div>
@@ -1184,6 +1563,22 @@ export const FinancePurchasing = () => {
                         />
                       </div>
                     </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-text-secondary mb-2 uppercase">Etiketler (Virgülle Ayırın)</label>
+                        <input 
+                          type="text" 
+                          placeholder="Örn: teknoloji, ev, acil"
+                          value={formData.tags ? formData.tags.join(', ') : ''}
+                          onChange={(e) => {
+                            const tagsArray = e.target.value.split(',').map(t => t.trim()).filter(Boolean);
+                            setFormData(prev => ({ ...prev, tags: tagsArray }));
+                          }}
+                          className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-text-secondary focus:outline-none focus:border-focus-neon/50 transition-colors text-xs font-mono"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1202,11 +1597,13 @@ export const FinancePurchasing = () => {
                     if (formData.title && formData.price) {
                       setPurchases(prev => {
                         const exists = prev.some(p => p.id === formData.id);
+                        const finalCategory = formData.category?.trim() || getSmartCategory(formData.title || '', formData.description || '');
+                        const finalData = { ...formData, category: finalCategory };
                         if (exists) {
-                          return prev.map(p => p.id === formData.id ? { ...p, ...formData } as PurchaseItem : p);
+                          return prev.map(p => p.id === formData.id ? { ...p, ...finalData } as PurchaseItem : p);
                         } else {
                           return [{ 
-                            ...formData, 
+                            ...finalData, 
                             id: Date.now().toString(),
                             savedAmount: formData.savedAmount || 0,
                             oldPrice: formData.price // initialize old price same as price
@@ -1453,6 +1850,99 @@ export const FinancePurchasing = () => {
                         <div className="bg-white/[0.02] border border-white/5 p-3 rounded-xl">
                           <p className="text-[10px] text-text-secondary uppercase font-bold">PLANLAMA DURUMU</p>
                           <p className="text-white text-sm font-bold mt-1">{activeProduct.status}</p>
+                        </div>
+                      </div>
+
+                      {/* Interactive Tags Section */}
+                      <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-3">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-xs uppercase font-bold text-text-secondary tracking-wider flex items-center gap-2">
+                            <Bookmark size={14} className="text-focus-neon" /> Ürün Etiketleri
+                          </h4>
+                          <span className="text-[10px] text-text-secondary font-mono">
+                            {activeProduct.tags?.length || 0} Etiket
+                          </span>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-1.5">
+                          {activeProduct.tags && activeProduct.tags.length > 0 ? (
+                            activeProduct.tags.map((tag) => (
+                              <span 
+                                key={tag} 
+                                className="inline-flex items-center gap-1 bg-focus-neon/15 border border-focus-neon/25 px-2.5 py-1 rounded-lg text-xs text-focus-neon font-mono font-semibold"
+                              >
+                                #{tag}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updatedTags = (activeProduct.tags || []).filter(t => t !== tag);
+                                    setPurchases(prev => prev.map(p => {
+                                      if (p.id === activeProduct.id) {
+                                        return { ...p, tags: updatedTags };
+                                      }
+                                      return p;
+                                    }));
+                                  }}
+                                  className="hover:bg-focus-neon/20 p-0.5 rounded text-focus-neon hover:text-white transition-colors"
+                                >
+                                  <X size={10} />
+                                </button>
+                              </span>
+                            ))
+                          ) : (
+                            <p className="text-xs text-text-secondary italic">Bu ürüne henüz etiket eklenmemiş.</p>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2 items-center pt-2">
+                          <input
+                            type="text"
+                            placeholder="Yeni etiket adı ekleyin ve Enter'a basın..."
+                            id={`tag-input-${activeProduct.id}`}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const input = e.currentTarget;
+                                const val = input.value.trim().toLowerCase().replace('#', '');
+                                if (val) {
+                                  const currentTags = activeProduct.tags || [];
+                                  if (!currentTags.includes(val)) {
+                                    const updatedTags = [...currentTags, val];
+                                    setPurchases(prev => prev.map(p => {
+                                      if (p.id === activeProduct.id) {
+                                        return { ...p, tags: updatedTags };
+                                      }
+                                      return p;
+                                    }));
+                                  }
+                                  input.value = '';
+                                }
+                              }
+                            }}
+                            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-text-secondary focus:outline-none focus:border-focus-neon/50 transition-colors font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const input = document.getElementById(`tag-input-${activeProduct.id}`) as HTMLInputElement;
+                              const val = input?.value.trim().toLowerCase().replace('#', '');
+                              if (val) {
+                                const currentTags = activeProduct.tags || [];
+                                if (!currentTags.includes(val)) {
+                                  const updatedTags = [...currentTags, val];
+                                  setPurchases(prev => prev.map(p => {
+                                    if (p.id === activeProduct.id) {
+                                      return { ...p, tags: updatedTags };
+                                    }
+                                    return p;
+                                  }));
+                                }
+                                if (input) input.value = '';
+                              }
+                            }}
+                            className="bg-white/5 hover:bg-focus-neon/15 hover:text-focus-neon text-text-secondary border border-white/5 px-3 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer font-mono"
+                          >
+                            Ekle
+                          </button>
                         </div>
                       </div>
                     </div>

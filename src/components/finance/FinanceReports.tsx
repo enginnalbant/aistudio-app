@@ -98,8 +98,8 @@ export const FinanceReports = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string; message: string } | null>(null);
 
   // Report Creation Form States
-  const [formPeriod, setFormPeriod] = useState('2026-06');
-  const [formTitle, setFormTitle] = useState('Haziran 2026 Dönemi Kapsamlı Finansal Analiz Raporu');
+  const [formPeriod, setFormPeriod] = useState('2026-07');
+  const [formTitle, setFormTitle] = useState('Temmuz 2026 Dönemi Kapsamlı Finansal Analiz Raporu');
   const [formNotes, setFormNotes] = useState('');
   const [formGrade, setFormGrade] = useState<'S' | 'A' | 'B' | 'C' | 'D' | 'F'>('A');
   const [useAutoData, setUseAutoData] = useState(true);

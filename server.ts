@@ -1,18 +1,13 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from 'url';
 import "dotenv/config";
 import { createServer as createViteServer } from "vite";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
-
-
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
@@ -22,7 +17,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(__dirname, 'dist');
+    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

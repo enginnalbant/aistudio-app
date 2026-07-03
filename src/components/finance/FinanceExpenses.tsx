@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { motion, AnimatePresence } from 'motion/react';
+import { getRollovers } from './financeUtils';
 import { 
   Plus, 
   Search, 
@@ -48,6 +49,7 @@ interface Expense {
   recurrence?: 'Tek Seferlik' | 'Haftalık' | 'Aylık' | 'Yıllık';
   recipient: string;
   notes?: string;
+  isDynamic?: boolean;
 }
 
 const CATEGORIES = ['Barınma', 'Gıda', 'Fatura', 'Seyahat', 'Eğlence', 'Sağlık', 'Ulaşım', 'Diğer'];
@@ -55,8 +57,20 @@ const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'
 
 export const FinanceExpenses = () => {
   const [expenses, setExpenses] = useLocalStorage<Expense[]>('finance_expenses', []);
+  const [incomes] = useLocalStorage<any[]>('finance_incomes', []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Tümü');
+
+  // Compute dynamic rollovers
+  const { rolloverExpenses } = useMemo(() => {
+    return getRollovers(incomes, expenses);
+  }, [incomes, expenses]);
+
+  // Combine actual and dynamic rollover expenses (excluding future ones from the transaction list)
+  const allExpenses = useMemo(() => {
+    const activeRollovers = (rolloverExpenses || []).filter(r => r && !r.isFuture);
+    return [...expenses, ...activeRollovers];
+  }, [expenses, rolloverExpenses]);
   
   // Wizard States
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -69,34 +83,37 @@ export const FinanceExpenses = () => {
 
   // Form States
   const defaultFormState: Partial<Expense> = {
-    title: '', amount: 0, category: 'Gıda', tags: [], date: new Date().toISOString().split('T')[0], status: 'Gerçekleşti', recipient: '', notes: '', recurrence: 'Tek Seferlik'
+    title: '', amount: 0, category: 'Gıda', tags: [], date: '2026-07-03', status: 'Gerçekleşti', recipient: '', notes: '', recurrence: 'Tek Seferlik'
   };
   const [formData, setFormData] = useState<Partial<Expense>>(defaultFormState);
   const [newTag, setNewTag] = useState('');
 
   // --- DERIVED DATA ---
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(exp => {
+    return allExpenses.filter(exp => {
       const matchesSearch = (exp.title || '').toLowerCase().includes((searchTerm || '').toLowerCase()) || 
                             (exp.recipient || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
                             (exp.tags || []).some(t => t.toLowerCase().includes((searchTerm || '').toLowerCase()));
       const matchesCategory = selectedCategory === 'Tümü' || exp.category === selectedCategory;
       return matchesSearch && matchesCategory;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [expenses, searchTerm, selectedCategory]);
+  }, [allExpenses, searchTerm, selectedCategory]);
 
   const { totalExpense, plannedExpense, currentMonthExpense, lastMonthExpense } = useMemo(() => {
     let total = 0, planned = 0, currMonth = 0, lastMonth = 0;
-    const now = new Date();
+    const now = new Date(2026, 6, 3); // Today is 3 July 2026 (based on 1 July 2026 start time)
     const currentMonthNum = now.getMonth();
     const currentYearNum = now.getFullYear();
     const lastMonthNum = currentMonthNum === 0 ? 11 : currentMonthNum - 1;
     const lastMonthYearNum = currentMonthNum === 0 ? currentYearNum - 1 : currentYearNum;
 
-    expenses.forEach(e => {
-      if (e.status === 'Gerçekleşti') {
+    allExpenses.forEach(e => {
+      const d = new Date(e.date);
+      // Scheduled/periodic transactions with a future date are held as planned until their actual date arrives.
+      const isFuture = d > now;
+
+      if (e.status === 'Gerçekleşti' && !isFuture) {
         total += e.amount;
-        const d = new Date(e.date);
         if (d.getMonth() === currentMonthNum && d.getFullYear() === currentYearNum) currMonth += e.amount;
         if (d.getMonth() === lastMonthNum && d.getFullYear() === lastMonthYearNum) lastMonth += e.amount;
       } else {
@@ -104,7 +121,7 @@ export const FinanceExpenses = () => {
       }
     });
     return { totalExpense: total, plannedExpense: planned, currentMonthExpense: currMonth, lastMonthExpense: lastMonth };
-  }, [expenses]);
+  }, [allExpenses]);
 
   const monthlyChange = useMemo(() => {
     if (lastMonthExpense === 0) return currentMonthExpense > 0 ? 100 : 0;
@@ -116,24 +133,24 @@ export const FinanceExpenses = () => {
   const categoryData = useMemo(() => {
     return CATEGORIES.map(cat => ({
       name: cat,
-      value: expenses.filter(e => e.category === cat && e.status === 'Gerçekleşti').reduce((sum, e) => sum + e.amount, 0)
+      value: allExpenses.filter(e => e.category === cat && e.status === 'Gerçekleşti').reduce((sum, e) => sum + e.amount, 0)
     })).filter(c => c.value > 0);
-  }, [expenses]);
+  }, [allExpenses]);
 
   // Generate 6 months data for charts
   const monthlyTrendData = useMemo(() => {
     const data = [];
-    const now = new Date();
+    const now = new Date(2026, 6, 3);
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthStr = d.toLocaleDateString('tr-TR', { month: 'short' });
       const yearStr = d.getFullYear().toString().slice(-2);
       
-      const monthExpenses = expenses.filter(exp => {
+      const monthExpenses = allExpenses.filter(exp => {
         const expDate = new Date(exp.date);
         return expDate.getMonth() === d.getMonth() && expDate.getFullYear() === d.getFullYear() && exp.status === 'Gerçekleşti';
       });
-      const monthPlanned = expenses.filter(exp => {
+      const monthPlanned = allExpenses.filter(exp => {
         const expDate = new Date(exp.date);
         return expDate.getMonth() === d.getMonth() && expDate.getFullYear() === d.getFullYear() && exp.status === 'Planlı';
       });
@@ -145,11 +162,11 @@ export const FinanceExpenses = () => {
       });
     }
     return data;
-  }, [expenses]);
+  }, [allExpenses]);
 
   const topRecipient = useMemo(() => {
     const recipientMap: Record<string, number> = {};
-    expenses.filter(e => e.status === 'Gerçekleşti').forEach(e => {
+    allExpenses.filter(e => e.status === 'Gerçekleşti').forEach(e => {
       if (e.recipient) {
         recipientMap[e.recipient] = (recipientMap[e.recipient] || 0) + e.amount;
       }
@@ -158,7 +175,7 @@ export const FinanceExpenses = () => {
     if (entries.length === 0) return '-';
     entries.sort((a, b) => b[1] - a[1]);
     return entries[0][0];
-  }, [expenses]);
+  }, [allExpenses]);
 
   // --- ACTIONS ---
   const handleOpenWizard = (expenseToEdit?: Expense) => {
@@ -447,13 +464,18 @@ export const FinanceExpenses = () => {
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-text-primary group-hover:text-crit-vivid transition-colors flex items-center gap-2">
                           {expense.title}
+                          {expense.isDynamic && (
+                            <span className="text-[9px] font-bold text-crit-vivid bg-crit-vivid/10 border border-crit-vivid/20 px-1.5 py-0.5 rounded-md leading-none uppercase">
+                              Sistem Devri
+                            </span>
+                          )}
                           {expense.recurrence && expense.recurrence !== 'Tek Seferlik' && (
                             <span className="text-[9px] font-bold text-focus-main bg-focus-main/10 border border-focus-main/20 px-1.5 py-0.5 rounded-md leading-none uppercase">
                               {expense.recurrence}
                             </span>
                           )}
                         </span>
-                        <span className="text-xs text-text-secondary mt-0.5">{expense.recipient || 'Alıcı belirtilmedi'}</span>
+                        <span className="text-xs text-text-secondary mt-0.5">{expense.isDynamic ? 'Önceki Dönem Ödenmemiş Bakiye' : (expense.recipient || 'Alıcı belirtilmedi')}</span>
                       </div>
                     </td>
                     <td className="py-4 px-4">
@@ -783,20 +805,24 @@ export const FinanceExpenses = () => {
               className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative"
             >
               <div className="absolute top-4 right-4 flex gap-2 z-10">
-                <button 
-                  onClick={() => handleOpenWizard(selectedExpense)}
-                  className="p-2 text-text-secondary hover:text-crit-vivid bg-white/5 hover:bg-white/10 rounded-xl transition-colors tooltip-trigger"
-                  title="Düzenle"
-                >
-                  <Edit3 size={18} />
-                </button>
-                <button 
-                  onClick={() => handleDeleteExpense(selectedExpense.id)}
-                  className="p-2 text-text-secondary hover:text-crit-vivid bg-white/5 hover:bg-white/10 rounded-xl transition-colors tooltip-trigger"
-                  title="Sil"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {!selectedExpense.isDynamic && (
+                  <>
+                    <button 
+                      onClick={() => handleOpenWizard(selectedExpense)}
+                      className="p-2 text-text-secondary hover:text-crit-vivid bg-white/5 hover:bg-white/10 rounded-xl transition-colors tooltip-trigger"
+                      title="Düzenle"
+                    >
+                      <Edit3 size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteExpense(selectedExpense.id)}
+                      className="p-2 text-text-secondary hover:text-crit-vivid bg-white/5 hover:bg-white/10 rounded-xl transition-colors tooltip-trigger"
+                      title="Sil"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </>
+                )}
                 <div className="w-px h-6 bg-white/10 mx-1 self-center" />
                 <button 
                   onClick={() => setSelectedExpense(null)}

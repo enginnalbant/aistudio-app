@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { motion, AnimatePresence } from 'motion/react';
+import { getRollovers } from './financeUtils';
 import { 
   Plus, 
   Search, 
@@ -50,6 +51,7 @@ interface Income {
   recurrence?: 'Tek Seferlik' | 'Haftalık' | 'Aylık' | 'Yıllık';
   source: string;
   notes?: string;
+  isDynamic?: boolean;
 }
 
 const CATEGORIES = ['Maaş', 'Serbest Çalışma', 'Yatırım', 'Kira', 'Ödül/Bonus', 'Pasif Gelir', 'Diğer'];
@@ -57,8 +59,20 @@ const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'
 
 export const FinanceIncomes = () => {
   const [incomes, setIncomes] = useLocalStorage<Income[]>('finance_incomes', []);
+  const [expenses] = useLocalStorage<any[]>('finance_expenses', []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Tümü');
+
+  // Compute dynamic rollovers
+  const { rolloverIncomes } = useMemo(() => {
+    return getRollovers(incomes, expenses);
+  }, [incomes, expenses]);
+
+  // Combine actual and dynamic rollover incomes (excluding future ones from the transaction list)
+  const allIncomes = useMemo(() => {
+    const activeRollovers = (rolloverIncomes || []).filter(r => r && !r.isFuture);
+    return [...incomes, ...activeRollovers];
+  }, [incomes, rolloverIncomes]);
   
   // Wizard States
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -71,34 +85,37 @@ export const FinanceIncomes = () => {
 
   // Form States
   const defaultFormState: Partial<Income> = {
-    title: '', amount: 0, category: 'Maaş', tags: [], date: new Date().toISOString().split('T')[0], status: 'Tamamlandı', source: '', notes: '', recurrence: 'Tek Seferlik'
+    title: '', amount: 0, category: 'Maaş', tags: [], date: '2026-07-03', status: 'Tamamlandı', source: '', notes: '', recurrence: 'Tek Seferlik'
   };
   const [formData, setFormData] = useState<Partial<Income>>(defaultFormState);
   const [newTag, setNewTag] = useState('');
 
   // --- DERIVED DATA ---
   const filteredIncomes = useMemo(() => {
-    return incomes.filter(inc => {
+    return allIncomes.filter(inc => {
       const matchesSearch = (inc.title || '').toLowerCase().includes((searchTerm || '').toLowerCase()) || 
                             (inc.source || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
                             (inc.tags || []).some(t => t.toLowerCase().includes((searchTerm || '').toLowerCase()));
       const matchesCategory = selectedCategory === 'Tümü' || inc.category === selectedCategory;
       return matchesSearch && matchesCategory;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [incomes, searchTerm, selectedCategory]);
+  }, [allIncomes, searchTerm, selectedCategory]);
 
   const { totalIncome, pendingIncome, currentMonthIncome, lastMonthIncome } = useMemo(() => {
     let total = 0, pending = 0, currMonth = 0, lastMonth = 0;
-    const now = new Date();
+    const now = new Date(2026, 6, 3); // Today is 3 July 2026 (based on 1 July 2026 start time)
     const currentMonthNum = now.getMonth();
     const currentYearNum = now.getFullYear();
     const lastMonthNum = currentMonthNum === 0 ? 11 : currentMonthNum - 1;
     const lastMonthYearNum = currentMonthNum === 0 ? currentYearNum - 1 : currentYearNum;
 
-    incomes.forEach(i => {
-      if (i.status === 'Tamamlandı') {
+    allIncomes.forEach(i => {
+      const d = new Date(i.date);
+      // Scheduled/periodic transactions with a future date are held as pending until their actual date arrives.
+      const isFuture = d > now;
+
+      if (i.status === 'Tamamlandı' && !isFuture) {
         total += i.amount;
-        const d = new Date(i.date);
         if (d.getMonth() === currentMonthNum && d.getFullYear() === currentYearNum) currMonth += i.amount;
         if (d.getMonth() === lastMonthNum && d.getFullYear() === lastMonthYearNum) lastMonth += i.amount;
       } else {
@@ -106,7 +123,7 @@ export const FinanceIncomes = () => {
       }
     });
     return { totalIncome: total, pendingIncome: pending, currentMonthIncome: currMonth, lastMonthIncome: lastMonth };
-  }, [incomes]);
+  }, [allIncomes]);
 
   const monthlyGrowth = useMemo(() => {
     if (lastMonthIncome === 0) return currentMonthIncome > 0 ? 100 : 0;
@@ -118,24 +135,24 @@ export const FinanceIncomes = () => {
   const categoryData = useMemo(() => {
     return CATEGORIES.map(cat => ({
       name: cat,
-      value: incomes.filter(i => i.category === cat && i.status === 'Tamamlandı').reduce((sum, i) => sum + i.amount, 0)
+      value: allIncomes.filter(i => i.category === cat && i.status === 'Tamamlandı').reduce((sum, i) => sum + i.amount, 0)
     })).filter(c => c.value > 0);
-  }, [incomes]);
+  }, [allIncomes]);
 
   // Generate 6 months data for charts
   const monthlyTrendData = useMemo(() => {
     const data = [];
-    const now = new Date();
+    const now = new Date(2026, 6, 3);
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthStr = d.toLocaleDateString('tr-TR', { month: 'short' });
       const yearStr = d.getFullYear().toString().slice(-2);
       
-      const monthIncomes = incomes.filter(inc => {
+      const monthIncomes = allIncomes.filter(inc => {
         const incDate = new Date(inc.date);
         return incDate.getMonth() === d.getMonth() && incDate.getFullYear() === d.getFullYear() && inc.status === 'Tamamlandı';
       });
-      const monthPending = incomes.filter(inc => {
+      const monthPending = allIncomes.filter(inc => {
         const incDate = new Date(inc.date);
         return incDate.getMonth() === d.getMonth() && incDate.getFullYear() === d.getFullYear() && inc.status === 'Beklemede';
       });
@@ -147,11 +164,11 @@ export const FinanceIncomes = () => {
       });
     }
     return data;
-  }, [incomes]);
+  }, [allIncomes]);
 
   const topSource = useMemo(() => {
     const sourceMap: Record<string, number> = {};
-    incomes.filter(i => i.status === 'Tamamlandı').forEach(i => {
+    allIncomes.filter(i => i.status === 'Tamamlandı').forEach(i => {
       if (i.source) {
         sourceMap[i.source] = (sourceMap[i.source] || 0) + i.amount;
       }
@@ -160,7 +177,7 @@ export const FinanceIncomes = () => {
     if (entries.length === 0) return '-';
     entries.sort((a, b) => b[1] - a[1]);
     return entries[0][0];
-  }, [incomes]);
+  }, [allIncomes]);
 
   // --- ACTIONS ---
   const handleOpenWizard = (incomeToEdit?: Income) => {
@@ -449,13 +466,18 @@ export const FinanceIncomes = () => {
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-text-primary group-hover:text-focus-neon transition-colors flex items-center gap-2">
                           {income.title}
+                          {income.isDynamic && (
+                            <span className="text-[9px] font-bold text-focus-neon bg-focus-neon/10 border border-focus-neon/20 px-1.5 py-0.5 rounded-md leading-none uppercase">
+                              Sistem Devri
+                            </span>
+                          )}
                           {income.recurrence && income.recurrence !== 'Tek Seferlik' && (
                             <span className="text-[9px] font-bold text-focus-main bg-focus-main/10 border border-focus-main/20 px-1.5 py-0.5 rounded-md leading-none uppercase">
                               {income.recurrence}
                             </span>
                           )}
                         </span>
-                        <span className="text-xs text-text-secondary mt-0.5">{income.source || 'Kaynak belirtilmedi'}</span>
+                        <span className="text-xs text-text-secondary mt-0.5">{income.isDynamic ? 'Önceki Dönem Artan Nakit Devri' : (income.source || 'Kaynak belirtilmedi')}</span>
                       </div>
                     </td>
                     <td className="py-4 px-4">
@@ -785,20 +807,24 @@ export const FinanceIncomes = () => {
               className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative"
             >
               <div className="absolute top-4 right-4 flex gap-2 z-10">
-                <button 
-                  onClick={() => handleOpenWizard(selectedIncome)}
-                  className="p-2 text-text-secondary hover:text-focus-neon bg-white/5 hover:bg-white/10 rounded-xl transition-colors tooltip-trigger"
-                  title="Düzenle"
-                >
-                  <Edit3 size={18} />
-                </button>
-                <button 
-                  onClick={() => handleDeleteIncome(selectedIncome.id)}
-                  className="p-2 text-text-secondary hover:text-crit-vivid bg-white/5 hover:bg-white/10 rounded-xl transition-colors tooltip-trigger"
-                  title="Sil"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {!selectedIncome.isDynamic && (
+                  <>
+                    <button 
+                      onClick={() => handleOpenWizard(selectedIncome)}
+                      className="p-2 text-text-secondary hover:text-focus-neon bg-white/5 hover:bg-white/10 rounded-xl transition-colors tooltip-trigger"
+                      title="Düzenle"
+                    >
+                      <Edit3 size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteIncome(selectedIncome.id)}
+                      className="p-2 text-text-secondary hover:text-crit-vivid bg-white/5 hover:bg-white/10 rounded-xl transition-colors tooltip-trigger"
+                      title="Sil"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </>
+                )}
                 <div className="w-px h-6 bg-white/10 mx-1 self-center" />
                 <button 
                   onClick={() => setSelectedIncome(null)}

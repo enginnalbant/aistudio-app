@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { motion, AnimatePresence } from 'motion/react';
+import { getRollovers } from './financeUtils';
 import { 
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ComposedChart, Line
 } from 'recharts';
@@ -33,43 +34,71 @@ export const FinanceAnalytics = () => {
   const [subscriptions] = useLocalStorage<any[]>('finance_subscriptions', []);
   const [savings] = useLocalStorage<any[]>('finance_savings', []);
 
+  // Compute dynamic rollovers
+  const { rolloverIncomes, rolloverExpenses } = useMemo(() => {
+    return getRollovers(incomes, expenses);
+  }, [incomes, expenses]);
+
+  // Combined lists
+  const allIncomes = useMemo(() => [...incomes, ...rolloverIncomes], [incomes, rolloverIncomes]);
+  const allExpenses = useMemo(() => [...expenses, ...rolloverExpenses], [expenses, rolloverExpenses]);
+
   // --- DATA SYNTHESIS ---
-  const calculateMonthly = (amount: number, freq: string) => {
-    if (freq === 'Haftalık') return amount * 4;
-    if (freq === 'Yıllık') return amount / 12;
-    return amount;
+  const calculateMonthly = (amount: any, freq: string) => {
+    const num = Number(amount) || 0;
+    if (isNaN(num)) return 0;
+    if (freq === 'Haftalık') return num * 4;
+    if (freq === 'Yıllık') return num / 12;
+    return num;
   };
 
   const monthlyIncome = useMemo(() => {
-    const recurring = incomes.filter(i => i.recurrence && i.recurrence !== 'Tek Seferlik');
+    const recurring = allIncomes.filter(i => i.recurrence && i.recurrence !== 'Tek Seferlik');
     if (recurring.length > 0) {
       return recurring.reduce((sum, i) => sum + calculateMonthly(i.amount, i.recurrence), 0);
     }
-    // Fallback if no recurring: average of last 3 months, or just total of 'Tamamlandı'
-    const compl = incomes.filter(i => i.status === 'Tamamlandı');
-    if (compl.length > 0) return compl.reduce((sum, i) => sum + i.amount, 0);
+    const compl = allIncomes.filter(i => i.status === 'Tamamlandı');
+    if (compl.length > 0) return compl.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
     return 0;
-  }, [incomes]);
+  }, [allIncomes]);
 
   const monthlyExpense = useMemo(() => {
-    const recurring = expenses.filter(e => e.recurrence && e.recurrence !== 'Tek Seferlik');
+    const recurring = allExpenses.filter(e => e.recurrence && e.recurrence !== 'Tek Seferlik');
     if (recurring.length > 0) {
       return recurring.reduce((sum, e) => sum + calculateMonthly(e.amount, e.recurrence), 0);
     }
-    const compl = expenses.filter(e => e.status === 'Gerçekleşti');
-    if (compl.length > 0) return compl.reduce((sum, e) => sum + e.amount, 0);
+    const compl = allExpenses.filter(e => e.status === 'Gerçekleşti');
+    if (compl.length > 0) return compl.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     return 0;
-  }, [expenses]);
+  }, [allExpenses]);
 
   const monthlySubscriptions = useMemo(() => {
     return subscriptions.filter(s => s.status === 'Aktif').reduce((sum, s) => sum + calculateMonthly(s.amount, s.billingCycle), 0);
   }, [subscriptions]);
 
-  const activeDebts = useMemo(() => debts.filter(d => d.status === 'Devam Ediyor'), [debts]);
-  const totalRemainingDebt = useMemo(() => activeDebts.reduce((sum, d) => sum + d.remainingAmount, 0), [activeDebts]);
-  const baseMonthlyDebtPayment = useMemo(() => activeDebts.reduce((sum, d) => sum + calculateMonthly(d.paymentAmount, d.paymentFrequency), 0), [activeDebts]);
+  const activeDebts = useMemo(() => {
+    return (debts || []).filter(d => !d.status || d.status === 'Devam Ediyor');
+  }, [debts]);
 
-  const totalNetWorth = useMemo(() => investments.reduce((sum, i) => sum + i.currentAmount, 0) + savings.reduce((sum, s) => sum + s.currentAmount, 0), [investments, savings]);
+  const totalRemainingDebt = useMemo(() => {
+    return activeDebts.reduce((sum, d) => sum + (Number(d.remainingAmount) || Number(d.totalAmount) || 0), 0);
+  }, [activeDebts]);
+
+  const baseMonthlyDebtPayment = useMemo(() => {
+    const unpaidActiveDebts = (debts || []).filter(d => (!d.status || d.status === 'Devam Ediyor') && d.paidThisMonth !== true);
+    return unpaidActiveDebts.reduce((sum, d) => sum + calculateMonthly(d.paymentAmount, d.paymentFrequency || 'Aylık'), 0);
+  }, [debts]);
+
+  const paidMonthlyDebtPayment = useMemo(() => {
+    const paidDebts = (debts || []).filter(d => d.status === 'Ödendi' || ((!d.status || d.status === 'Devam Ediyor') && d.paidThisMonth === true));
+    return paidDebts.reduce((sum, d) => sum + calculateMonthly(d.paymentAmount || 0, d.paymentFrequency || 'Aylık'), 0);
+  }, [debts]);
+
+  const totalNetWorth = useMemo(() => {
+    const invSum = investments.reduce((sum, i) => sum + (Number(i.currentAmount) || 0), 0);
+    const savSum = savings.reduce((sum, s) => sum + (Number(s.currentAmount) || 0), 0);
+    return invSum + savSum;
+  }, [investments, savings]);
 
   // --- ENGINE 1: DEBT TRACKING (Borç Takip) ---
   const [debtProjection, setDebtProjection] = useState<any[]>([]);
@@ -81,11 +110,12 @@ export const FinanceAnalytics = () => {
     if (activeEngine !== 'debt') return;
 
     const insights = [];
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth();
+    const startDate = new Date(2026, 6, 1);
+    const currentYear = startDate.getFullYear();
+    const currentMonth = startDate.getMonth();
 
-    // 1. Simulate forward first (0 to 35 months relative to current)
-    let currentDebts = activeDebts.map(d => ({ ...d, currentRemaining: d.remainingAmount }));
+    // 1. Simulate forward first (0 to 35 months relative to start date)
+    let currentDebts = activeDebts.map(d => ({ ...d, currentRemaining: Number(d.remainingAmount) || Number(d.totalAmount) || 0 }));
     let accumulatedCashForward = 0;
     const forwardProjection = [];
     let debtFreeMonthIndex = -1;
@@ -96,7 +126,7 @@ export const FinanceAnalytics = () => {
       
       currentDebts.forEach(d => {
         if (d.currentRemaining > 0) {
-          const payment = calculateMonthly(d.paymentAmount, d.paymentFrequency);
+          const payment = calculateMonthly(Number(d.paymentAmount) || 0, d.paymentFrequency || 'Aylık');
           const actualPayment = Math.min(payment, d.currentRemaining);
           d.currentRemaining -= actualPayment;
           monthlyPaymentThisMonth += actualPayment;
@@ -104,10 +134,11 @@ export const FinanceAnalytics = () => {
         }
       });
 
-      const cashLeft = monthlyIncome - (monthlyExpense + monthlySubscriptions) - monthlyPaymentThisMonth;
+      const totalOut = (monthlyExpense || 0) + (monthlySubscriptions || 0) + monthlyPaymentThisMonth;
+      const cashLeft = (monthlyIncome || 0) - totalOut;
       accumulatedCashForward += cashLeft;
 
-      const totalRemaining = currentDebts.reduce((sum, d) => sum + d.currentRemaining, 0);
+      const totalRemaining = currentDebts.reduce((sum, d) => sum + (d.currentRemaining || 0), 0);
       if (totalRemaining === 0 && debtFreeMonthIndex === -1 && activeDebts.length > 0) {
         debtFreeMonthIndex = m;
       }
@@ -117,12 +148,12 @@ export const FinanceAnalytics = () => {
         monthIndex: m,
         dateObj: date,
         dateLabel: date.toLocaleDateString('tr-TR', { month: 'short', year: 'numeric' }),
-        aylikGelir: monthlyIncome,
-        aylikGider: monthlyExpense + monthlySubscriptions,
-        toplamKalanBorc: totalRemaining,
-        aylikOdenen: monthlyPaymentThisMonth,
-        eleKalan: cashLeft,
-        birikenNakit: totalNetWorth + accumulatedCashForward,
+        aylikGelir: monthlyIncome || 0,
+        aylikGider: (monthlyExpense || 0) + (monthlySubscriptions || 0),
+        toplamKalanBorc: totalRemaining || 0,
+        aylikOdenen: monthlyPaymentThisMonth || 0,
+        eleKalan: cashLeft || 0,
+        birikenNakit: (totalNetWorth || 0) + accumulatedCashForward,
         activeDebtsList: activeDebtsList
       });
     }
@@ -187,7 +218,7 @@ export const FinanceAnalytics = () => {
     let currentWorth = totalNetWorth - totalRemainingDebt;
     let months = 0;
     const projection = [];
-    const currentYear = new Date().getFullYear();
+    const currentYear = 2026;
 
     if (monthlySavings <= 0 && currentWorth < fireNumber) {
       setFreedomInsights([{ type: 'danger', title: 'Tasarruf Edemiyorsunuz', desc: 'Aylık giderleriniz gelirinizden fazla veya eşit. Özgürlük simülasyonu için artı bütçe veya büyük bir başlangıç sermayesi gerekir.' }]);
@@ -199,7 +230,7 @@ export const FinanceAnalytics = () => {
       if (months % 12 === 0) {
         projection.push({
           year: currentYear + (months / 12),
-          varlik: Math.max(0, Math.round(currentWorth)),
+          varlik: Math.round(currentWorth),
           hedef: Math.round(fireNumber)
         });
       }
@@ -209,7 +240,7 @@ export const FinanceAnalytics = () => {
     
     projection.push({
       year: currentYear + (months / 12),
-      varlik: Math.max(0, Math.round(currentWorth)),
+      varlik: Math.round(currentWorth),
       hedef: Math.round(fireNumber)
     });
 
@@ -227,8 +258,35 @@ export const FinanceAnalytics = () => {
     if (activeEngine !== 'analysis') return;
     
     const insights = [];
-    const totalOut = monthlyExpense + monthlySubscriptions + baseMonthlyDebtPayment;
-    const savingRate = monthlyIncome > 0 ? ((monthlyIncome - totalOut) / monthlyIncome) * 100 : 0;
+    
+    // Add monthly income and expense status
+    insights.push({
+      category: 'Aylık Gelir Durumu',
+      value: `₺${(monthlyIncome || 0).toLocaleString('tr-TR')}`,
+      status: (monthlyIncome || 0) > 0 ? 'excellent' : 'poor',
+      desc: 'Sisteme tanımlı düzenli ve onaylanmış gelirlerinizin toplam aylık miktarını gösterir.'
+    });
+
+    const totalRecurringOut = (monthlyExpense || 0) + (monthlySubscriptions || 0);
+    insights.push({
+      category: 'Aylık Toplam Gider Durumu',
+      value: `₺${(totalRecurringOut || 0).toLocaleString('tr-TR')}`,
+      status: totalRecurringOut > (monthlyIncome || 0) ? 'poor' : 'good',
+      desc: 'Düzenli harcamalar, faturalar ve aktif aboneliklerinizin toplam aylık maliyetidir.'
+    });
+
+    const netMonthlyBalance = (monthlyIncome || 0) - totalRecurringOut - (paidMonthlyDebtPayment || 0);
+    const finalNetMonthlyBalance = isNaN(netMonthlyBalance) ? 0 : netMonthlyBalance;
+    insights.push({
+      category: 'Net Aylık Bakiye',
+      value: `₺${finalNetMonthlyBalance.toLocaleString('tr-TR')}`,
+      status: finalNetMonthlyBalance >= 0 ? 'excellent' : 'poor',
+      desc: 'Tüm düzenli gelirlerden tüm gider ve borç taksitleri düşüldükten sonra kalan net tutar.'
+    });
+
+    const totalOut = (monthlyExpense || 0) + (monthlySubscriptions || 0) + (paidMonthlyDebtPayment || 0);
+    const rawSavingRate = (monthlyIncome || 0) > 0 ? ((monthlyIncome - totalOut) / monthlyIncome) * 100 : 0;
+    const savingRate = isNaN(rawSavingRate) ? 0 : rawSavingRate;
 
     insights.push({
       category: 'Tasarruf Oranı',
@@ -237,7 +295,8 @@ export const FinanceAnalytics = () => {
       desc: savingRate > 20 ? 'Harika bir tasarruf oranınız var. Zenginlik inşası ve finansal özgürlük (FIRE) için ideal seviyede.' : savingRate > 0 ? 'Pozitif tasarruf yapıyorsunuz, ancak bu oranı en azından %20 seviyelerine çıkarmayı hedefleyin.' : 'Kazandığınızdan fazlasını veya tamamını harcıyorsunuz. Acilen bütçe optimizasyonu yapmalısınız.'
     });
 
-    const debtToIncome = monthlyIncome > 0 ? (baseMonthlyDebtPayment / monthlyIncome) * 100 : 0;
+    const rawDebtToIncome = (monthlyIncome || 0) > 0 ? ((paidMonthlyDebtPayment || 0) / monthlyIncome) * 100 : 0;
+    const debtToIncome = isNaN(rawDebtToIncome) ? 0 : rawDebtToIncome;
     insights.push({
       category: 'Borç / Gelir Oranı',
       value: `%${debtToIncome.toFixed(1)}`,
@@ -245,7 +304,8 @@ export const FinanceAnalytics = () => {
       desc: debtToIncome < 20 ? 'Borç yükünüz oldukça hafif, finansal esnekliğiniz ve acil durumlara karşı koruma gücünüz yüksek.' : debtToIncome < 40 ? 'Kabul edilebilir bir borç yükü ancak yeni borç almadan önce mevcutları eritmeye çalışmalısınız.' : 'Yüksek Risk! Gelirinizin büyük kısmı doğrudan borca gidiyor. Borç yapılandırması veya acil ödeme takvimi şart.'
     });
 
-    const subToIncome = monthlyIncome > 0 ? (monthlySubscriptions / monthlyIncome) * 100 : 0;
+    const rawSubToIncome = (monthlyIncome || 0) > 0 ? ((monthlySubscriptions || 0) / monthlyIncome) * 100 : 0;
+    const subToIncome = isNaN(rawSubToIncome) ? 0 : rawSubToIncome;
     insights.push({
       category: 'Abonelik Yükü',
       value: `%${subToIncome.toFixed(1)}`,
@@ -255,7 +315,8 @@ export const FinanceAnalytics = () => {
 
     // 4. Emergency Buffer (Acil Durum Rezerv Rasyosu)
     const currentSavingsOnly = savings.reduce((sum, s) => sum + s.currentAmount, 0) || totalNetWorth;
-    const emergencyBufferMonths = totalOut > 0 ? currentSavingsOnly / totalOut : 0;
+    const rawEmergencyBufferMonths = totalOut > 0 ? currentSavingsOnly / totalOut : 0;
+    const emergencyBufferMonths = isNaN(rawEmergencyBufferMonths) ? 0 : rawEmergencyBufferMonths;
     insights.push({
       category: 'Acil Durum Tamponu',
       value: `${emergencyBufferMonths.toFixed(1)} Ay`,
@@ -266,7 +327,8 @@ export const FinanceAnalytics = () => {
     // 5. Investment Efficiency Index (Yatırım Etkinlik Rasyosu)
     const totalInvestments = investments.reduce((sum, i) => sum + i.currentAmount, 0);
     const totalWealth = currentSavingsOnly + totalInvestments;
-    const investRatio = totalWealth > 0 ? (totalInvestments / totalWealth) * 100 : 0;
+    const rawInvestRatio = totalWealth > 0 ? (totalInvestments / totalWealth) * 100 : 0;
+    const investRatio = isNaN(rawInvestRatio) ? 0 : rawInvestRatio;
     insights.push({
       category: 'Yatırım Dağılım Etkinliği',
       value: `%${investRatio.toFixed(1)}`,
@@ -301,7 +363,7 @@ export const FinanceAnalytics = () => {
     });
 
     setAnalysisInsights(insights);
-  }, [activeEngine, monthlyIncome, monthlyExpense, monthlySubscriptions, baseMonthlyDebtPayment, savings, investments, totalNetWorth]);
+  }, [activeEngine, monthlyIncome, monthlyExpense, monthlySubscriptions, paidMonthlyDebtPayment, savings, investments, totalNetWorth]);
 
   // --- DYNAMIC CALCULATIONS FOR REPORTS ---
   // 1. Debt Strategy Calculations
@@ -407,7 +469,8 @@ export const FinanceAnalytics = () => {
   }, [totalNetWorth, totalRemainingDebt]);
 
   const monthlySavings = useMemo(() => {
-    return Math.max(0, monthlyIncome - (monthlyExpense + monthlySubscriptions + baseMonthlyDebtPayment));
+    const val = (monthlyIncome || 0) - ((monthlyExpense || 0) + (monthlySubscriptions || 0) + (baseMonthlyDebtPayment || 0));
+    return isNaN(val) ? 0 : val;
   }, [monthlyIncome, monthlyExpense, monthlySubscriptions, baseMonthlyDebtPayment]);
 
   const fireYearsToTarget = useMemo(() => {
@@ -488,8 +551,8 @@ export const FinanceAnalytics = () => {
     let currentDebtsStandard = activeDebts.map(d => ({ ...d, currentRemaining: d.remainingAmount }));
     let currentDebtsAccelerated = activeDebts.map(d => ({ ...d, currentRemaining: d.remainingAmount }));
     
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth();
+    const currentYear = 2026;
+    const currentMonth = 6; // Temmuz (July)
 
     for (let m = 0; m <= maxMonths; m++) {
       const date = new Date(currentYear, currentMonth + m, 1);
@@ -582,14 +645,14 @@ export const FinanceAnalytics = () => {
     const monthlyRealReturn = Math.pow(1 + realReturnRate, 1 / 12) - 1;
     
     let tempWorth = currentNetAsset;
-    const currentYear = new Date().getFullYear();
+    const currentYear = 2026;
     const maxYears = Math.min(30, Math.ceil(fireYearsToTarget === Infinity ? 25 : fireYearsToTarget + 5));
 
     for (let y = 0; y <= maxYears; y++) {
       list.push({
         year: currentYear + y,
         age: currentAge + y,
-        "Birikim Portföyü": Math.max(0, Math.round(tempWorth)),
+        "Birikim Portföyü": Math.round(tempWorth),
         "Özgürlük Hedefi": Math.round(fireTargetAmount)
       });
 
@@ -1358,7 +1421,7 @@ export const FinanceAnalytics = () => {
                 <div className="w-8 h-8 rounded-lg bg-nrg-sun/20 text-nrg-sun flex items-center justify-center font-bold text-sm">2</div>
                 <h4 className="font-bold text-white text-sm">Nakit Akışı & Likidite Kalkanı</h4>
                 <p className="text-xs text-text-secondary leading-relaxed">
-                  Aylık zorunlu giderleriniz olan <strong className="text-white">₺{(monthlyExpense + monthlySubscriptions + baseMonthlyDebtPayment).toLocaleString('tr-TR')}</strong> tutarını baz aldığımızda, finansal güvenceniz için likit hesaplarınızda tutmanız gereken ideal acil durum fonu hedefiniz <strong className="text-focus-neon">₺{Math.round((monthlyExpense + monthlySubscriptions + baseMonthlyDebtPayment) * 6).toLocaleString('tr-TR')}</strong> olmalıdır (6 Aylık Tampon).
+                  Aylık zorunlu giderleriniz olan <strong className="text-white">₺{(monthlyExpense + monthlySubscriptions + paidMonthlyDebtPayment).toLocaleString('tr-TR')}</strong> tutarını baz aldığımızda, finansal güvenceniz için likit hesaplarınızda tutmanız gereken ideal acil durum fonu hedefiniz <strong className="text-focus-neon">₺{Math.round((monthlyExpense + monthlySubscriptions + paidMonthlyDebtPayment) * 6).toLocaleString('tr-TR')}</strong> olmalıdır (6 Aylık Tampon).
                 </p>
               </div>
 
@@ -1366,7 +1429,7 @@ export const FinanceAnalytics = () => {
                 <div className="w-8 h-8 rounded-lg bg-ai-bright/20 text-ai-bright flex items-center justify-center font-bold text-sm">3</div>
                 <h4 className="font-bold text-white text-sm">Varlık Büyütme & Enflasyon Koruması</h4>
                 <p className="text-xs text-text-secondary leading-relaxed">
-                  Tasarruf oranınız şu an <strong className="text-white">%{(monthlyIncome > 0 ? ((monthlyIncome - (monthlyExpense + monthlySubscriptions + baseMonthlyDebtPayment)) / monthlyIncome * 100) : 0).toFixed(1)}</strong> seviyesinde. Boşta kalan her kuruşu enflasyona ezdirmemek adına hisse senedi fonları, değerli metaller ve Eurobond gibi üretken varlıklara otomatik yatırım talimatı ile yönlendirin.
+                  Tasarruf oranınız şu an <strong className="text-white">%{(monthlyIncome > 0 ? ((monthlyIncome - (monthlyExpense + monthlySubscriptions + paidMonthlyDebtPayment)) / monthlyIncome * 100) : 0).toFixed(1)}</strong> seviyesinde. Boşta kalan her kuruşu enflasyona ezdirmemek adına hisse senedi fonları, değerli metaller ve Eurobond gibi üretken varlıklara otomatik yatırım talimatı ile yönlendirin.
                 </p>
               </div>
             </div>

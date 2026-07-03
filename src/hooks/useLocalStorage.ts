@@ -37,10 +37,12 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
                window.localStorage.setItem(key, JSON.stringify(data));
             }
           } else {
-             // Document doesn't exist, let's create it with local data if we have any
-             if (JSON.stringify(storedValueRef.current) !== JSON.stringify(initialValue) && Array.isArray(storedValueRef.current) && storedValueRef.current.length > 0) {
-                 setDoc(docRef, { data: storedValueRef.current }, { merge: true });
-             }
+              // Document doesn't exist, let's create it with local data if we have any
+              if (JSON.stringify(storedValueRef.current) !== JSON.stringify(initialValue) && Array.isArray(storedValueRef.current) && storedValueRef.current.length > 0) {
+                  setDoc(docRef, { data: storedValueRef.current }, { merge: true }).catch(err => {
+                      console.warn(`Error setting initial doc for key "${key}" in firestore:`, err);
+                  });
+              }
           }
         });
 
@@ -65,9 +67,13 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       if (auth?.currentUser && db) {
         isWritingRef.current = true;
         const docRef = doc(db, `users/${auth.currentUser.uid}/app_state/${key}`);
-        setDoc(docRef, { data: valueToStore }, { merge: true }).finally(() => {
-           setTimeout(() => { isWritingRef.current = false; }, 500);
-        });
+        setDoc(docRef, { data: valueToStore }, { merge: true })
+          .catch(err => {
+             console.warn(`Error writing key "${key}" to firestore:`, err);
+          })
+          .finally(() => {
+             setTimeout(() => { isWritingRef.current = false; }, 500);
+          });
       }
     } catch (error) {
       console.warn(`Error setting localStorage key "${key}":`, error);

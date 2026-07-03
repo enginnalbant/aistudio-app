@@ -16,7 +16,9 @@ import {
   Trash2,
   Wallet,
   Building,
-  RefreshCw
+  RefreshCw,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 interface Subscription {
@@ -47,6 +49,7 @@ interface Debt {
   installments?: number;
   paidInstallments?: number;
   accountLimit?: number; 
+  paidThisMonth?: boolean;
 }
 
 const POPULAR_SUBSCRIPTIONS = [
@@ -197,15 +200,29 @@ export const FinanceSubscriptions = () => {
   };
 
   const saveDebt = () => {
-    if(debtFormData.title && debtFormData.remainingAmount !== undefined) {
+    if(debtFormData.title && (debtFormData.remainingAmount !== undefined || debtFormData.totalAmount !== undefined)) {
+      const remainingAmount = Number(debtFormData.remainingAmount !== undefined ? debtFormData.remainingAmount : debtFormData.totalAmount);
+      const totalAmount = Number(debtFormData.totalAmount !== undefined ? debtFormData.totalAmount : remainingAmount);
+      const paymentAmount = Number(debtFormData.paymentAmount || 0);
+      const installments = debtFormData.installments ? Number(debtFormData.installments) : undefined;
+      const paidInstallments = debtFormData.paidInstallments ? Number(debtFormData.paidInstallments) : undefined;
+      
+      const updatedData = {
+        ...debtFormData,
+        remainingAmount,
+        totalAmount,
+        paymentAmount,
+        installments,
+        paidInstallments
+      };
+
       if (editingDebtId) {
-        setDebts(prev => prev.map(d => d.id === editingDebtId ? { ...d, ...debtFormData } as Debt : d));
+        setDebts(prev => prev.map(d => d.id === editingDebtId ? { ...d, ...updatedData } as Debt : d));
       } else {
         setDebts(prev => [{ 
-          ...debtFormData, 
+          ...updatedData, 
           id: Date.now().toString(), 
           status: 'Devam Ediyor',
-          totalAmount: debtFormData.totalAmount || debtFormData.remainingAmount
         } as Debt, ...prev]);
       }
       setIsDebtWizardOpen(false);
@@ -217,6 +234,63 @@ export const FinanceSubscriptions = () => {
       setDebts(prev => prev.filter(d => d.id !== id));
       setActionMenuId(null);
     }
+  };
+
+  const markDebtAsPaid = (id: string, fullClose: boolean = false) => {
+    setDebts(prev => prev.map(d => {
+      if (d.id === id) {
+        if (!fullClose && d.installments && d.installments > 0) {
+          const nextPaidInstallments = (d.paidInstallments || 0) + 1;
+          const nextRemainingAmount = Math.max(0, (Number(d.remainingAmount) || 0) - (Number(d.paymentAmount) || 0));
+          const isFullyPaid = nextPaidInstallments >= d.installments || nextRemainingAmount <= 0;
+          return {
+            ...d,
+            paidInstallments: nextPaidInstallments,
+            remainingAmount: nextRemainingAmount,
+            status: isFullyPaid ? 'Ödendi' : d.status,
+            paidThisMonth: true
+          } as Debt;
+        } else {
+          return {
+            ...d,
+            remainingAmount: 0,
+            paidInstallments: d.installments || 0,
+            status: 'Ödendi',
+            paidThisMonth: true
+          } as Debt;
+        }
+      }
+      return d;
+    }));
+    setActionMenuId(null);
+  };
+
+  const markDebtAsUnpaid = (id: string, fullRevert: boolean = false) => {
+    setDebts(prev => prev.map(d => {
+      if (d.id === id) {
+        if (!fullRevert && d.installments && d.installments > 0) {
+          const nextPaidInstallments = Math.max(0, (d.paidInstallments || 0) - 1);
+          const nextRemainingAmount = Math.min(Number(d.totalAmount) || 0, (Number(d.remainingAmount) || 0) + (Number(d.paymentAmount) || 0));
+          return {
+            ...d,
+            paidInstallments: nextPaidInstallments,
+            remainingAmount: nextRemainingAmount,
+            status: 'Devam Ediyor',
+            paidThisMonth: false
+          } as Debt;
+        } else {
+          return {
+            ...d,
+            remainingAmount: d.totalAmount || d.remainingAmount,
+            paidInstallments: 0,
+            status: 'Devam Ediyor',
+            paidThisMonth: false
+          } as Debt;
+        }
+      }
+      return d;
+    }));
+    setActionMenuId(null);
   };
 
   // Calculations: Subscriptions
@@ -239,12 +313,29 @@ export const FinanceSubscriptions = () => {
   // Calculations: Debts
   const activeDebts = useMemo(() => debts.filter(d => d.status === 'Devam Ediyor'), [debts]);
   const totalRemainingDebt = activeDebts.reduce((acc, curr) => acc + curr.remainingAmount, 0);
-  const totalMonthlyDebtPayment = activeDebts.reduce((acc, curr) => {
-    let monthly = curr.paymentAmount || 0;
-    if (curr.paymentFrequency === 'Haftalık') monthly = (curr.paymentAmount || 0) * 4;
-    if (curr.paymentFrequency === 'Yıllık') monthly = (curr.paymentAmount || 0) / 12;
-    return acc + monthly;
-  }, 0);
+  const totalStartingDebt = useMemo(() => {
+    return debts.reduce((acc, curr) => acc + (Number(curr.totalAmount) || Number(curr.remainingAmount) || 0), 0);
+  }, [debts]);
+
+  const totalMonthlyDebtPayment = useMemo(() => {
+    const unpaidActiveDebts = debts.filter(d => d.status === 'Devam Ediyor' && d.paidThisMonth !== true);
+    return unpaidActiveDebts.reduce((acc, curr) => {
+      let monthly = curr.paymentAmount || 0;
+      if (curr.paymentFrequency === 'Haftalık') monthly = (curr.paymentAmount || 0) * 4;
+      if (curr.paymentFrequency === 'Yıllık') monthly = (curr.paymentAmount || 0) / 12;
+      return acc + monthly;
+    }, 0);
+  }, [debts]);
+
+  const totalPaidMonthlyDebtPayment = useMemo(() => {
+    const paidDebts = debts.filter(d => d.status === 'Ödendi' || (d.status === 'Devam Ediyor' && d.paidThisMonth === true));
+    return paidDebts.reduce((acc, curr) => {
+      let monthly = curr.paymentAmount || 0;
+      if (curr.paymentFrequency === 'Haftalık') monthly = (curr.paymentAmount || 0) * 4;
+      if (curr.paymentFrequency === 'Yıllık') monthly = (curr.paymentAmount || 0) / 12;
+      return acc + monthly;
+    }, 0);
+  }, [debts]);
   const upcomingDebts = useMemo(() => {
     const today = new Date();
     return activeDebts.filter(d => d.nextPaymentDate && (new Date(d.nextPaymentDate).getTime() - today.getTime()) / (1000 * 3600 * 24) <= 7 && (new Date(d.nextPaymentDate).getTime() - today.getTime()) / (1000 * 3600 * 24) >= -1);
@@ -424,6 +515,62 @@ export const FinanceSubscriptions = () => {
 
           {activeTab === 'debts' && (
             <>
+              {/* Borç Ödeme ve Performans Kartı */}
+              <div className="bg-gradient-to-br from-neutral-900 to-black border border-white/10 p-6 rounded-3xl mb-6 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-focus-neon/5 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-crit-vivid/5 rounded-full blur-3xl pointer-events-none" />
+                
+                <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-focus-neon">
+                      <CheckCircle2 size={18} />
+                      <span className="text-xs font-bold uppercase tracking-wider">Aylık Borç Ödeme Özeti</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-white font-display">Borç ve Taksit Ödeme Karnesi</h3>
+                    <p className="text-xs text-text-secondary max-w-xl">
+                      Borçlarınızın ödeme durumunu kontrol edebilir ve "Taksit Öde" / "Öde" butonlarını kullanarak aylık performansınızı güncelleyebilirsiniz.
+                    </p>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full lg:w-72 space-y-2">
+                    <div className="flex justify-between text-xs font-bold text-text-secondary">
+                      <span>Aylık Borç Ödeme İlerlemesi</span>
+                      <span className="text-focus-neon font-mono">{totalMonthlyDebtPayment + totalPaidMonthlyDebtPayment > 0 ? Math.round((totalPaidMonthlyDebtPayment / (totalMonthlyDebtPayment + totalPaidMonthlyDebtPayment)) * 100) : 0}%</span>
+                    </div>
+                    <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5">
+                      <div 
+                        className="bg-focus-neon h-full rounded-full transition-all duration-500"
+                        style={{ width: `${totalMonthlyDebtPayment + totalPaidMonthlyDebtPayment > 0 ? Math.min(100, (totalPaidMonthlyDebtPayment / (totalMonthlyDebtPayment + totalPaidMonthlyDebtPayment)) * 100) : 0}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-text-secondary block">
+                      Toplam Aylık Yük: ₺{(totalMonthlyDebtPayment + totalPaidMonthlyDebtPayment).toLocaleString('tr-TR')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-8 pt-6 border-t border-white/5 relative z-10">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Toplam Borç</span>
+                    <p className="text-2xl font-mono font-bold text-white">₺{totalRemainingDebt.toLocaleString('tr-TR')}</p>
+                    <span className="text-[10px] text-text-secondary block">Başlangıç: ₺{totalStartingDebt.toLocaleString('tr-TR')}</span>
+                  </div>
+                  
+                  <div className="space-y-1 sm:border-l sm:border-white/5 sm:pl-6">
+                    <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Aylık Ödenmesi Gereken Borç</span>
+                    <p className="text-2xl font-mono font-bold text-crit-vivid">₺{totalMonthlyDebtPayment.toLocaleString('tr-TR')}</p>
+                    <span className="text-[10px] text-text-secondary block">Kalan Aktif Taksitler</span>
+                  </div>
+                  
+                  <div className="space-y-1 sm:border-l sm:border-white/5 sm:pl-6">
+                    <span className="text-[10px] font-bold text-focus-neon uppercase tracking-wider">Aylık Ödenen Borç</span>
+                    <p className="text-2xl font-mono font-bold text-focus-neon">₺{totalPaidMonthlyDebtPayment.toLocaleString('tr-TR')}</p>
+                    <span className="text-[10px] text-text-secondary block">Bu Ay Ödenen / Kapatılan</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Debt Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div 
@@ -528,27 +675,90 @@ export const FinanceSubscriptions = () => {
                             </div>
                           </td>
                           <td className="py-4 px-2">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${debt.status === 'Devam Ediyor' ? 'bg-nrg-sun/10 text-nrg-sun' : 'bg-focus-neon/10 text-focus-neon'}`}>
-                              {debt.status}
-                            </span>
+                            <div className="flex flex-col items-start gap-1">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${debt.status === 'Devam Ediyor' ? 'bg-nrg-sun/10 text-nrg-sun' : 'bg-focus-neon/10 text-focus-neon'}`}>
+                                {debt.status}
+                              </span>
+                              {debt.status === 'Devam Ediyor' && (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium tracking-wide ${debt.paidThisMonth ? 'bg-focus-neon/20 text-focus-neon' : 'bg-crit-vivid/10 text-crit-vivid'}`}>
+                                  {debt.paidThisMonth ? 'Bu Ay Ödendi' : 'Bu Ay Ödenmedi'}
+                                </span>
+                              )}
+                            </div>
                           </td>
-                          <td className="py-4 px-2 text-right relative">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setActionMenuId(actionMenuId === debt.id ? null : debt.id); }}
-                              className="p-2 text-text-secondary hover:text-white transition-colors"
-                            >
-                              <MoreVertical size={16} />
-                            </button>
-                            {actionMenuId === debt.id && (
-                              <div className="absolute right-6 top-10 bg-neutral-800 border border-white/10 rounded-xl shadow-xl overflow-hidden z-20 w-40 flex flex-col">
-                                <button onClick={() => openDebtWizard(debt)} className="flex items-center gap-2 px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors text-left">
-                                  <Edit3 size={14} /> Düzenle
+                          <td className="py-4 px-2 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {debt.status === 'Devam Ediyor' && (
+                                debt.paidThisMonth ? (
+                                  <button
+                                    onClick={() => markDebtAsUnpaid(debt.id, false)}
+                                    className="px-2.5 py-1 text-xs font-bold bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-black rounded-lg transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                                    title="Ödemeyi iptal et ve borcu henüz ödenmedi olarak işaretle"
+                                  >
+                                    <XCircle size={12} /> Geri Al
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => markDebtAsPaid(debt.id)}
+                                    className="px-2.5 py-1 text-xs font-bold bg-focus-neon/10 hover:bg-focus-neon text-focus-neon hover:text-black rounded-lg transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                                    title={debt.installments && debt.installments > 0 ? "1 Taksit Öde" : "Borcu Kapat"}
+                                  >
+                                    <CheckCircle2 size={12} /> {debt.installments && debt.installments > 0 ? "Taksit Öde" : "Öde"}
+                                  </button>
+                                )
+                              )}
+                              {debt.status === 'Ödendi' && (
+                                <button
+                                  onClick={() => markDebtAsUnpaid(debt.id, true)}
+                                  className="px-2.5 py-1 text-xs font-bold bg-crit-vivid/10 hover:bg-crit-vivid text-crit-vivid hover:text-white rounded-lg transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                                  title="Borcu tekrar açık hale getir"
+                                >
+                                  <XCircle size={12} /> Geri Al
                                 </button>
-                                <button onClick={() => deleteDebt(debt.id)} className="flex items-center gap-2 px-4 py-3 text-sm text-crit-vivid hover:bg-crit-vivid/10 transition-colors text-left border-t border-white/5">
-                                  <Trash2 size={14} /> Sil
+                              )}
+                              <div className="relative">
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); setActionMenuId(actionMenuId === debt.id ? null : debt.id); }}
+                                  className="p-2 text-text-secondary hover:text-white transition-colors"
+                                >
+                                  <MoreVertical size={16} />
                                 </button>
+                                {actionMenuId === debt.id && (
+                                  <div className="absolute right-0 top-8 bg-neutral-800 border border-white/10 rounded-xl shadow-xl overflow-hidden z-20 w-44 flex flex-col text-left">
+                                    {debt.status === 'Devam Ediyor' ? (
+                                      <>
+                                        {debt.paidThisMonth ? (
+                                          <button onClick={() => markDebtAsUnpaid(debt.id, false)} className="flex items-center gap-2 px-4 py-2.5 text-xs text-white hover:bg-white/5 transition-colors text-left">
+                                            <XCircle size={12} className="text-amber-500" /> Ödemeyi Geri Al
+                                          </button>
+                                        ) : (
+                                          <>
+                                            <button onClick={() => markDebtAsPaid(debt.id, false)} className="flex items-center gap-2 px-4 py-2.5 text-xs text-white hover:bg-white/5 transition-colors text-left">
+                                              <CheckCircle2 size={12} className="text-focus-neon" /> {debt.installments && debt.installments > 0 ? "1 Taksit Öde" : "Ödendi Olarak İşaretle"}
+                                            </button>
+                                            {debt.installments && debt.installments > 0 && (
+                                              <button onClick={() => markDebtAsPaid(debt.id, true)} className="flex items-center gap-2 px-4 py-2.5 text-xs text-white hover:bg-white/5 transition-colors text-left border-t border-white/5">
+                                                <CheckCircle2 size={12} className="text-focus-neon" /> Borcu Tamamen Kapat
+                                              </button>
+                                            )}
+                                          </>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <button onClick={() => markDebtAsUnpaid(debt.id, true)} className="flex items-center gap-2 px-4 py-2.5 text-xs text-white hover:bg-white/5 transition-colors text-left">
+                                        <XCircle size={12} className="text-crit-vivid" /> Borcu Tekrar Aç
+                                      </button>
+                                    )}
+                                    <button onClick={() => openDebtWizard(debt)} className="flex items-center gap-2 px-4 py-2.5 text-xs text-white hover:bg-white/5 transition-colors text-left border-t border-white/5">
+                                      <Edit3 size={12} /> Düzenle
+                                    </button>
+                                    <button onClick={() => deleteDebt(debt.id)} className="flex items-center gap-2 px-4 py-2.5 text-xs text-crit-vivid hover:bg-crit-vivid/10 transition-colors text-left border-t border-white/5">
+                                      <Trash2 size={12} /> Sil
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            </div>
                           </td>
                         </tr>
                       ))}

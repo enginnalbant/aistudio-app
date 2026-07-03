@@ -244,15 +244,17 @@ export const FinanceDashboard = () => {
     return amount;
   };
 
-  // Active metrics
+  // Active metrics (calculates realized balance up to the current date)
   const monthlyIncome = useMemo(() => {
-    const compl = incomes.filter(i => i.status === 'Tamamlandı');
+    const today = new Date();
+    const compl = incomes.filter(i => i.status === 'Tamamlandı' && new Date(i.date) <= today);
     if (compl.length > 0) return compl.reduce((sum, i) => sum + Number(i.amount || 0), 0);
     return 0;
   }, [incomes]);
 
   const monthlyExpense = useMemo(() => {
-    const compl = expenses.filter(e => e.status === 'Gerçekleşti');
+    const today = new Date();
+    const compl = expenses.filter(e => e.status === 'Gerçekleşti' && new Date(e.date) <= today);
     if (compl.length > 0) return compl.reduce((sum, e) => sum + Number(e.amount || 0), 0);
     return 0;
   }, [expenses]);
@@ -288,8 +290,8 @@ export const FinanceDashboard = () => {
   // --- DYNAMIC INPUTS FOR FINANCAL HEALTH ENGINE V3 ---
   const dynamicGelirGecmisi = useMemo(() => {
     const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    const currentYear = new Date().getFullYear();
-    const currentMonthIndex = new Date().getMonth();
+    const currentYear = 2026;
+    const currentMonthIndex = 6;
     const history = [];
     const baseline = monthlyIncome > 0 ? monthlyIncome : 38000;
     const safeIncomes = Array.isArray(incomes) ? incomes : [];
@@ -308,8 +310,8 @@ export const FinanceDashboard = () => {
   }, [incomes, monthlyIncome]);
 
   const dynamicGiderGecmisi = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const currentMonthIndex = new Date().getMonth();
+    const currentYear = 2026;
+    const currentMonthIndex = 6;
     const history = [];
     const baseline = monthlyExpense > 0 ? monthlyExpense : 22000;
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
@@ -501,9 +503,9 @@ export const FinanceDashboard = () => {
   // --- CHARTS & TREND DATA ---
   const chartData = useMemo(() => {
     const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonthIndex = today.getMonth();
+    const startDate = new Date(2026, 6, 1);
+    const currentYear = startDate.getFullYear();
+    const currentMonthIndex = startDate.getMonth();
     const result = [];
 
     // Realistic baseline points starting from today and going forward
@@ -527,13 +529,13 @@ export const FinanceDashboard = () => {
         ? actualMonthExpenses.reduce((sum, x) => sum + Number(x.amount || 0), 0)
         : mockExpenses[i];
 
-      const birikim = Math.max(0, gelir - gider);
+      const birikim = gelir - gider;
 
       result.push({
         name: monthLabel,
-        gelir,
-        gider,
-        birikim
+        gelir: gelir || 0,
+        gider: gider || 0,
+        birikim: birikim || 0
       });
     }
     return result;
@@ -713,7 +715,7 @@ export const FinanceDashboard = () => {
   ];
 
   return (
-    <div className="p-4 md:p-8 w-full max-w-7xl mx-auto space-y-8 pb-24 text-text-primary">
+    <div className="p-4 md:p-6 w-full max-w-7xl mx-auto space-y-6 pb-24 text-text-primary">
       {/* Toast alert */}
       <AnimatePresence>
         {successToast && (
@@ -1067,22 +1069,22 @@ export const FinanceDashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Main KPI metrics (4 Columns) */}
+      {/* Main KPI metrics (4 Columns) - Compact */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Net Worth */}
+        {/* Card 1: Total Net Worth */}
         <motion.div 
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-black/30 border border-white/5 p-5 rounded-2xl relative overflow-hidden group hover:border-white/10 transition-colors"
+          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Wallet size={64} className="text-focus-neon" />
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Wallet size={48} className="text-focus-neon" />
           </div>
-          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">Net Varlık (Net Worth)</span>
-          <span className={`text-xl md:text-2xl font-mono font-black block mt-1 ${netWorth >= 0 ? 'text-white' : 'text-crit-vivid'}`}>
+          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Net Varlık</span>
+          <span className={`text-lg md:text-xl font-mono font-black block mt-0.5 ${netWorth >= 0 ? 'text-white' : 'text-crit-vivid'}`}>
             ₺{netWorth.toLocaleString('tr-TR')}
           </span>
-          <span className="text-[10px] text-text-secondary mt-1.5 block">Varlıklar - Borçlar Dengesi</span>
+          <span className="text-[9px] text-text-secondary mt-1 block">Varlıklar - Borçlar</span>
         </motion.div>
 
         {/* Card 2: Income */}
@@ -1090,16 +1092,16 @@ export const FinanceDashboard = () => {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="bg-black/30 border border-white/5 p-5 rounded-2xl relative overflow-hidden group hover:border-white/10 transition-colors"
+          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <ArrowDownRight size={64} className="text-focus-neon" />
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <ArrowDownRight size={48} className="text-focus-neon" />
           </div>
-          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Nakit Girişi</span>
-          <span className="text-xl md:text-2xl font-mono font-black text-focus-neon block mt-1">
+          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Gelir</span>
+          <span className="text-lg md:text-xl font-mono font-black text-focus-neon block mt-0.5">
             ₺{monthlyIncome.toLocaleString('tr-TR')}
           </span>
-          <span className="text-[10px] text-text-secondary mt-1.5 block">Tamamlanan nakit akışları</span>
+          <span className="text-[9px] text-text-secondary mt-1 block">Tamamlanan nakit akışı</span>
         </motion.div>
 
         {/* Card 3: Expenses */}
@@ -1107,36 +1109,36 @@ export const FinanceDashboard = () => {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-black/30 border border-white/5 p-5 rounded-2xl relative overflow-hidden group hover:border-white/10 transition-colors"
+          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <ArrowUpRight size={64} className="text-crit-vivid" />
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <ArrowUpRight size={48} className="text-crit-vivid" />
           </div>
-          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Harcamalar</span>
-          <span className="text-xl md:text-2xl font-mono font-black text-white block mt-1">
+          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Gider</span>
+          <span className="text-lg md:text-xl font-mono font-black text-white block mt-0.5">
             ₺{monthlyExpense.toLocaleString('tr-TR')}
           </span>
-          <span className="text-[10px] text-text-secondary mt-1.5 block">
+          <span className="text-[9px] text-text-secondary mt-1 block">
             Gelirin %{monthlyIncome > 0 ? Math.round((monthlyExpense / monthlyIncome) * 100) : 0}\'i
           </span>
         </motion.div>
 
-        {/* Card 4: Savings Rate */}
+        {/* Card 4: Net Balance */}
         <motion.div 
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-black/30 border border-white/5 p-5 rounded-2xl relative overflow-hidden group hover:border-white/10 transition-colors"
+          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Target size={64} className="text-ai-bright" />
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Target size={48} className="text-nrg-sun" />
           </div>
-          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">Tasarruf Oranı</span>
-          <span className="text-xl md:text-2xl font-mono font-black text-ai-bright block mt-1">
-            %{savingsRate}
+          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Net Bakiye</span>
+          <span className={`text-lg md:text-xl font-mono font-black block mt-0.5 ${(monthlyIncome - monthlyExpense) >= 0 ? 'text-focus-neon' : 'text-crit-vivid'}`}>
+            ₺{(monthlyIncome - monthlyExpense).toLocaleString('tr-TR')}
           </span>
-          <div className="w-full bg-white/5 h-1 rounded-full mt-2 overflow-hidden">
-            <div className="h-full bg-ai-bright" style={{ width: `${Math.min(100, Math.max(0, savingsRate))}%` }} />
+          <div className="w-full bg-white/5 h-0.5 rounded-full mt-1.5 overflow-hidden">
+            <div className={`h-full ${(monthlyIncome - monthlyExpense) >= 0 ? 'bg-focus-neon' : 'bg-crit-vivid'}`} style={{ width: `${Math.min(100, Math.max(0, savingsRate))}%` }} />
           </div>
         </motion.div>
       </div>
@@ -1168,140 +1170,19 @@ export const FinanceDashboard = () => {
         </div>
       </div>
 
-      {/* INTERACTIVE STRESS-TEST SIMULATOR WIDGET */}
-      <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-ai-bright/5 blur-[50px] rounded-full pointer-events-none"></div>
-        
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-4 mb-6">
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Sliders size={16} className="text-ai-bright animate-spin-slow" />
-              Finansal Stres Testi & Dayanıklılık Simülatörü
-            </h3>
-            <p className="text-xs text-text-secondary">
-              Acil durumlarda (iş kaybı, büyük kaza masrafları vb.) likit varlıklarınızın sizi kaç ay hayatta tutacağını simüle edin.
-            </p>
-          </div>
-          <span className="text-[10px] bg-white/5 border border-white/5 text-text-secondary font-mono px-2.5 py-1 rounded-lg">
-            İnteraktif Kontroller
-          </span>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Controls Column (LHS) */}
-          <div className="lg:col-span-5 space-y-6">
-            
-            {/* Toggle 1: Job Loss */}
-            <div className="flex justify-between items-center bg-black/25 p-4 rounded-2xl border border-white/5">
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-white block">İş / Gelir Kaybı Durumu</span>
-                <span className="text-[10px] text-text-secondary block">Aktif aylık nakit girişi sıfırlanır.</span>
-              </div>
-              <button
-                onClick={() => setSimJobLoss(!simJobLoss)}
-                className={`w-12 h-6.5 rounded-full p-1 transition-colors duration-300 ${
-                  simJobLoss ? 'bg-crit-vivid' : 'bg-white/10'
-                }`}
-              >
-                <div className={`w-4.5 h-4.5 bg-black rounded-full transition-transform duration-300 ${
-                  simJobLoss ? 'translate-x-5.5' : 'translate-x-0'
-                }`} />
-              </button>
-            </div>
 
-            {/* Slider 2: Emergency Expense */}
-            <div className="bg-black/25 p-4 rounded-2xl border border-white/5 space-y-3">
-              <div className="flex justify-between text-xs">
-                <div>
-                  <span className="font-bold text-white block">Beklenmedik Tek Seferlik Gider</span>
-                  <span className="text-[10px] text-text-secondary block">Mevcut nakit rezervlerinden düşer.</span>
-                </div>
-                <span className="font-mono font-black text-crit-vivid">₺{simEmergencyExpense.toLocaleString('tr-TR')}</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="100000"
-                step="5000"
-                value={simEmergencyExpense}
-                onChange={(e) => setSimEmergencyExpense(Number(e.target.value))}
-                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-ai-bright focus:outline-none"
-              />
-              <div className="flex justify-between text-[9px] text-text-secondary font-mono">
-                <span>₺0</span>
-                <span>₺50,000</span>
-                <span>₺100,000</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Outputs Column (RHS) */}
-          <div className="lg:col-span-7 bg-white/[0.01] border border-white/5 p-5 rounded-2xl flex flex-col justify-between gap-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-3.5 bg-black/20 border border-white/5 rounded-xl text-center">
-                <span className="text-[10px] text-text-secondary uppercase font-bold block">Kalan Rezerv</span>
-                <span className="text-sm font-mono font-black text-white block mt-1">
-                  ₺{simulatorResult.availableReserves.toLocaleString('tr-TR')}
-                </span>
-              </div>
-              <div className="p-3.5 bg-black/20 border border-white/5 rounded-xl text-center">
-                <span className="text-[10px] text-text-secondary uppercase font-bold block">Aylık Net Harcama</span>
-                <span className="text-sm font-mono font-black text-white block mt-1">
-                  ₺{simulatorResult.adjustedOutflow.toLocaleString('tr-TR')}
-                </span>
-              </div>
-              <div className="p-3.5 bg-black/20 border border-white/5 rounded-xl text-center">
-                <span className="text-[10px] text-text-secondary uppercase font-bold block">Aylık Nakit Açığı</span>
-                <span className="text-sm font-mono font-black text-crit-vivid block mt-1">
-                  ₺{simulatorResult.monthlyDeficit.toLocaleString('tr-TR')}
-                </span>
-              </div>
-            </div>
-
-            {/* Survivor Output Badge */}
-            <div className="bg-black/35 border border-white/10 rounded-xl p-5 flex items-center justify-between">
-              <div className="space-y-1">
-                <span className="text-[10px] text-text-secondary uppercase font-bold block">Güvenli Dayanma Süresi (Runway)</span>
-                <h4 className="text-lg font-black text-white leading-tight">
-                  {simulatorResult.monthlyDeficit === 0 
-                    ? 'Bütçeniz Fazla Veriyor (Sonsuz Güvende)' 
-                    : `${simulatorResult.runwayMonths} Ay Dayanabilir`}
-                </h4>
-                <p className="text-[11px] text-text-secondary leading-normal max-w-md pt-1">
-                  {simulatorResult.monthlyDeficit === 0 
-                    ? 'Geliriniz, aylık tüm giderlerinizi ve aboneliklerinizi rahatça karşılıyor. Rezervlere dokunmanız gerekmiyor.'
-                    : simulatorResult.runwayMonths >= 6 
-                    ? 'Tebrikler, 6 aylık ideal asgari dayanma eşiğini geçtiniz. Güvenli bölgedesiniz.' 
-                    : 'Uyarı: Likit varlıklarınız kriz durumunda sizi 6 aydan daha kısa sürede koruyabilir. Birikimlerinizi artırın.'}
-                </p>
-              </div>
-
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${
-                simulatorResult.monthlyDeficit === 0 
-                  ? 'bg-focus-neon/10 border border-focus-neon/30 text-focus-neon'
-                  : simulatorResult.runwayMonths >= 6 
-                  ? 'bg-ai-bright/10 border border-ai-bright/30 text-ai-bright' 
-                  : 'bg-crit-vivid/10 border border-crit-vivid/30 text-crit-vivid'
-              }`}>
-                {simulatorResult.monthlyDeficit === 0 ? '∞' : `${simulatorResult.runwayMonths}A`}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Trend Area Chart */}
-        <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 space-y-4">
+        {/* Trend Area Chart - Compact */}
+        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Activity size={16} className="text-focus-neon" /> Altı Aylık Nakit Akış Trendi
+            <h3 className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Activity size={14} className="text-focus-neon" /> Altı Aylık Nakit Akış Trendi
             </h3>
-            <span className="text-[10px] text-text-secondary">Gelir vs Gider</span>
+            <span className="text-[9px] text-text-secondary">Gelir vs Gider</span>
           </div>
-          <div className="h-[250px] w-full">
+          <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -1315,8 +1196,8 @@ export const FinanceDashboard = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `₺${val/1000}k`} />
+                <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} axisLine={false} />
+                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} axisLine={false} tickFormatter={(val) => `₺${val/1000}k`} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#121214', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px' }}
                   labelStyle={{ color: '#fff', fontWeight: 'bold' }}
@@ -1328,30 +1209,30 @@ export const FinanceDashboard = () => {
           </div>
         </div>
 
-        {/* Categories Bar & Limit Progress Chart */}
-        <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 space-y-4">
+        {/* Categories Bar & Limit Progress Chart - Compact */}
+        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Target size={16} className="text-ai-bright" /> Kategori Harcamaları & Limitler
+            <h3 className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Target size={14} className="text-ai-bright" /> Kategori Harcamaları & Limitler
             </h3>
-            <span className="text-[10px] text-text-secondary">Eşik Sınır Takibi</span>
+            <span className="text-[9px] text-text-secondary">Eşik Sınır Takibi</span>
           </div>
           
-          <div className="space-y-3.5 max-h-[250px] overflow-y-auto pr-1">
-            {categoryData.map((item, index) => {
+          <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
+            {categoryData.slice(0, 5).map((item, index) => {
               const spentPercent = Math.min(100, Math.round((item.value / item.limit) * 100));
               return (
-                <div key={index} className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
+                <div key={index} className="space-y-1">
+                  <div className="flex justify-between text-[10px]">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
                       <span className="text-white font-bold">{item.name}</span>
                     </div>
                     <span className="text-text-secondary">
-                      <strong className="text-white font-mono">₺{item.value.toLocaleString('tr-TR')}</strong> / ₺{item.limit.toLocaleString('tr-TR')} ({spentPercent}%)
+                      <strong className="text-white font-mono">₺{item.value.toLocaleString('tr-TR')}</strong> ({spentPercent}%)
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                     <div 
                       className={`h-full rounded-full transition-all duration-500`}
                       style={{ 
@@ -1465,68 +1346,37 @@ export const FinanceDashboard = () => {
           </div>
         </div>
 
-        {/* RHS: Latest Report Summary Card (New Cohesive Connection) */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 flex flex-col justify-between gap-6">
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <FileText size={14} className="text-ai-bright" /> Dönemlik Finansal Değerlendirme Raporu
+        {/* RHS: Recent Reports Quick Links */}
+        <div className="lg:col-span-5 bg-white/[0.02] border border-white/5 rounded-3xl p-5 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <FileText size={14} className="text-ai-bright" /> Finansal Raporlar
             </h3>
-            
+            <button onClick={() => handleNavigation('finance-reports')} className="text-[9px] text-ai-bright hover:underline font-bold">Yönet</button>
+          </div>
+          
+          <div className="space-y-2">
             {reports && reports.length > 0 ? (
-              // If reports exist, show the summary card
-              <div className="bg-black/30 border border-white/5 rounded-2xl p-4.5 space-y-4 relative overflow-hidden">
-                <div className="flex justify-between items-start gap-2">
-                  <div className="space-y-1">
-                    <h4 className="text-xs font-black text-white line-clamp-1">{reports[0].title}</h4>
-                    <span className="text-[10px] text-text-secondary block">Dönem: {reports[0].period}</span>
+              reports.slice(0, 2).map(report => (
+                <div key={report.id} className="p-3 bg-black/25 border border-white/5 rounded-xl flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-ai-bright/10 flex items-center justify-center text-ai-bright font-black text-xs">
+                      {report.grade}
+                    </div>
+                    <div>
+                      <h4 className="text-[11px] font-bold text-white truncate w-32">{report.title}</h4>
+                      <p className="text-[9px] text-text-secondary">{report.period}</p>
+                    </div>
                   </div>
-                  <span className="w-8 h-8 rounded-xl bg-ai-bright/10 border border-ai-bright/20 flex items-center justify-center font-black text-xs text-ai-bright shadow-lg">
-                    {reports[0].grade}
-                  </span>
+                  <ChevronRight size={14} className="text-text-secondary" />
                 </div>
-
-                <div className="grid grid-cols-2 gap-3 text-center border-t border-b border-white/5 py-3">
-                  <div>
-                    <span className="text-[9px] text-text-secondary uppercase">Tasarruf Oranı</span>
-                    <span className="text-sm font-mono font-black text-white block mt-0.5">
-                      %{reports[0].savingsRate}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] text-text-secondary uppercase">Net Birikim</span>
-                    <span className="text-sm font-mono font-black text-focus-neon block mt-0.5">
-                      ₺{reports[0].netSavings.toLocaleString('tr-TR')}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-text-secondary italic line-clamp-2 leading-relaxed">
-                  "{reports[0].personalNotes || 'Kişisel değerlendirme notu bulunmuyor.'}"
-                </p>
-              </div>
+              ))
             ) : (
-              // If no reports exist, show onboarding call-to-action
-              <div className="bg-black/30 border border-white/5 rounded-2xl p-5 text-center space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-ai-bright/10 border border-ai-bright/20 flex items-center justify-center text-ai-bright mx-auto">
-                  <FileText size={18} />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-xs font-black text-white">Hazırda Rapor Bulunmuyor</h4>
-                  <p className="text-[11px] text-text-secondary leading-normal">
-                    Son bütçe verilerinizden finansal sağlık durumunuzu puanlayan ve detaylı analizler sunan bir dönemlik rapor oluşturup indirin.
-                  </p>
-                </div>
+              <div className="text-center py-6 border border-dashed border-white/10 rounded-xl">
+                <p className="text-[10px] text-text-secondary">Henüz oluşturulmuş rapor bulunmuyor.</p>
               </div>
             )}
           </div>
-
-          <button
-            onClick={() => handleNavigation('finance-reports')}
-            className="w-full py-2.5 bg-white/5 hover:bg-white/10 text-white font-black text-xs rounded-xl border border-white/10 transition-all flex items-center justify-center gap-1.5 shadow-md"
-          >
-            {reports && reports.length > 0 ? 'Tüm Raporları Yönet' : 'Rapor Oluşturmaya Başla'}
-            <ArrowRight size={13} />
-          </button>
         </div>
 
       </div>
