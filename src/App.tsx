@@ -51,6 +51,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
+import { BulletinNews } from './components/bulletin/BulletinNews';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -257,10 +258,7 @@ function AppLayout() {
                     brandName="APEXOS NOTLARIM" 
                   />
                 ) : activeModule.startsWith('bulletin-') ? (
-                  <ComingSoon 
-                    title={activeModule.replace('bulletin-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
-                    brandName="APEXOS BÜLTEN" 
-                  />
+                  <BulletinNews activeSubModule={activeModule.replace('bulletin-', '')} />
                 ) : (
                   <FinanceDashboard />
                 )}

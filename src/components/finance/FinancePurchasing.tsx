@@ -264,6 +264,9 @@ export const FinancePurchasing = () => {
   const [editCategoryInput, setEditCategoryInput] = useState('');
   const [draggedOverCategory, setDraggedOverCategory] = useState<string | null>(null);
 
+  const [draggedCategoryForReorder, setDraggedCategoryForReorder] = useState<string | null>(null);
+  const [draggedOverCategoryForReorder, setDraggedOverCategoryForReorder] = useState<string | null>(null);
+
   // Custom Dialog & Notification States
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string; message: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -355,6 +358,8 @@ export const FinancePurchasing = () => {
   // Calculations
   const activePurchases = useMemo(() => purchases.filter(p => p.status !== 'Satın Alındı'), [purchases]);
   const totalPlannedCost = activePurchases.reduce((acc, curr) => acc + curr.price, 0);
+  const prioritizedPurchases = activePurchases.filter(p => p.priority === 'Acil' || p.priority === 'Yüksek');
+  const totalPrioritizedCost = prioritizedPurchases.reduce((acc, curr) => acc + curr.price, 0);
   const totalSaved = activePurchases.reduce((acc, curr) => acc + curr.savedAmount, 0);
   const totalBought = purchases.filter(p => p.status === 'Satın Alındı').reduce((acc, curr) => acc + curr.price, 0);
   const readyToBuyCount = activePurchases.filter(p => p.status === 'Alınabilir' || p.savedAmount >= p.price).length;
@@ -382,6 +387,13 @@ export const FinancePurchasing = () => {
       }
       groups[cat].push(item);
     });
+    
+    // Sort items inside groups by Priority (Acil > Yüksek > Orta > Düşük)
+    const priorityWeight: Record<string, number> = { 'Acil': 4, 'Yüksek': 3, 'Orta': 2, 'Düşük': 1 };
+    Object.keys(groups).forEach(cat => {
+      groups[cat].sort((a, b) => (priorityWeight[b.priority || 'Düşük'] || 1) - (priorityWeight[a.priority || 'Düşük'] || 1));
+    });
+
     return groups;
   }, [filteredPurchases]);
 
@@ -389,6 +401,12 @@ export const FinancePurchasing = () => {
     const custom = purchases.map(p => p.category).filter(Boolean);
     const unique = Array.from(new Set([...customCategories, ...custom]));
     return ['Hepsi', ...unique];
+  }, [purchases, customCategories]);
+
+  // Derived list of categories to render in order, excluding 'Hepsi'
+  const orderedCategories = useMemo(() => {
+    const custom = purchases.map(p => p.category).filter(Boolean);
+    return Array.from(new Set([...customCategories, ...custom]));
   }, [purchases, customCategories]);
 
   // Move product to category (handles Drag & Drop)
@@ -400,6 +418,27 @@ export const FinancePurchasing = () => {
       return p;
     }));
     setToast({ message: `Ürün "${newCategory}" kategorisine taşındı.`, type: 'success' });
+  };
+
+  // Reorder categories (Drag & Drop Categories)
+  const handleReorderCategory = (draggedCat: string, targetCat: string) => {
+    if (draggedCat === targetCat) return;
+    
+    setCustomCategories(prev => {
+      // Create a fresh list with all unique categories present to ensure we don't lose any
+      const allCats = Array.from(new Set([...prev, ...orderedCategories]));
+      
+      const draggedIndex = allCats.indexOf(draggedCat);
+      const targetIndex = allCats.indexOf(targetCat);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return allCats;
+      
+      const newOrder = [...allCats];
+      const [removed] = newOrder.splice(draggedIndex, 1);
+      newOrder.splice(targetIndex, 0, removed);
+      
+      return newOrder;
+    });
   };
 
   // Add a new custom category
@@ -520,7 +559,7 @@ export const FinancePurchasing = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div 
           onClick={() => setSummaryModal({
             title: 'Toplam Planlanan', 
@@ -540,6 +579,28 @@ export const FinancePurchasing = () => {
           </p>
           <p className="text-[10px] text-text-secondary mt-2">
             Aktif {activePurchases.length} ürün için
+          </p>
+        </div>
+
+        <div 
+          onClick={() => setSummaryModal({
+            title: 'Öncelikli Ürünler', 
+            value: `₺${totalPrioritizedCost.toLocaleString('tr-TR')}`, 
+            type: 'total-prioritized'
+          })}
+          className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl cursor-pointer hover:bg-white/[0.04] hover:border-orange-500/30 transition-all group"
+        >
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500 group-hover:scale-110 transition-transform">
+              <AlertCircle size={20} />
+            </div>
+          </div>
+          <h3 className="text-sm text-text-secondary mb-1">Öncelikli Maliyet</h3>
+          <p className="text-2xl font-mono font-bold text-text-primary">
+            ₺{totalPrioritizedCost.toLocaleString('tr-TR')}
+          </p>
+          <p className="text-[10px] text-text-secondary mt-2">
+            Acil ve Yüksek ({prioritizedPurchases.length} ürün)
           </p>
         </div>
 
@@ -725,16 +786,34 @@ export const FinancePurchasing = () => {
 
         {/* Categorized Grid Layout of Purchase Cards */}
         <div className="space-y-10">
-          {Object.entries(groupedPurchases).map(([categoryName, items]) => (
+          {orderedCategories.filter(cat => groupedPurchases[cat]).map((categoryName) => {
+            const items = groupedPurchases[categoryName];
+            return (
             <div 
               key={categoryName} 
               onDragOver={(e) => {
                 e.preventDefault();
               }}
-              onDragEnter={() => setDraggedOverCategory(categoryName)}
-              onDragLeave={() => setDraggedOverCategory(null)}
+              onDragEnter={(e) => {
+                if (draggedCategoryForReorder && draggedCategoryForReorder !== categoryName) {
+                  setDraggedOverCategoryForReorder(categoryName);
+                } else if (!draggedCategoryForReorder) {
+                  setDraggedOverCategory(categoryName);
+                }
+              }}
+              onDragLeave={() => {
+                setDraggedOverCategory(null);
+                setDraggedOverCategoryForReorder(null);
+              }}
               onDrop={(e) => {
                 e.preventDefault();
+                if (draggedCategoryForReorder) {
+                  handleReorderCategory(draggedCategoryForReorder, categoryName);
+                  setDraggedCategoryForReorder(null);
+                  setDraggedOverCategoryForReorder(null);
+                  return;
+                }
+
                 setDraggedOverCategory(null);
                 const itemId = e.dataTransfer.getData('text/plain');
                 if (itemId) {
@@ -742,14 +821,14 @@ export const FinancePurchasing = () => {
                 }
               }}
               className={`space-y-4 p-4 rounded-3xl transition-all duration-300 border ${
-                draggedOverCategory === categoryName 
+                draggedOverCategory === categoryName || draggedOverCategoryForReorder === categoryName
                   ? 'bg-focus-neon/5 border-dashed border-focus-neon/40 shadow-lg shadow-focus-neon/5 scale-[1.005]' 
                   : 'border-transparent'
               }`}
             >
               <div className="flex items-center justify-between border-b border-white/5 pb-2">
                 <div className="flex items-center gap-3">
-                  <span className="h-2 w-2 rounded-full bg-focus-neon"></span>
+                  <span className="h-2 w-2 rounded-full bg-focus-neon cursor-grab"></span>
                   {editingCategoryName === categoryName ? (
                     <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
                       <input
@@ -784,7 +863,19 @@ export const FinancePurchasing = () => {
                       </button>
                     </div>
                   ) : (
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 group/cat">
+                    <h3 
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('category/name', categoryName);
+                        e.dataTransfer.effectAllowed = 'move';
+                        setDraggedCategoryForReorder(categoryName);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedCategoryForReorder(null);
+                        setDraggedOverCategoryForReorder(null);
+                      }}
+                      className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 group/cat cursor-grab active:cursor-grabbing"
+                    >
                       {categoryName}
                       <button
                         onClick={(e) => {
@@ -892,6 +983,21 @@ export const FinancePurchasing = () => {
                                 Acil
                               </span>
                             )}
+                            {item.priority === 'Yüksek' && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-orange-500/10 text-orange-500">
+                                Yüksek
+                              </span>
+                            )}
+                            {item.priority === 'Orta' && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400">
+                                Orta
+                              </span>
+                            )}
+                            {item.priority === 'Düşük' && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-white/10 text-text-secondary">
+                                Düşük
+                              </span>
+                            )}
                           </div>
                           <h3 className="text-base font-bold text-text-primary line-clamp-1 group-hover:text-focus-neon transition-colors">{item.title}</h3>
                           <p className="text-xs text-text-secondary truncate">{item.storeName ? `${item.storeName} • ` : ''}{item.category}</p>
@@ -991,7 +1097,8 @@ export const FinancePurchasing = () => {
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
 
           {filteredPurchases.length === 0 && (
             <div className="text-center py-12 text-text-secondary border border-dashed border-white/10 rounded-2xl bg-black/10">
