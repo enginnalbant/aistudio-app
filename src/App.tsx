@@ -162,8 +162,8 @@ function AppLayout() {
             setSidebarOpen={setIsSidebarOpen}
           />
           
-          <div className="flex-1 flex flex-col gap-4 min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[40px] rounded-2xl border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.4)] p-4 lg:p-6 transition-all duration-700">
-            <main className="flex-1">
+          <div className="flex-1 flex flex-col gap-4 min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[40px] rounded-2xl border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.4)] p-3 lg:p-6 transition-all duration-700">
+            <main className="flex-1 overflow-x-hidden">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeModule}
@@ -171,7 +171,7 @@ function AppLayout() {
                 animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                className="w-full h-full"
+                className="w-full h-full min-h-[500px]"
               >
                 {activeModule === 'notification-page' ? (
                   <NotificationPage />

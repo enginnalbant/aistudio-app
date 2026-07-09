@@ -259,6 +259,35 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
   const [globalLoading, setGlobalLoading] = useState(false);
   const [activeFeedFilter, setActiveFeedFilter] = useState<string>('all'); // feedId or 'all' or 'category:name'
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Mobile navigation states for Master-Detail view on small screens
+  const [mobileView, setMobileView] = useState<'folders' | 'articles' | 'reading'>('folders');
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Sync mobile view automatically when selected article changes
+  useEffect(() => {
+    if (isMobile) {
+      if (selectedArticle) {
+        setMobileView('reading');
+      }
+    }
+  }, [selectedArticle, isMobile]);
+  
+  // Sync mobile view when filter changes
+  useEffect(() => {
+    if (isMobile && activeFeedFilter !== 'all' && activeFeedFilter !== 'unread' && activeFeedFilter !== 'saved') {
+      setMobileView('articles');
+    }
+  }, [activeFeedFilter, isMobile]);
   
   // Bookmarks & Read States
   const [savedArticleIds, setSavedArticleIds] = useState<Set<string>>(new Set());
@@ -779,285 +808,207 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
       </div>
 
       {/* MAIN LAYOUT: Bento stats, Feed Folders, Article Feed, & Distraction-free Reading Pane */}
-      {activeSubModule === 'dashboard' ? (
-        /* ================= BENTO DASHBOARD VIEW ================= */
-        <div className="space-y-6 overflow-y-auto max-h-[80vh] pr-2 custom-scrollbar">
-          
-          {/* Quick Metrics Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            
-            {/* Feeds Count */}
-            <div className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl flex items-center gap-4">
-              <div className="p-3 bg-rose-500/10 rounded-xl text-rose-400">
-                <Rss size={24} />
-              </div>
-              <div>
-                <h3 className="text-xs text-text-secondary">Aktif RSS Abonelikleri</h3>
-                <p className="text-2xl font-mono font-bold text-text-primary">{feeds.length}</p>
-              </div>
-            </div>
-
-            {/* Unread Items */}
-            <div className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl flex items-center gap-4">
-              <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400">
-                <BookOpen size={24} />
-              </div>
-              <div>
-                <h3 className="text-xs text-text-secondary">Okunmamış Akış</h3>
-                <p className="text-2xl font-mono font-bold text-text-primary">{unreadCount}</p>
-              </div>
-            </div>
-
-            {/* Bookmarks */}
-            <div className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl flex items-center gap-4">
-              <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400">
-                <Bookmark size={24} />
-              </div>
-              <div>
-                <h3 className="text-xs text-text-secondary">Bültene Kaydedilen</h3>
-                <p className="text-2xl font-mono font-bold text-text-primary">{savedArticlesLocal.length}</p>
-              </div>
-            </div>
-
-            {/* AI Summaries */}
-            <div className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl flex items-center gap-4">
-              <div className="p-3 bg-teal-500/10 rounded-xl text-teal-400">
-                <Sparkles size={24} />
-              </div>
-              <div>
-                <h3 className="text-xs text-text-secondary">Yapay Zeka Özetleri</h3>
-                <p className="text-2xl font-mono font-bold text-text-primary">{Object.keys(aiSummaries).length}</p>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Quick Categories Navigation */}
-          <div className="bg-white/[0.02] border border-white/5 p-6 rounded-2xl">
-            <h2 className="text-lg font-display font-bold text-text-primary mb-4 flex items-center gap-2">
-              <Folder size={18} className="text-rose-400" />
-              Kategorilere Göre Keşfet
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {categories.map(cat => {
-                const count = feeds.filter(f => f.category === cat).length;
-                return (
-                  <div 
-                    key={cat}
-                    onClick={() => {
-                      setActiveFeedFilter(`category:${cat}`);
-                      // Trigger route action via global window callback if needed or simulated switch
-                      if ((window as any).setActiveModule) (window as any).setActiveModule('bulletin-news');
-                    }}
-                    className="p-4 bg-white/[0.01] border border-white/5 hover:border-rose-500/20 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all group"
-                  >
-                    <h3 className="font-bold text-text-primary group-hover:text-rose-400 transition-colors">{cat}</h3>
-                    <p className="text-[11px] text-text-secondary mt-1">{count} yayın kanalı</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Discovery feeds & RSSHub Suggestion Engine */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {/* Discovery block */}
-            <div className="bg-white/[0.02] border border-white/5 p-6 rounded-2xl space-y-4">
-              <div>
-                <h2 className="text-lg font-display font-bold text-text-primary flex items-center gap-2">
-                  <Sparkles size={18} className="text-yellow-400 animate-pulse" />
-                  Keşfet: RSSHub Kanalları
-                </h2>
-                <p className="text-xs text-text-secondary mt-1">
-                  RSSHub altyapısını kullanan popüler veri akışlarını tek tıklamayla bülteninize dahil edin.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {RSSHUB_DISCOVERY.map(disc => (
-                  <div 
-                    key={disc.title}
-                    className="flex justify-between items-center p-3 bg-black/20 border border-white/5 rounded-xl hover:border-white/10 transition-all"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-text-primary">{disc.title}</span>
-                        <span className="text-[9px] bg-rose-500/10 text-rose-400 px-1.5 py-0.5 rounded-full font-semibold uppercase">{disc.category}</span>
-                      </div>
-                      <p className="text-[10px] text-text-secondary mt-1">{disc.desc}</p>
-                    </div>
-                    <button 
-                      onClick={() => handleSubscribeToDiscovery(disc)}
-                      className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold rounded-lg transition-all"
-                    >
-                      Takip Et
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recent top highlights block */}
-            <div className="bg-white/[0.02] border border-white/5 p-6 rounded-2xl space-y-4">
-              <h2 className="text-lg font-display font-bold text-text-primary flex items-center gap-2">
-                <Clock size={18} className="text-rose-400" />
-                Günün Son Haberleri
-              </h2>
-              <div className="space-y-3 divide-y divide-white/5 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                {articles.slice(0, 5).map(art => (
-                  <div 
-                    key={art.id} 
-                    onClick={() => handleSelectArticle(art)}
-                    className="pt-3 first:pt-0 group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] text-rose-400 font-bold">{art.feedTitle}</span>
-                      <span className="text-[10px] text-text-secondary">•</span>
-                      <span className="text-[10px] text-text-secondary">{new Date(art.pubDate).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <h4 className="text-xs font-bold text-text-primary group-hover:text-rose-400 transition-colors line-clamp-1">{art.title}</h4>
-                  </div>
-                ))}
-                {articles.length === 0 && (
-                  <div className="text-center py-12 text-text-secondary text-xs">Yayınlar yükleniyor...</div>
-                )}
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      ) : (
+      {activeSubModule === 'news' ? (
         /* ================= DUAL PANE FEED READER VIEW ================= */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[75vh] items-stretch overflow-hidden">
+        <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
           
-          {/* 1. LEFT COLUMN: Feeds and Folders (Span 3) */}
-          <div className="lg:col-span-3 bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col space-y-4 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full items-stretch overflow-hidden">
             
-            {/* Quick Filter Section */}
-            <div className="space-y-1">
-              <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest px-2">Bülten Filtreleri</span>
-              
-              <button 
-                onClick={() => setActiveFeedFilter('all')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeFeedFilter === 'all' 
-                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-lg shadow-rose-500/5' 
-                    : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Rss size={14} />
-                  <span>Tüm Haberler</span>
-                </div>
-                <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{articles.length}</span>
-              </button>
-
-              <button 
-                onClick={() => setActiveFeedFilter('unread')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeFeedFilter === 'unread' 
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-lg shadow-amber-500/5' 
-                    : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <BookOpen size={14} />
-                  <span>Okunmamışlar</span>
-                </div>
-                <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{unreadCount}</span>
-              </button>
-
-              <button 
-                onClick={() => setActiveFeedFilter('saved')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeFeedFilter === 'saved' 
-                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-lg shadow-indigo-500/5' 
-                    : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Bookmark size={14} />
-                  <span>Kaydedilen Bültenler</span>
-                </div>
-                <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{savedArticlesLocal.length}</span>
-              </button>
-            </div>
-
-            {/* Folder categories */}
-            <div className="space-y-3">
-              <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest px-2 block">Klasörler</span>
-              
-              <div className="space-y-1">
-                {categories.map(cat => {
-                  const isActive = activeFeedFilter === `category:${cat}`;
-                  const count = articles.filter(a => a.category === cat).length;
-                  return (
+            {/* 1. LEFT COLUMN: Feeds and Folders (Span 3) */}
+            <AnimatePresence mode="wait">
+              {(!isMobile || mobileView === 'folders') && (
+                <motion.div 
+                  initial={isMobile ? { x: -20, opacity: 0 } : { opacity: 1 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={isMobile ? { x: -20, opacity: 0 } : { opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className={`lg:col-span-3 bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col space-y-4 overflow-y-auto custom-scrollbar h-[75vh] lg:h-auto ${
+                    isMobile ? 'fixed inset-0 z-30 bg-[#0a0a0a] rounded-none p-6 pb-24' : 'flex'
+                  }`}
+                >
+                  {isMobile && (
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-display font-bold text-text-primary">Kaynaklar</h2>
+                      <button onClick={() => setMobileView('articles')} className="p-2 bg-white/5 rounded-full">
+                        <X size={20} className="text-text-secondary" />
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Quick Filter Section */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest px-2">Bülten Filtreleri</span>
+                    
                     <button 
-                      key={cat}
-                      onClick={() => setActiveFeedFilter(`category:${cat}`)}
+                      onClick={() => {
+                        setActiveFeedFilter('all');
+                        if (isMobile) setMobileView('articles');
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                        isActive 
-                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                        activeFeedFilter === 'all' 
+                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-lg shadow-rose-500/5' 
                           : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <Folder size={14} className={isActive ? 'text-rose-400' : 'text-text-secondary'} />
-                        <span>{cat}</span>
+                        <Rss size={14} />
+                        <span>Tüm Haberler</span>
                       </div>
-                      <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{count}</span>
+                      <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{articles.length}</span>
                     </button>
-                  );
-                })}
-              </div>
-            </div>
 
-            {/* Subscription Stream List */}
-            <div className="space-y-1 flex-1">
-              <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest px-2 block mb-2">Akış Kanallarım</span>
-              
-              <div className="space-y-1 max-h-[30vh] overflow-y-auto custom-scrollbar pr-1">
-                {feeds.map(feed => {
-                  const isActive = activeFeedFilter === feed.id;
-                  const feedArtCount = articles.filter(a => a.feedId === feed.id).length;
-                  return (
-                    <div
-                      key={feed.id}
-                      onClick={() => setActiveFeedFilter(feed.id)}
-                      className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                        isActive 
-                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                    <button 
+                      onClick={() => {
+                        setActiveFeedFilter('unread');
+                        if (isMobile) setMobileView('articles');
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                        activeFeedFilter === 'unread' 
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-lg shadow-amber-500/5' 
                           : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
                       }`}
                     >
-                      <div className="flex items-center gap-2 truncate pr-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                        <span className="truncate">{feed.title}</span>
+                      <div className="flex items-center gap-2">
+                        <BookOpen size={14} />
+                        <span>Okunmamışlar</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className="font-mono text-[9px] text-text-secondary/60 bg-black/20 px-1.5 py-0.5 rounded">{feedArtCount}</span>
-                        {!feed.isDefault && (
+                      <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{unreadCount}</span>
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        setActiveFeedFilter('saved');
+                        if (isMobile) setMobileView('articles');
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                        activeFeedFilter === 'saved' 
+                          ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-lg shadow-indigo-500/5' 
+                          : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Bookmark size={14} />
+                        <span>Kaydedilen Bültenler</span>
+                      </div>
+                      <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{savedArticlesLocal.length}</span>
+                    </button>
+                  </div>
+
+                  {/* Folder categories */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest px-2 block">Klasörler</span>
+                    
+                    <div className="space-y-1">
+                      {categories.map(cat => {
+                        const isActive = activeFeedFilter === `category:${cat}`;
+                        const count = articles.filter(a => a.category === cat).length;
+                        return (
                           <button 
-                            onClick={(e) => handleDeleteFeed(e, feed.id)}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400 rounded transition-all ml-1"
-                            title="Akışı Sil"
+                            key={cat}
+                            onClick={() => {
+                              setActiveFeedFilter(`category:${cat}`);
+                              if (isMobile) setMobileView('articles');
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                              isActive 
+                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                                : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
+                            }`}
                           >
-                            <Trash2 size={11} />
+                            <div className="flex items-center gap-2">
+                              <Folder size={14} className={isActive ? 'text-rose-400' : 'text-text-secondary'} />
+                              <span>{cat}</span>
+                            </div>
+                            <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{count}</span>
                           </button>
-                        )}
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Subscription Stream List */}
+                  <div className="space-y-1 flex-1">
+                    <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest px-2 block mb-2">Akış Kanallarım</span>
+                    
+                    <div className="space-y-1 max-h-[30vh] overflow-y-auto custom-scrollbar pr-1">
+                      {feeds.map(feed => {
+                        const isActive = activeFeedFilter === feed.id;
+                        const feedArtCount = articles.filter(a => a.feedId === feed.id).length;
+                        return (
+                          <div
+                            key={feed.id}
+                            onClick={() => {
+                              setActiveFeedFilter(feed.id);
+                              if (isMobile) setMobileView('articles');
+                            }}
+                            className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                              isActive 
+                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                                : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate pr-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span className="truncate">{feed.title}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono text-[9px] text-text-secondary/60 bg-black/20 px-1.5 py-0.5 rounded">{feedArtCount}</span>
+                              {!feed.isDefault && (
+                                <button 
+                                  onClick={(e) => handleDeleteFeed(e, feed.id)}
+                                  className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400 rounded transition-all ml-1"
+                                  title="Akışı Sil"
+                                >
+                                  <Trash2 size={11} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* 2. MIDDLE COLUMN: Article Cards List (Span 4) */}
+            <AnimatePresence mode="wait">
+              {(!isMobile || mobileView === 'articles') && (
+                <motion.div 
+                  initial={isMobile ? { x: 20, opacity: 0 } : { opacity: 1 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={isMobile ? { x: 20, opacity: 0 } : { opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className={`lg:col-span-4 bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col space-y-4 overflow-hidden h-[75vh] lg:h-auto ${
+                    isMobile ? 'flex-1' : 'flex'
+                  }`}
+                >
+                  
+                  {isMobile && (
+                    <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <Compass size={18} className="text-rose-400" />
+                        <h2 className="text-sm font-bold text-text-primary">
+                          {activeFeedFilter === 'all' 
+                            ? 'Tüm Haberler' 
+                            : activeFeedFilter === 'unread' 
+                              ? 'Okunmamışlar' 
+                              : activeFeedFilter === 'saved' 
+                                ? 'Kaydedilenler' 
+                                : activeFeedFilter.startsWith('category:') 
+                                  ? activeFeedFilter.replace('category:', '') 
+                                  : (feeds.find(f => f.id === activeFeedFilter)?.title || 'Haber Akışı')}
+                        </h2>
+                      </div>
+                      <div className="flex items-center gap-3">
+                         <button onClick={() => fetchAllFeeds(feeds)} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+                           <RefreshCw size={14} className={globalLoading ? "animate-spin text-rose-400" : "text-text-secondary"} />
+                         </button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-
-          </div>
-
-          {/* 2. MIDDLE COLUMN: Article Cards List (Span 4) */}
-          <div className="lg:col-span-4 bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col space-y-4 overflow-hidden">
+                  )}
             
             {/* Search Input */}
             <div className="relative">
@@ -1180,187 +1131,248 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
               )}
 
             </div>
-          </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
           {/* 3. RIGHT COLUMN: Distraction-free Reading Pane & AI summaries (Span 5) */}
-          <div className="lg:col-span-5 bg-white/[0.02] border border-white/5 rounded-2xl p-6 flex flex-col overflow-y-auto custom-scrollbar">
-            
-            <AnimatePresence mode="wait">
-              {selectedArticle ? (
-                /* Distraction-free Reading pane */
-                <motion.div 
-                  key={selectedArticle.id}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  className="space-y-6"
-                >
-                  
-                  {/* Article Controls / Options */}
-                  <div className="flex justify-between items-center border-b border-white/5 pb-4 sticky top-0 bg-transparent backdrop-blur-xl z-20">
-                    <button 
-                      onClick={() => setSelectedArticle(null)}
-                      className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary bg-white/5 hover:bg-white/10 px-2.5 py-1.5 rounded-lg transition-all"
+          <AnimatePresence mode="wait">
+            {(!isMobile || mobileView === 'reading') && (
+              <motion.div 
+                initial={isMobile ? { x: 50, opacity: 0 } : { opacity: 1 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={isMobile ? { x: 50, opacity: 0 } : { opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className={`lg:col-span-5 bg-white/[0.02] border border-white/5 rounded-2xl p-6 flex flex-col overflow-y-auto custom-scrollbar h-[75vh] lg:h-auto ${
+                  isMobile ? 'fixed inset-0 z-40 bg-[#0a0a0a] rounded-none p-4 pb-24' : 'flex'
+                }`}
+              >
+                
+                <AnimatePresence mode="wait">
+                  {selectedArticle ? (
+                    /* Distraction-free Reading pane */
+                    <motion.div 
+                      key={selectedArticle.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -15 }}
+                      className="space-y-6"
                     >
-                      <ArrowLeft size={13} />
-                      Kapat
-                    </button>
-
-                    <div className="flex items-center gap-2">
                       
-                      {/* Font AA adjustments */}
-                      <button 
-                        onClick={() => setReaderFontSize(prev => Math.max(12, prev - 1))}
-                        className="p-1.5 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary rounded-lg text-xs font-bold"
-                        title="Metni Küçült"
-                      >
-                        A-
-                      </button>
-                      <button 
-                        onClick={() => setReaderFontSize(prev => Math.min(22, prev + 1))}
-                        className="p-1.5 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary rounded-lg text-xs font-bold"
-                        title="Metni Büyüt"
-                      >
-                        A+
-                      </button>
+                      {/* Article Controls / Options */}
+                      <div className="flex justify-between items-center border-b border-white/5 pb-4 sticky top-0 bg-[#0a0a0a]/80 backdrop-blur-xl z-20">
+                        <button 
+                          onClick={() => {
+                            setSelectedArticle(null);
+                            if (isMobile) setMobileView('articles');
+                          }}
+                          className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary bg-white/5 hover:bg-white/10 px-2.5 py-1.5 rounded-lg transition-all"
+                        >
+                          <ArrowLeft size={13} />
+                          Kapat
+                        </button>
 
-                      {/* Web Link */}
-                      <a 
-                        href={selectedArticle.link}
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="p-1.5 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary rounded-lg"
-                        title="Web sitesinde oku"
-                      >
-                        <ExternalLink size={13} />
-                      </a>
+                        <div className="flex items-center gap-2">
+                          
+                          {/* Font AA adjustments */}
+                          <button 
+                            onClick={() => setReaderFontSize(prev => Math.max(12, prev - 1))}
+                            className="p-1.5 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary rounded-lg text-xs font-bold"
+                            title="Metni Küçült"
+                          >
+                            A-
+                          </button>
+                          <button 
+                            onClick={() => setReaderFontSize(prev => Math.min(22, prev + 1))}
+                            className="p-1.5 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary rounded-lg text-xs font-bold"
+                            title="Metni Büyüt"
+                          >
+                            A+
+                          </button>
 
-                      {/* Save/Bookmark */}
-                      <button 
-                        onClick={(e) => handleToggleSaveArticle(e, selectedArticle)}
-                        className={`p-1.5 bg-white/5 hover:bg-white/10 rounded-lg ${
-                          savedArticleIds.has(selectedArticle.id) ? 'text-indigo-400' : 'text-text-secondary hover:text-white'
-                        }`}
-                        title="Kaydet"
-                      >
-                        <Bookmark size={13} className={savedArticleIds.has(selectedArticle.id) ? 'fill-current' : ''} />
-                      </button>
+                          {/* Web Link */}
+                          <a 
+                            href={selectedArticle.link}
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="p-1.5 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary rounded-lg"
+                            title="Web sitesinde oku"
+                          >
+                            <ExternalLink size={13} />
+                          </a>
 
-                    </div>
-                  </div>
+                          {/* Save/Bookmark */}
+                          <button 
+                            onClick={(e) => handleToggleSaveArticle(e, selectedArticle)}
+                            className={`p-1.5 bg-white/5 hover:bg-white/10 rounded-lg ${
+                              savedArticleIds.has(selectedArticle.id) ? 'text-indigo-400' : 'text-text-secondary hover:text-white'
+                            }`}
+                            title="Kaydet"
+                          >
+                            <Bookmark size={13} className={savedArticleIds.has(selectedArticle.id) ? 'fill-current' : ''} />
+                          </button>
 
-                  {/* Header / Meta */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-xs bg-rose-500/10 text-rose-400 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">{selectedArticle.feedTitle}</span>
-                      <span className="text-xs text-text-secondary">{new Date(selectedArticle.pubDate).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                    </div>
-                    <h1 className="text-2xl font-display font-black text-text-primary tracking-tight leading-tight">
-                      {selectedArticle.title}
-                    </h1>
-                    {selectedArticle.creator && (
-                      <p className="text-xs text-text-secondary flex items-center gap-1">
-                        <span className="font-bold">{selectedArticle.creator}</span> tarafından yayınlandı
-                      </p>
-                    )}
-                  </div>
-
-                  {/* AI SUMMARIZE TRIGGER BLOCK */}
-                  <div className="bg-gradient-to-r from-rose-500/10 via-amber-500/5 to-transparent border border-rose-500/20 p-4 rounded-2xl relative overflow-hidden group">
-                    <div className="absolute right-2 top-2 text-rose-400/10 group-hover:scale-125 transition-transform">
-                      <Sparkles size={48} />
-                    </div>
-                    
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-rose-500/10 rounded-xl text-rose-400 shrink-0">
-                        <Sparkles size={18} className="animate-pulse" />
+                        </div>
                       </div>
-                      <div className="space-y-1 pr-6">
-                        <h4 className="text-xs font-bold text-text-primary">Yapay Zeka Bülten Özet Motoru (Gemini)</h4>
-                        <p className="text-[10px] text-text-secondary leading-relaxed">
-                          Okuma zamanı kısıtlı mı? Bu makalenin anahtar noktalarını saniyeler içinde okumak için Gemini yapay zekasını kullanın.
-                        </p>
+
+                      {/* Header / Meta */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xs bg-rose-500/10 text-rose-400 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">{selectedArticle.feedTitle}</span>
+                          <span className="text-xs text-text-secondary">{new Date(selectedArticle.pubDate).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                        </div>
+                        <h1 className="text-2xl font-display font-black text-text-primary tracking-tight leading-tight">
+                          {selectedArticle.title}
+                        </h1>
+                        {selectedArticle.creator && (
+                          <p className="text-xs text-text-secondary flex items-center gap-1">
+                            <span className="font-bold">{selectedArticle.creator}</span> tarafından yayınlandı
+                          </p>
+                        )}
+                      </div>
+
+                      {/* AI SUMMARIZE TRIGGER BLOCK */}
+                      <div className="bg-gradient-to-r from-rose-500/10 via-amber-500/5 to-transparent border border-rose-500/20 p-4 rounded-2xl relative overflow-hidden group">
+                        <div className="absolute right-2 top-2 text-rose-400/10 group-hover:scale-125 transition-transform">
+                          <Sparkles size={48} />
+                        </div>
                         
-                        <div className="pt-2">
-                          {summarizingId === selectedArticle.id ? (
-                            <div className="flex items-center gap-2 text-rose-400 text-xs font-bold font-mono">
-                              <RefreshCw className="animate-spin" size={13} />
-                              <span>Yapay Zeka makaleyi tahlil ediyor ve özet bülteni hazırlıyor...</span>
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-rose-500/10 rounded-xl text-rose-400 shrink-0">
+                            <Sparkles size={18} className="animate-pulse" />
+                          </div>
+                          <div className="space-y-1 pr-6">
+                            <h4 className="text-xs font-bold text-text-primary">Yapay Zeka Bülten Özet Motoru (Gemini)</h4>
+                            <p className="text-[10px] text-text-secondary leading-relaxed">
+                              Okuma zamanı kısıtlı mı? Bu makalenin anahtar noktalarını saniyeler içinde okumak için Gemini yapay zekasını kullanın.
+                            </p>
+                            
+                            <div className="pt-2">
+                              {summarizingId === selectedArticle.id ? (
+                                <div className="flex items-center gap-2 text-rose-400 text-xs font-bold font-mono">
+                                  <RefreshCw className="animate-spin" size={13} />
+                                  <span>Yapay Zeka makaleyi tahlil ediyor ve özet bülteni hazırlıyor...</span>
+                                </div>
+                              ) : aiSummaries[selectedArticle.id] ? (
+                                <span className="inline-flex items-center gap-1.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-bold">
+                                  <Check size={12} /> Özet Hazırlandı (Aşağıya Eklenmiştir)
+                                </span>
+                              ) : (
+                                <button 
+                                  onClick={() => handleAiSummarize(selectedArticle)}
+                                  className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-lg shadow-rose-600/10"
+                                >
+                                  <Sparkles size={12} />
+                                  Hızlı Bülten Özetini Çıkar
+                                </button>
+                              )}
                             </div>
-                          ) : aiSummaries[selectedArticle.id] ? (
-                            <span className="inline-flex items-center gap-1.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-bold">
-                              <Check size={12} /> Özet Hazırlandı (Aşağıya Eklenmiştir)
-                            </span>
-                          ) : (
-                            <button 
-                              onClick={() => handleAiSummarize(selectedArticle)}
-                              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-lg shadow-rose-600/10"
-                            >
-                              <Sparkles size={12} />
-                              Hızlı Bülten Özetini Çıkar
-                            </button>
-                          )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Gemini AI Summary Renders beautifully if exists */}
-                    {aiSummaries[selectedArticle.id] && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mt-4 pt-4 border-t border-rose-500/10 space-y-2 bg-black/30 p-3 rounded-xl border border-white/5"
-                      >
-                        <h5 className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
-                          <Sparkles size={12} />
-                          Yapay Zeka Bülten Özeti
-                        </h5>
-                        <div className="text-xs text-text-primary font-display leading-relaxed space-y-2 whitespace-pre-line">
-                          {aiSummaries[selectedArticle.id]}
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
+                      {/* Gemini AI Summary Renders beautifully if exists */}
+                      {aiSummaries[selectedArticle.id] && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mt-4 pt-4 border-t border-rose-500/10 space-y-2 bg-black/30 p-3 rounded-xl border border-white/5"
+                        >
+                          <h5 className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                            <Sparkles size={12} />
+                            Yapay Zeka Bülten Özeti
+                          </h5>
+                          <div className="text-xs text-text-primary font-display leading-relaxed space-y-2 whitespace-pre-line">
+                            {aiSummaries[selectedArticle.id]}
+                          </div>
+                        </motion.div>
+                      )}
 
-                  {/* Clean Formatted Article Content */}
-                  <div className="pt-2 border-t border-white/5">
-                    {renderCleanContent(selectedArticle.content)}
-                  </div>
+                      {/* Clean Formatted Article Content */}
+                      <div className="pt-2 border-t border-white/5">
+                        {renderCleanContent(selectedArticle.content)}
+                      </div>
 
-                </motion.div>
-              ) : (
-                /* Empty state dashboard / reading suggestions */
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="h-full flex flex-col items-center justify-center text-center py-20 px-4 space-y-4"
-                >
-                  <div className="w-16 h-16 bg-white/[0.01] border border-white/5 flex items-center justify-center rounded-2xl text-rose-400 shadow-xl shadow-rose-500/5">
-                    <BookOpen size={32} />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-text-primary">Folo Reader Okuma Paneli</h3>
-                    <p className="text-xs text-text-secondary mt-1.5 max-w-xs mx-auto leading-relaxed">
-                      Lütfen soldaki listeden bir haber veya makale seçin. Distraction-free (dikkat dağıtmayan) okuma modunun keyfini çıkarın.
-                    </p>
-                  </div>
+                    </motion.div>
+                  ) : (
+                    /* Empty state dashboard / reading suggestions */
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="h-full flex flex-col items-center justify-center text-center py-20 px-4 space-y-4"
+                    >
+                      <div className="w-16 h-16 bg-white/[0.01] border border-white/5 flex items-center justify-center rounded-2xl text-rose-400 shadow-xl shadow-rose-500/5">
+                        <BookOpen size={32} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-text-primary">Folo Reader Okuma Paneli</h3>
+                        <p className="text-xs text-text-secondary mt-1.5 max-w-xs mx-auto leading-relaxed">
+                          Lütfen soldaki listeden bir haber veya makale seçin. Distraction-free (dikkat dağıtmayan) okuma modunun keyfini çıkarın.
+                        </p>
+                      </div>
 
-                  {/* Extra little tip */}
-                  <div className="bg-white/[0.01] border border-white/5 p-4 rounded-xl max-w-sm text-left">
-                    <h4 className="text-xs font-bold text-text-primary flex items-center gap-1.5 mb-1">
-                      <Sparkles size={13} className="text-rose-400" />
-                      İpucu: Kişiselleştirilmiş Bülten
-                    </h4>
-                    <p className="text-[10px] text-text-secondary leading-relaxed">
-                      Folo Reader, makalelerinizi okurken bültene kaydettiğiniz tüm haberleri çevrimdışı dahi olsanız tarayıcınızda veya Firestore üzerinde güvende tutar.
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                      {/* Extra little tip */}
+                      <div className="bg-white/[0.01] border border-white/5 p-4 rounded-xl max-w-sm text-left">
+                        <h4 className="text-xs font-bold text-text-primary flex items-center gap-1.5 mb-1">
+                          <Sparkles size={13} className="text-rose-400" />
+                          İpucu: Kişiselleştirilmiş Bülten
+                        </h4>
+                        <p className="text-[10px] text-text-secondary leading-relaxed">
+                          Folo Reader, makalelerinizi okurken bültene kaydettiğiniz tüm haberleri çevrimdışı dahi olsanız tarayıcınızda veya Firestore üzerinde güvende tutar.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+        </div>
+
+        {/* MOBILE BOTTOM NAVIGATION BAR */}
+        {isMobile && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 px-6 pb-6 pt-2 pointer-events-none">
+            <div className="bg-black/80 backdrop-blur-2xl border border-white/10 rounded-full p-1.5 flex items-center justify-between shadow-2xl pointer-events-auto max-w-sm mx-auto">
+              <button 
+                onClick={() => setMobileView('folders')}
+                className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-full transition-all ${
+                  mobileView === 'folders' ? 'bg-white/10 text-rose-400' : 'text-text-secondary'
+                }`}
+              >
+                <Layers size={18} />
+                <span className="text-[9px] font-bold">Kaynaklar</span>
+              </button>
+              
+              <button 
+                onClick={() => setMobileView('articles')}
+                className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-full transition-all ${
+                  mobileView === 'articles' ? 'bg-white/10 text-rose-400' : 'text-text-secondary'
+                }`}
+              >
+                <Compass size={18} />
+                <span className="text-[9px] font-bold">Akış</span>
+              </button>
+
+              <div className="w-px h-6 bg-white/10 mx-1" />
+
+              <button 
+                onClick={() => setIsNewFeedOpen(true)}
+                className="flex-1 flex flex-col items-center gap-1 py-2 text-text-secondary hover:text-rose-400 transition-all"
+              >
+                <Plus size={18} />
+                <span className="text-[9px] font-bold">Ekle</span>
+              </button>
+            </div>
           </div>
+        )}
 
+        </div>
+      ) : (
+        /* Empty view */
+        <div className="flex-1 flex items-center justify-center border border-white/5 rounded-2xl bg-white/[0.02] text-text-secondary h-[75vh]">
+          <p className="text-sm font-display font-bold">Seçilen modül için içerik bulunmuyor.</p>
         </div>
       )}
 
