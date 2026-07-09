@@ -117,6 +117,47 @@
             "rules": [
               { "allow": "read, write", "condition": "request.auth.uid == uid" }
             ]
+          },
+          {
+            "name": "rss_feeds",
+            "description": "User custom RSS feeds",
+            "documentId": "auto",
+            "fields": [
+              { "name": "title", "type": "string" },
+              { "name": "url", "type": "string" },
+              { "name": "category", "type": "string" },
+              { "name": "isActive", "type": "boolean" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "rss_saved",
+            "description": "User saved/bookmarked RSS articles",
+            "documentId": "auto",
+            "fields": [
+              { "name": "id", "type": "string" },
+              { "name": "title", "type": "string" },
+              { "name": "link", "type": "string" },
+              { "name": "pubDate", "type": "string" },
+              { "name": "content", "type": "string" },
+              { "name": "feedId", "type": "string" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "feed_states",
+            "description": "User feed activation states (toggled on/off)",
+            "documentId": "auto",
+            "fields": [
+              { "name": "isActive", "type": "boolean" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
           }
         ]
       }

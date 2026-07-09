@@ -40,14 +40,44 @@ async function startServer() {
 
     try {
       console.log(`[RSS Proxy] Fetching feed from: ${url}`);
-      const feed = await parser.parseURL(url);
+      
+      // Try fetching using custom browser-like headers to avoid 403 Forbidden errors
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/rss+xml, application/xml, text/xml, text/html, */*',
+          'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Cache-Control': 'no-cache'
+        },
+        redirect: 'follow'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status} ${response.statusText}`);
+      }
+
+      const xmlText = await response.text();
+      
+      // Basic check if we received actual HTML instead of XML (sometimes security overlays return 200 with HTML)
+      if (xmlText.trim().startsWith('<!DOCTYPE html') || xmlText.trim().startsWith('<html')) {
+        throw new Error("Received HTML content instead of XML feed. The site might be blocking programmatic access.");
+      }
+
+      const feed = await parser.parseString(xmlText);
       res.json(feed);
     } catch (err: any) {
-      console.error("[RSS Proxy] Error parsing feed:", err);
-      res.status(500).json({ 
-        error: "Failed to parse feed. The URL might be invalid, or the server blocked our request.", 
-        details: err.message 
-      });
+      console.warn(`[RSS Proxy] Fetch failed, attempting direct parser fallback for URL: ${url}`, err.message);
+      try {
+        // Fallback to the original library-default parseURL which uses its own request implementation
+        const feed = await parser.parseURL(url);
+        res.json(feed);
+      } catch (fallbackErr: any) {
+        console.error("[RSS Proxy] Error parsing feed (both fetch and fallback failed):", fallbackErr);
+        res.status(500).json({ 
+          error: "Failed to parse feed. The URL might be invalid, or the server blocked our request.", 
+          details: fallbackErr.message 
+        });
+      }
     }
   });
 
@@ -79,6 +109,8 @@ Başlık: ${title}
       res.status(500).json({ error: "Yapay zeka özeti oluşturulamadı.", details: err.message });
     }
   });
+
+
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

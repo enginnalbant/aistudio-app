@@ -1,48 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Rss, 
-  Search, 
-  Plus, 
-  BookOpen, 
-  Bookmark, 
-  Check, 
-  ChevronRight, 
-  ExternalLink, 
-  Sparkles, 
-  Clock, 
-  Trash2, 
-  Folder, 
-  HelpCircle, 
-  RefreshCw, 
-  Heart, 
-  X, 
-  Layers, 
-  ArrowLeft,
-  LayoutDashboard,
-  CheckSquare,
-  BookmarkCheck,
-  Zap,
-  Info,
-  Globe,
-  Compass,
-  Sliders,
-  Eye,
-  Code
+  Rss, Folder, Plus, Search, ExternalLink, Bookmark, Check, 
+  Trash2, X, RefreshCw, LayoutTemplate, LayoutList, 
+  ChevronLeft, Sparkles, AlertCircle, Info, Globe, CheckSquare,
+  Layers, Sliders
 } from 'lucide-react';
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  setDoc, 
-  deleteDoc, 
-  query, 
-  onSnapshot 
-} from 'firebase/firestore';
+import { useAuth } from '../../context/AuthContext';
 import { db } from '../../lib/firebase';
+import { doc, setDoc, deleteDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
 
-// Interfaces for local structure
 export interface RSSFeed {
   id: string;
   title: string;
@@ -54,1927 +20,1031 @@ export interface RSSFeed {
 
 export interface ArticleItem {
   id: string;
-  title: string;
-  link: string;
-  pubDate: string;
-  creator?: string;
-  content: string;
-  contentSnippet: string;
   feedId: string;
   feedTitle: string;
   category: string;
+  title: string;
+  link: string;
+  pubDate: string;
+  creator: string;
+  contentSnippet: string;
+  content: string;
   image?: string;
-  isRead?: boolean;
-  isSaved?: boolean;
 }
 
-export interface RSSHubParam {
-  name: string;
-  label: string;
-  placeholder?: string;
-  type: 'text' | 'select';
-  options?: { label: string; value: string }[];
-  defaultValue?: string;
-}
-
-export interface RSSHubRoute {
-  id: string;
-  name: string;
-  category: string;
-  desc: string;
-  pathTemplate: string;
-  params: RSSHubParam[];
-  exampleInputs: Record<string, string>;
-}
-
-// Pre-defined default feeds (some official feeds, some RSSHub feeds)
 const DEFAULT_FEEDS: RSSFeed[] = [
-  // Teknoloji & Bilim
+  // Teknoloji (Global)
   { id: 'hn', title: 'Hacker News', url: 'https://news.ycombinator.com/rss', category: 'Teknoloji', isDefault: true, isActive: true },
   { id: 'tc', title: 'TechCrunch', url: 'https://techcrunch.com/feed/', category: 'Teknoloji', isDefault: true, isActive: true },
   { id: 'verge', title: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', category: 'Teknoloji', isDefault: true, isActive: true },
-  { id: 'webtekno', title: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', category: 'Teknoloji', isDefault: true, isActive: true },
+  { id: 'wired', title: 'Wired', url: 'https://www.wired.com/feed/rss', category: 'Teknoloji', isDefault: true, isActive: true },
+  { id: 'engadget', title: 'Engadget', url: 'https://www.engadget.com/rss.xml', category: 'Teknoloji', isDefault: true, isActive: true },
+  { id: 'arstechnica', title: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index', category: 'Teknoloji', isDefault: true, isActive: true },
+  
+  // Teknoloji (Türkiye)
+  { id: 'webrazzi', title: 'Webrazzi', url: 'https://webrazzi.com/feed', category: 'Teknoloji', isDefault: true, isActive: true },
+  { id: 'shiftdelete', title: 'ShiftDelete.Net', url: 'https://shiftdelete.net/feed', category: 'Teknoloji', isDefault: true, isActive: true },
   { id: 'donanimhaber', title: 'DonanımHaber', url: 'https://www.donanimhaber.com/rss/tum/', category: 'Teknoloji', isDefault: true, isActive: true },
+  { id: 'webtekno', title: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', category: 'Teknoloji', isDefault: true, isActive: true },
+
+  // Bilim
   { id: 'nasa', title: 'NASA Image of the Day', url: 'https://www.nasa.gov/feeds/iotd-feed/', category: 'Bilim', isDefault: true, isActive: true },
+  { id: 'sciencedaily', title: 'ScienceDaily', url: 'https://www.sciencedaily.com/rss/all.xml', category: 'Bilim', isDefault: true, isActive: true },
+  { id: 'physorg', title: 'Phys.org', url: 'https://phys.org/rss-feed/', category: 'Bilim', isDefault: true, isActive: true },
+  { id: 'arxiv_cs_ai', title: 'arXiv · Computer Science & AI', url: 'https://arxiv.org/rss/cs.AI', category: 'Bilim', isDefault: true, isActive: true },
+  { id: 'evrimagaci', title: 'Evrim Ağacı', url: 'https://evrimagaci.org/rss.xml', category: 'Bilim', isDefault: true, isActive: true },
   
   // Haber & Gündem (Global)
   { id: 'bbc_world', title: 'BBC World News', url: 'http://feeds.bbci.co.uk/news/world/rss.xml', category: 'Haber', isDefault: true, isActive: true },
-  { id: 'reuters', title: 'Reuters World', url: 'https://www.reutersagency.com/feed/', category: 'Haber', isDefault: true, isActive: true },
-  { id: 'nyt', title: 'The New York Times', url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml', category: 'Haber', isDefault: true, isActive: true },
   { id: 'aljazeera', title: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml', category: 'Haber', isDefault: true, isActive: true },
+  { id: 'dw_english', title: 'DW English', url: 'https://rss.dw.com/xml/rss-en-all', category: 'Haber', isDefault: true, isActive: true },
+  { id: 'npr', title: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml', category: 'Haber', isDefault: true, isActive: true },
 
-  // Haber & Gündem (Türkçe)
-  { id: 'aa_guncel', title: 'Anadolu Ajansı', url: 'https://www.aa.com.tr/tr/rss/default?cat=guncel', category: 'Haber', isDefault: true, isActive: true },
+  // Haber & Gündem (Türkiye)
+  { id: 'bbc_turkce', title: 'BBC Türkçe', url: 'https://feeds.bbci.co.uk/turkce/rss.xml', category: 'Haber', isDefault: true, isActive: true },
   { id: 'trthaber', title: 'TRT Haber', url: 'https://www.trthaber.com/manset_articles.rss', category: 'Haber', isDefault: true, isActive: true },
-  { id: 'cumhuriyet', title: 'Cumhuriyet', url: 'https://www.cumhuriyet.com.tr/rss', category: 'Haber', isDefault: true, isActive: true },
-  
+  { id: 'aa_guncel', title: 'Anadolu Ajansı', url: 'https://www.aa.com.tr/tr/rss/default?cat=guncel', category: 'Haber', isDefault: true, isActive: true },
+  { id: 'ntv', title: 'NTV', url: 'https://www.ntv.com.tr/gundem.rss', category: 'Haber', isDefault: true, isActive: true },
+  { id: 'sozcu', title: 'Sözcü', url: 'https://www.sozcu.com.tr/feeds-rss-category-gundem', category: 'Haber', isDefault: true, isActive: true },
+  { id: 'dw_turkce', title: 'DW Türkçe', url: 'https://rss.dw.com/xml/rss-tur-all', category: 'Haber', isDefault: true, isActive: true },
+
   // Finans & Ekonomi
   { id: 'bloomberg', title: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', category: 'Finans', isDefault: true, isActive: true },
-  { id: 'ekonomist', title: 'Ekonomist', url: 'https://www.ekonomist.com.tr/rss', category: 'Finans', isDefault: true, isActive: true },
   { id: 'coindesk', title: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss', category: 'Finans', isDefault: true, isActive: true },
+  { id: 'investing_tr', title: 'Investing Türkiye', url: 'https://tr.investing.com/rss/news.rss', category: 'Finans', isDefault: true, isActive: true },
+  { id: 'wsj_markets', title: 'WSJ Markets', url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml', category: 'Finans', isDefault: true, isActive: true },
+  { id: 'ekonomist', title: 'Ekonomist', url: 'https://www.ekonomist.com.tr/rss', category: 'Finans', isDefault: true, isActive: true },
 
-  // Kültür & Sanat & Diğer
-  { id: 'producthunt', title: 'Product Hunt Today', url: 'https://rsshub.app/producthunt/today', category: 'Tasarım & Ürün', isDefault: true, isActive: true }
-];
-
-// Suggested RSSHub discovery channels
-const RSSHUB_DISCOVERY = [
-  { title: 'GitHub Günlük Trendler', url: 'https://rsshub.app/github/trending/daily/any', category: 'Teknoloji', desc: 'Geliştiriciler için günlük popüler projeler' },
-  { title: 'Dribbble Popüler Haftalık', url: 'https://rsshub.app/dribbble/popular/week', category: 'Tasarım & Ürün', desc: 'Dünyanın en iyi tasarımcılarından haftalık popüler işler' },
-  { title: 'Reddit Technology', url: 'https://rsshub.app/reddit/r/technology/hot', category: 'Teknoloji', desc: 'Reddit üzerindeki en sıcak teknoloji tartışmaları' },
-  { title: 'Dev.to En İyiler', url: 'https://rsshub.app/devto/top/week', category: 'Teknoloji', desc: 'Yazılımcılar için haftalık popüler makaleler' },
-  { title: 'YouTube: Barış Özcan', url: 'https://rsshub.app/youtube/channel/UCXuqSBlHAE6Xw-yeJA0Tunw', category: 'Bilim', desc: 'Sanat, tasarım ve teknoloji üzerine hikayeler' },
-  { title: 'Medium: Netflix TechBlog', url: 'https://rsshub.app/medium/user/netflix-techblog', category: 'Teknoloji', desc: 'Netflix mühendislik ekibinden teknik makaleler' },
-  { title: 'BBC Türkçe', url: 'https://rsshub.app/bbc/turkce', category: 'Haber', desc: 'Dünya gündemi Türkçe bülteni' },
-  { title: 'Steam: Popüler Yeni Oyunlar', url: 'https://rsshub.app/steam/search/sort=released_at&term=popular', category: 'Eğlence', desc: 'Steam platformunda yeni çıkan popüler oyunlar' }
-];
-
-// Full catalog of standard RSSHub routing templates
-const RSSHUB_CATALOG_ROUTES: RSSHubRoute[] = [
-  {
-    id: 'yt_channel',
-    name: 'YouTube Kanalı',
-    category: 'Sosyal Medya & Video',
-    desc: 'Bir YouTube kanalının yayınladığı en son videoları ve video bültenini takip edin.',
-    pathTemplate: '/youtube/channel/:channelId',
-    params: [
-      { name: 'channelId', label: 'YouTube Kanal ID\'si (UC...)', placeholder: 'Örn: UCXuqSBlHAE6Xw-yeJA0Tunw', type: 'text' }
-    ],
-    exampleInputs: { channelId: 'UCXuqSBlHAE6Xw-yeJA0Tunw' }
-  },
-  {
-    id: 'gh_trending',
-    name: 'GitHub Günlük/Haftalık Trendler',
-    category: 'Programlama & Teknoloji',
-    desc: 'Yazılım dillerine göre GitHub üzerinde o günün veya haftanın en popüler depolarını takip edin.',
-    pathTemplate: '/github/trending/:lang/:span',
-    params: [
-      { name: 'lang', label: 'Yazılım Dili (Küçük harflerle)', placeholder: 'Örn: typescript, python, rust, go, css veya any', type: 'text', defaultValue: 'any' },
-      { name: 'span', label: 'Zaman Dilimi', type: 'select', options: [
-        { label: 'Günlük (Daily)', value: 'daily' },
-        { label: 'Haftalık (Weekly)', value: 'weekly' },
-        { label: 'Aylık (Monthly)', value: 'monthly' }
-      ], defaultValue: 'daily' }
-    ],
-    exampleInputs: { lang: 'typescript', span: 'daily' }
-  },
-  {
-    id: 'gh_releases',
-    name: 'GitHub Depo Yeni Sürümleri (Releases)',
-    category: 'Programlama & Teknoloji',
-    desc: 'Takip ettiğiniz açık kaynaklı bir kütüphanenin veya projenin yeni sürümlerinden anında haberdar olun.',
-    pathTemplate: '/github/repos/releases/:user/:repo',
-    params: [
-      { name: 'user', label: 'Geliştirici veya Kurum Adı', placeholder: 'Örn: facebook', type: 'text' },
-      { name: 'repo', label: 'Depo (Repository) Adı', placeholder: 'Örn: react', type: 'text' }
-    ],
-    exampleInputs: { user: 'facebook', repo: 'react' }
-  },
-  {
-    id: 'reddit_r',
-    name: 'Reddit Subreddit Akışı',
-    category: 'Sosyal Medya & Video',
-    desc: 'İstediğiniz bir subreddit grubundaki en yeni veya en popüler tartışmaları takip edin.',
-    pathTemplate: '/reddit/r/:subreddit/:type',
-    params: [
-      { name: 'subreddit', label: 'Subreddit Grubu Adı', placeholder: 'Örn: technology', type: 'text' },
-      { name: 'type', label: 'Sıralama Türü', type: 'select', options: [
-        { label: 'Sıcak (Hot)', value: 'hot' },
-        { label: 'Yeni (New)', value: 'new' },
-        { label: 'En Popüler (Top)', value: 'top' }
-      ], defaultValue: 'hot' }
-    ],
-    exampleInputs: { subreddit: 'technology', type: 'hot' }
-  },
-  {
-    id: 'medium_user',
-    name: 'Medium Yazar veya Yayın Akışı',
-    category: 'Sosyal Medya & Video',
-    desc: 'Takip ettiğiniz Medium yazarlarının veya teknik blogların (örn: Netflix TechBlog) yeni yazılarını bülteninize ekleyin.',
-    pathTemplate: '/medium/user/:username',
-    params: [
-      { name: 'username', label: 'Yazar Kullanıcı Adı veya Kurum İsmi', placeholder: 'Örn: netflix-techblog', type: 'text' }
-    ],
-    exampleInputs: { username: 'netflix-techblog' }
-  },
-  {
-    id: 'devto_tag',
-    name: 'Dev.to Yazılım Makaleleri',
-    category: 'Programlama & Teknoloji',
-    desc: 'Yazılımcılar için Dev.to üzerindeki belirli bir etikete veya popüler yazılara abone olun.',
-    pathTemplate: '/devto/:tag',
-    params: [
-      { name: 'tag', label: 'Etiket veya Tür (Tag)', placeholder: 'Örn: javascript, webdev, python, beginners veya top', type: 'text', defaultValue: 'top' }
-    ],
-    exampleInputs: { tag: 'javascript' }
-  },
-  {
-    id: 'dribbble_pop',
-    name: 'Dribbble Popüler Tasarımlar',
-    category: 'Programlama & Teknoloji',
-    desc: 'Dünya çapındaki tasarımcıların Dribbble üzerinde yayınladığı en popüler arayüz ve grafik tasarımları.',
-    pathTemplate: '/dribbble/popular/:time',
-    params: [
-      { name: 'time', label: 'Zaman Dilimi', type: 'select', options: [
-        { label: 'Haftalık (Week)', value: 'week' },
-        { label: 'Aylık (Month)', value: 'month' },
-        { label: 'Tüm Zamanlar (Ever)', value: 'ever' }
-      ], defaultValue: 'week' }
-    ],
-    exampleInputs: { time: 'week' }
-  },
-  {
-    id: 'behance_user',
-    name: 'Behance Portfolyo Takibi',
-    category: 'Sosyal Medya & Video',
-    desc: 'Seçkin bir tasarımcının Behance üzerinde paylaştığı son projeleri takip edin.',
-    pathTemplate: '/behance/:user',
-    params: [
-      { name: 'user', label: 'Kullanıcı Adı', placeholder: 'Örn: creative', type: 'text' }
-    ],
-    exampleInputs: { user: 'creative' }
-  },
-  {
-    id: 'steam_news',
-    name: 'Steam Oyun Haberleri & Güncellemeler',
-    category: 'Eğlence & Multimedya',
-    desc: 'Büyük oyunların güncellemelerini, yama notlarını ve resmi duyurularını bülteninize bağlayın.',
-    pathTemplate: '/steam/news/:appid',
-    params: [
-      { name: 'appid', label: 'Steam Oyun ID\'si (AppID)', placeholder: 'Örn: 730 (CS2), 570 (Dota 2), 1085660 (Destiny 2)', type: 'text' }
-    ],
-    exampleInputs: { appid: '730' }
-  },
-  {
-    id: 'bilibili_user',
-    name: 'Bilibili Kullanıcı Videoları',
-    category: 'Sosyal Medya & Video',
-    desc: 'Bilibili üzerindeki içerik üreticilerinin yeni videolarını takip edin.',
-    pathTemplate: '/bilibili/user/video/:uid',
-    params: [
-      { name: 'uid', label: 'Bilibili Kullanıcı ID (UID)', placeholder: 'Örn: 2267573', type: 'text' }
-    ],
-    exampleInputs: { uid: '2267573' }
-  },
-  {
-    id: 'weibo_user',
-    name: 'Weibo Kullanıcı Gönderileri',
-    category: 'Sosyal Medya & Video',
-    desc: 'Weibo üzerindeki popüler hesapların ve haber kanallarının gönderilerini takip edin.',
-    pathTemplate: '/weibo/user/:uid',
-    params: [
-      { name: 'uid', label: 'Weibo Kullanıcı ID', placeholder: 'Örn: 1195231234', type: 'text' }
-    ],
-    exampleInputs: { uid: '1195231234' }
-  },
-  {
-    id: 'twitter_user',
-    name: 'Twitter (X) Kullanıcı Akışı',
-    category: 'Sosyal Medya & Video',
-    desc: 'Twitter (X) üzerindeki hesapların tweetlerini RSS olarak takip edin (Instance bağımlıdır).',
-    pathTemplate: '/twitter/user/:id',
-    params: [
-      { name: 'id', label: 'Twitter Kullanıcı Adı', placeholder: 'Örn: elonmusk', type: 'text' }
-    ],
-    exampleInputs: { id: 'elonmusk' }
-  },
-  {
-    id: 'nasa_apod',
-    name: 'NASA Günün Gökbilim Görüntüsü (APOD)',
-    category: 'Bilim & Genel',
-    desc: 'NASA tarafından her gün yayınlanan evrenin eşsiz fotoğraf ve açıklamalarına doğrudan ulaşın.',
-    pathTemplate: '/nasa/apod',
-    params: [],
-    exampleInputs: {}
-  },
-  {
-    id: 'bbc_tr',
-    name: 'BBC Türkçe Son Dakika',
-    category: 'Bilim & Genel',
-    desc: 'Dünya ve Türkiye gündemine dair tarafsız son dakika bülteni.',
-    pathTemplate: '/bbc/turkce',
-    params: [],
-    exampleInputs: {}
-  }
+  // Tasarım, Ürün & Kültür
+  { id: 'producthunt', title: 'Product Hunt Today', url: 'https://www.producthunt.com/feed', category: 'Tasarım & Ürün', isDefault: true, isActive: true },
+  { id: 'smashingmag', title: 'Smashing Magazine', url: 'https://www.smashingmagazine.com/feed/', category: 'Tasarım & Ürün', isDefault: true, isActive: true },
+  { id: 'css_tricks', title: 'CSS-Tricks', url: 'https://css-tricks.com/feed/', category: 'Tasarım & Ürün', isDefault: true, isActive: true },
+  { id: 'openculture', title: 'Open Culture', url: 'https://www.openculture.com/feed', category: 'Kültür & Sanat', isDefault: true, isActive: true },
+  { id: 'smithsonian', title: 'Smithsonian', url: 'https://www.smithsonianmag.com/rss/latest_articles/', category: 'Kültür & Sanat', isDefault: true, isActive: true },
 ];
 
 interface BulletinNewsProps {
-  activeSubModule?: string; // 'dashboard', 'news', 'saved'
+  activeSubModule?: string;
 }
 
 export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
   const { user } = useAuth();
-  
-  // State for feeds, articles, saved posts
+  const [currentSubModule, setCurrentSubModule] = useState(activeSubModule);
+
+  useEffect(() => {
+    setCurrentSubModule(activeSubModule);
+  }, [activeSubModule]);
+
+  // States
   const [feeds, setFeeds] = useState<RSSFeed[]>(DEFAULT_FEEDS);
+  const [feedStates, setFeedStates] = useState<Record<string, boolean>>({});
   const [articles, setArticles] = useState<ArticleItem[]>([]);
-  const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(null);
-  
-  // App state managers
-  const [loadingFeeds, setLoadingFeeds] = useState<Record<string, boolean>>({});
-  const [globalLoading, setGlobalLoading] = useState(false);
-  const [activeFeedFilter, setActiveFeedFilter] = useState<string>('all'); // feedId or 'all' or 'category:name'
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Mobile navigation states for Master-Detail view on small screens
-  const [mobileView, setMobileView] = useState<'folders' | 'articles' | 'reading'>('folders');
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Sync mobile view automatically when selected article changes
-  useEffect(() => {
-    if (isMobile) {
-      if (selectedArticle) {
-        setMobileView('reading');
-      }
-    }
-  }, [selectedArticle, isMobile]);
-  
-  // Sync mobile view when filter changes
-  useEffect(() => {
-    if (isMobile && activeFeedFilter !== 'all' && activeFeedFilter !== 'unread' && activeFeedFilter !== 'saved') {
-      setMobileView('articles');
-    }
-  }, [activeFeedFilter, isMobile]);
-  
-  // Bookmarks & Read States
-  const [savedArticleIds, setSavedArticleIds] = useState<Set<string>>(new Set());
   const [savedArticlesLocal, setSavedArticlesLocal] = useState<ArticleItem[]>([]);
+  const [savedArticleIds, setSavedArticleIds] = useState<Set<string>>(new Set());
   const [readArticleIds, setReadArticleIds] = useState<Set<string>>(new Set());
+  const [feedsLoaded, setFeedsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
-  // AI summary states
-  const [aiSummaries, setAiSummaries] = useState<Record<string, string>>({});
-  const [summarizingId, setSummarizingId] = useState<string | null>(null);
+  // UI States
+  const [activeFeedFilter, setActiveFeedFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedArticle, setSelectedArticle] = useState<ArticleItem | null>(null);
+  const [isMobileListOpen, setIsMobileListOpen] = useState(true);
+  const [layoutMode, setLayoutMode] = useState<'comfortable' | 'compact'>('comfortable');
   
-  // Modals / Inputs
-  const [isNewFeedOpen, setIsNewFeedOpen] = useState(false);
+  // Form States
   const [newFeedTitle, setNewFeedTitle] = useState('');
   const [newFeedUrl, setNewFeedUrl] = useState('');
   const [newFeedCategory, setNewFeedCategory] = useState('Teknoloji');
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [readerFontSize, setReaderFontSize] = useState<number>(15); // in px
 
-  // RSSHub Wizard and Catalog Explorer States
-  const [modalTab, setModalTab] = useState<'manual' | 'rsshub'>('rsshub');
-  const [rsshubSearch, setRsshubSearch] = useState('');
-  const [selectedRsshubCategory, setSelectedRsshubCategory] = useState('all');
-  const [selectedRoute, setSelectedRoute] = useState<RSSHubRoute | null>(null);
-  const [routeParamValues, setRouteParamValues] = useState<Record<string, string>>({});
-  const [rsshubInstance, setRsshubInstance] = useState('https://rsshub.app');
-  const [customInstanceUrl, setCustomInstanceUrl] = useState('https://rsshub.live');
-  const [rsshubFeedTitle, setRsshubFeedTitle] = useState('');
-  const [rsshubFeedCategory, setRsshubFeedCategory] = useState('Teknoloji');
+  // AI Summary States
+  const [summaryStatus, setSummaryStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [currentSummary, setCurrentSummary] = useState<string | null>(null);
 
-  // Compute live generated RSSHub url
-  const generatedRsshubUrl = useMemo(() => {
-    if (!selectedRoute) return '';
-    const instance = rsshubInstance === 'custom' ? customInstanceUrl : rsshubInstance;
-    let urlPath = selectedRoute.pathTemplate;
-    selectedRoute.params.forEach(p => {
-      const val = routeParamValues[p.name] !== undefined ? routeParamValues[p.name] : (p.defaultValue || '');
-      urlPath = urlPath.replace(`:${p.name}`, val);
-    });
-    
-    const protocolMatch = instance.match(/^(https?:\/\/)/);
-    const protocol = protocolMatch ? protocolMatch[1] : '';
-    const rest = instance.slice(protocol.length);
-    const cleanRest = rest.endsWith('/') ? rest.slice(0, -1) : rest;
-    
-    let cleanPath = urlPath;
-    if (cleanPath.startsWith('/')) {
-      cleanPath = cleanPath.slice(1);
-    }
-    return `${protocol}${cleanRest}/${cleanPath}`;
-  }, [selectedRoute, routeParamValues, rsshubInstance, customInstanceUrl]);
+  const processedFeeds = useMemo(() => {
+    return feeds.map(feed => ({
+      ...feed,
+      isActive: feedStates[feed.id] !== false
+    }));
+  }, [feeds, feedStates]);
 
-  // Sync state values when selectedRoute changes
-  useEffect(() => {
-    if (selectedRoute) {
-      const initialValues: Record<string, string> = {};
-      selectedRoute.params.forEach(p => {
-        initialValues[p.name] = p.defaultValue || '';
-      });
-      setRouteParamValues(initialValues);
-      setRsshubFeedTitle(selectedRoute.name);
-      
-      let mappedCat = 'Teknoloji';
-      if (selectedRoute.category === 'Sosyal Medya & Video') {
-        mappedCat = 'Diğer';
-      } else if (selectedRoute.category === 'Programlama & Teknoloji') {
-        mappedCat = 'Teknoloji';
-      } else if (selectedRoute.category === 'Eğlence & Multimedya') {
-        mappedCat = 'Diğer';
-      } else if (selectedRoute.category === 'Bilim & Genel') {
-        mappedCat = 'Bilim';
-      }
-      setRsshubFeedCategory(mappedCat);
-    } else {
-      setRouteParamValues({});
-      setRsshubFeedTitle('');
-    }
-  }, [selectedRoute]);
-
-  // Categories list
   const categories = useMemo(() => {
-    const list = new Set(feeds.map(f => f.category));
-    return Array.from(list);
-  }, [feeds]);
+    return Array.from(new Set(processedFeeds.map(f => f.category))).sort();
+  }, [processedFeeds]);
 
-  // Load Saved Articles and Feeds from Firestore if logged in, else LocalStorage
+  // Load Data
   useEffect(() => {
-    if (user) {
-      // Sync Custom Feeds from Firestore
-      const feedsPath = `users/${user.uid}/rss_feeds`;
-      const unsubscribeFeeds = onSnapshot(collection(db, feedsPath), (snapshot) => {
-        const customFeeds: RSSFeed[] = [];
-        snapshot.forEach((doc) => {
-          customFeeds.push({ id: doc.id, ...doc.data() } as RSSFeed);
-        });
-        setFeeds([...DEFAULT_FEEDS, ...customFeeds]);
-      });
+    if (!user) {
+      setFeeds([...DEFAULT_FEEDS]);
+      setFeedsLoaded(true);
+      return;
+    }
 
-      // Sync Saved/Bookmarked Articles from Firestore
-      const savedPath = `users/${user.uid}/rss_saved`;
-      const unsubscribeSaved = onSnapshot(collection(db, savedPath), (snapshot) => {
-        const savedList: ArticleItem[] = [];
-        const savedIds = new Set<string>();
-        snapshot.forEach((doc) => {
-          const art = doc.data() as ArticleItem;
-          savedList.push(art);
-          savedIds.add(art.id);
-        });
-        setSavedArticlesLocal(savedList);
-        setSavedArticleIds(savedIds);
+    const customFeedsQuery = query(collection(db, 'bulletin_custom_feeds'), where('userId', '==', user.uid));
+    const unsubFeeds = onSnapshot(customFeedsQuery, (snapshot) => {
+      const custom: RSSFeed[] = [];
+      snapshot.forEach(doc => {
+        custom.push({ id: doc.id, ...doc.data() } as RSSFeed);
       });
+      setFeeds([...DEFAULT_FEEDS, ...custom]);
+      setFeedsLoaded(true);
+    });
 
-      return () => {
-        unsubscribeFeeds();
-        unsubscribeSaved();
-      };
-    } else {
-      // Offline/Guest fallback: Load from LocalStorage
+    const feedStatesQuery = query(collection(db, 'bulletin_feed_states'), where('userId', '==', user.uid));
+    const unsubStates = onSnapshot(feedStatesQuery, (snapshot) => {
+      const states: Record<string, boolean> = {};
+      snapshot.forEach(doc => {
+        states[doc.data().feedId] = doc.data().isActive;
+      });
+      setFeedStates(states);
+    });
+
+    const savedQuery = query(collection(db, 'bulletin_saved'), where('userId', '==', user.uid));
+    const unsubSaved = onSnapshot(savedQuery, (snapshot) => {
+      const ids = new Set<string>();
+      const savedList: ArticleItem[] = [];
+      snapshot.forEach(doc => {
+        ids.add(doc.data().articleId);
+        savedList.push(doc.data().articleData as ArticleItem);
+      });
+      setSavedArticleIds(ids);
+      setSavedArticlesLocal(savedList);
+    });
+
+    const readLocal = localStorage.getItem('bulletin_read_articles');
+    if (readLocal) {
       try {
-        const localFeedsStr = localStorage.getItem('apex_custom_feeds');
-        if (localFeedsStr) {
-          const custom = JSON.parse(localFeedsStr);
-          setFeeds([...DEFAULT_FEEDS, ...custom]);
-        }
-        
-        const localSavedStr = localStorage.getItem('apex_saved_articles');
-        if (localSavedStr) {
-          const savedList = JSON.parse(localSavedStr) as ArticleItem[];
-          setSavedArticlesLocal(savedList);
-          setSavedArticleIds(new Set(savedList.map(a => a.id)));
-        }
-
-        const localReadStr = localStorage.getItem('apex_read_articles');
-        if (localReadStr) {
-          setReadArticleIds(new Set(JSON.parse(localReadStr)));
-        }
-      } catch (err) {
-        console.error("Local storage loading error", err);
+        setReadArticleIds(new Set(JSON.parse(readLocal)));
+      } catch (e) {
+        console.error(e);
       }
     }
+
+    return () => {
+      unsubFeeds();
+      unsubStates();
+      unsubSaved();
+    };
   }, [user]);
 
-  // Trigger Toast Notification Helper
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+  // Fetch Feeds
+  const fetchRSSFeeds = async () => {
+    if (!feedsLoaded) return;
+    setIsLoading(true);
 
-  const mapFeedItemToArticle = (item: any, idx: number, feed: RSSFeed): ArticleItem => {
-    let image = null;
-    if (item.enclosure && item.enclosure.url) {
-      image = item.enclosure.url;
-    } else if (item.mediaContent && item.mediaContent.$ && item.mediaContent.$.url) {
-      image = item.mediaContent.$.url;
-    } else {
-      const contentStr = item.content || item.description || '';
-      const match = contentStr.match(/<img[^>]+src="([^">]+)"/i);
-      if (match && match[1]) image = match[1];
-    }
-
-    return {
-      id: item.guid || item.link || `${feed.id}-${idx}`,
-      title: item.title || 'Başlıksız Makale',
-      link: item.link || '',
-      pubDate: item.pubDate || item.isoDate || new Date().toISOString(),
-      creator: item.creator || item.author || feed.title,
-      content: item.content || item.description || 'İçerik bulunmuyor.',
-      contentSnippet: item.contentSnippet || (item.description ? item.description.replace(/<[^>]*>/g, '').substring(0, 180) : 'Özet bulunmuyor.'),
-      feedId: feed.id,
-      feedTitle: feed.title,
-      category: feed.category,
-      image: image || undefined
-    };
-  };
-
-  const fetchSingleFeed = async (feed: RSSFeed) => {
-    setLoadingFeeds(prev => ({ ...prev, [feed.id]: true }));
+    const activeFeeds = processedFeeds.filter(f => f.isActive !== false);
+    
     try {
-      const proxyUrl = `/api/rss-proxy?url=${encodeURIComponent(feed.url)}`;
-      const response = await fetch(proxyUrl);
-      if (!response.ok) throw new Error("Proxy error");
-      const data = await response.json();
+      const fetchPromises = activeFeeds.map(async (feed) => {
+        try {
+          const res = await fetch(`/api/rss-proxy?url=${encodeURIComponent(feed.url)}`);
+          if (!res.ok) {
+            console.error('RSS Proxy HTTP Error:', res.status, feed.url);
+            return [];
+          }
+          const data = await res.json();
+          if (!data || !data.items) {
+            console.error('RSS API Data Error:', data, feed.url);
+            return [];
+          }
+
+          return data.items.slice(0, 15).map((item: any) => {
+            let snippet = item.contentSnippet || item.content || '';
+            snippet = snippet.replace(/<[^>]+>/g, '').trim().slice(0, 250);
+
+            let image = item.image || item.enclosure?.url || '';
+            if (!image && item.mediaContent && item.mediaContent['$'] && item.mediaContent['$'].url) {
+                image = item.mediaContent['$'].url;
+            }
+            if (!image && item.content) {
+              const imgMatch = item.content.match(/<img[^>]+src="([^">]+)"/i);
+              if (imgMatch) image = imgMatch[1];
+            }
+
+            const guid = item.guid || item.id || item.link;
+
+            return {
+              id: `${feed.id}-${guid}`,
+              feedId: feed.id,
+              feedTitle: feed.title,
+              category: feed.category,
+              title: item.title,
+              link: item.link,
+              pubDate: item.isoDate || item.pubDate || new Date().toISOString(),
+              creator: item.creator || feed.title,
+              contentSnippet: snippet,
+              content: item.content || item.contentSnippet,
+              image: image
+            } as ArticleItem;
+          });
+        } catch (e) {
+          console.error('Fetch error for', feed.url, e);
+          return [];
+        }
+      });
+
+      const results = await Promise.all(fetchPromises);
+      const combined = results.flat().filter(a => a.title).sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
       
-      if (data && data.items) {
-        const feedArticles: ArticleItem[] = data.items.map((item: any, idx: number) => mapFeedItemToArticle(item, idx, feed));
-        setArticles(prev => {
-          const filtered = prev.filter(a => a.feedId !== feed.id);
-          const merged = [...filtered, ...feedArticles];
-          merged.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
-          return merged;
+      setArticles(combined);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (feedsLoaded && currentSubModule === 'news') {
+      fetchRSSFeeds();
+    }
+  }, [feedsLoaded, processedFeeds, currentSubModule]);
+
+  // Filtering
+  const filteredArticles = useMemo(() => {
+    let list = currentSubModule === 'saved' ? savedArticlesLocal : articles;
+    if (activeFeedFilter !== 'all') {
+      if (activeFeedFilter.startsWith('category:')) {
+        const catName = activeFeedFilter.replace('category:', '');
+        list = list.filter(a => a.category === catName);
+      } else {
+        list = list.filter(a => a.feedId === activeFeedFilter);
+      }
+    }
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(a => 
+        a.title.toLowerCase().includes(q) || 
+        a.feedTitle.toLowerCase().includes(q) ||
+        a.contentSnippet.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [articles, savedArticlesLocal, activeFeedFilter, searchQuery, currentSubModule]);
+
+  // Handlers
+  const handleSelectArticle = (art: ArticleItem) => {
+    setSelectedArticle(art);
+    setIsMobileListOpen(false);
+    setSummaryStatus('idle');
+    setCurrentSummary(null);
+
+    if (!readArticleIds.has(art.id)) {
+      const newRead = new Set(readArticleIds);
+      newRead.add(art.id);
+      setReadArticleIds(newRead);
+      localStorage.setItem('bulletin_read_articles', JSON.stringify(Array.from(newRead)));
+    }
+  };
+
+  const handleToggleSave = async (e: React.MouseEvent, art: ArticleItem) => {
+    e.stopPropagation();
+    if (!user) return;
+    try {
+      const docId = `${user.uid}_${art.id.replace(/[\/\.#$\[\]]/g, '_')}`;
+      const docRef = doc(db, 'bulletin_saved', docId);
+
+      if (savedArticleIds.has(art.id)) {
+        await deleteDoc(docRef);
+      } else {
+        await setDoc(docRef, {
+          userId: user.uid,
+          articleId: art.id,
+          articleData: art,
+          savedAt: new Date().toISOString()
         });
       }
     } catch (err) {
-      console.warn(`Could not load feed: ${feed.title}`, err);
-    } finally {
-      setLoadingFeeds(prev => ({ ...prev, [feed.id]: false }));
+      console.error(err);
     }
   };
 
-  // Fetch all active feeds on launch or filter change
-  const fetchAllFeeds = async (feedsToFetch: RSSFeed[]) => {
-    setGlobalLoading(true);
-    let allArticles: ArticleItem[] = [];
-
-    // Filter only active feeds
-    const activeFeeds = feedsToFetch.filter(f => f.isActive !== false);
-
-    // Parallel fetch using Promise.all
-    const promises = activeFeeds.map(async (feed) => {
-      setLoadingFeeds(prev => ({ ...prev, [feed.id]: true }));
-      try {
-        const proxyUrl = `/api/rss-proxy?url=${encodeURIComponent(feed.url)}`;
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error("Proxy error");
-        
-        const data = await response.json();
-        
-        if (data && data.items) {
-          const feedArticles: ArticleItem[] = data.items.map((item: any, idx: number) => mapFeedItemToArticle(item, idx, feed));
-          allArticles = [...allArticles, ...feedArticles];
-        }
-      } catch (err) {
-        console.warn(`Could not load feed: ${feed.title}`, err);
-      } finally {
-        setLoadingFeeds(prev => ({ ...prev, [feed.id]: false }));
-      }
-    });
-
-    await Promise.all(promises);
-
-    // Sort by Date descending
-    allArticles.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
-    setArticles(allArticles);
-    setGlobalLoading(false);
-  };
-
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
-
-  // Trigger feed loading
-  useEffect(() => {
-    if (feeds.length > 0 && !initialLoadDone) {
-      fetchAllFeeds(feeds);
-      setInitialLoadDone(true);
-    }
-  }, [feeds, initialLoadDone]);
-
-  // Handle Save / Bookmark Article
-  const handleToggleSaveArticle = async (e: React.MouseEvent, article: ArticleItem) => {
-    e.stopPropagation();
-    const isCurrentlySaved = savedArticleIds.has(article.id);
-    
-    if (user) {
-      // Cloud Firestore save
-      const docRef = doc(db, `users/${user.uid}/rss_saved`, encodeURIComponent(article.id));
-      if (isCurrentlySaved) {
-        await deleteDoc(docRef);
-        showToast("Makale kaydedilenlerden kaldırıldı.");
-      } else {
-        await setDoc(docRef, { ...article, isSaved: true });
-        showToast("Makale başarıyla bülteninize kaydedildi!");
-      }
-    } else {
-      // LocalStorage fallback
-      let updatedSaved = [...savedArticlesLocal];
-      if (isCurrentlySaved) {
-        updatedSaved = updatedSaved.filter(a => a.id !== article.id);
-        showToast("Makale kaydedilenlerden kaldırıldı.");
-      } else {
-        updatedSaved.push({ ...article, isSaved: true });
-        showToast("Makale bülteninize kaydedildi! (Konuk Oturumu)");
-      }
-      setSavedArticlesLocal(updatedSaved);
-      setSavedArticleIds(new Set(updatedSaved.map(a => a.id)));
-      localStorage.setItem('apex_saved_articles', JSON.stringify(updatedSaved));
-    }
-  };
-
-  // Handle Mark Article as Read
-  const handleMarkAsRead = (articleId: string) => {
-    if (readArticleIds.has(articleId)) return;
-    const nextRead = new Set(readArticleIds);
-    nextRead.add(articleId);
-    setReadArticleIds(nextRead);
-    if (!user) {
-      localStorage.setItem('apex_read_articles', JSON.stringify(Array.from(nextRead)));
-    }
-  };
-
-  // Add Custom Feed
-  const handleAddFeed = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFeedTitle.trim() || !newFeedUrl.trim()) {
-      showToast("Lütfen tüm alanları doldurun.", "error");
-      return;
-    }
-
-    const newFeed: RSSFeed = {
-      id: `feed_${Date.now()}`,
-      title: newFeedTitle,
-      url: newFeedUrl,
-      category: newFeedCategory,
-      isActive: true
-    };
-
-    if (user) {
-      // Save custom feed in user's profile on Firestore
-      try {
-        await setDoc(doc(db, `users/${user.uid}/rss_feeds`, newFeed.id), newFeed);
-        showToast("Yeni akış başarıyla eklendi ve senkronize edildi!");
-      } catch (err) {
-        showToast("Akış eklenirken hata oluştu.", "error");
-      }
-    } else {
-      // LocalStorage
-      const localFeedsStr = localStorage.getItem('apex_custom_feeds');
-      const customFeeds = localFeedsStr ? JSON.parse(localFeedsStr) : [];
-      customFeeds.push(newFeed);
-      localStorage.setItem('apex_custom_feeds', JSON.stringify(customFeeds));
-      setFeeds([...DEFAULT_FEEDS, ...customFeeds]);
-      showToast("Yeni akış eklendi! (Konuk Oturumu)");
-    }
-
-    // Reset inputs & close modal
-    setNewFeedTitle('');
-    setNewFeedUrl('');
-    setIsNewFeedOpen(false);
-  };
-
-  // One-click subscription to recommended RSSHub discoveries
-  const handleSubscribeToDiscovery = async (discovery: typeof RSSHUB_DISCOVERY[0]) => {
-    const newFeed: RSSFeed = {
-      id: `feed_${Date.now()}`,
-      title: discovery.title,
-      url: discovery.url,
-      category: discovery.category,
-      isActive: true
-    };
-
-    if (user) {
-      await setDoc(doc(db, `users/${user.uid}/rss_feeds`, newFeed.id), newFeed);
-      showToast(`${discovery.title} bülteninize eklendi!`);
-    } else {
-      const localFeedsStr = localStorage.getItem('apex_custom_feeds');
-      const customFeeds = localFeedsStr ? JSON.parse(localFeedsStr) : [];
-      customFeeds.push(newFeed);
-      localStorage.setItem('apex_custom_feeds', JSON.stringify(customFeeds));
-      setFeeds([...DEFAULT_FEEDS, ...customFeeds]);
-      showToast(`${discovery.title} eklendi! (Konuk Oturumu)`);
-    }
-  };
-
-  // Subscribe to generated custom RSSHub route stream
-  const handleSubscribeToRSSHub = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedRoute) {
-      showToast("Lütfen bir RSSHub kaynağı seçin.", "error");
-      return;
-    }
-    
-    if (!rsshubFeedTitle.trim()) {
-      showToast("Lütfen akış için bir başlık girin.", "error");
-      return;
-    }
-
-    const finalUrl = generatedRsshubUrl;
-    if (!finalUrl) {
-      showToast("Lütfen tüm parametreleri doldurun.", "error");
-      return;
-    }
-
-    const newFeed: RSSFeed = {
-      id: `feed_${Date.now()}`,
-      title: rsshubFeedTitle,
-      url: finalUrl,
-      category: rsshubFeedCategory,
-      isActive: true
-    };
-
-    if (user) {
-      try {
-        await setDoc(doc(db, `users/${user.uid}/rss_feeds`, newFeed.id), newFeed);
-        showToast(`"${rsshubFeedTitle}" başarıyla RSSHub bülteninize eklendi!`);
-      } catch (err) {
-        showToast("Akış eklenirken bir hata oluştu.", "error");
-      }
-    } else {
-      const localFeedsStr = localStorage.getItem('apex_custom_feeds');
-      const customFeeds = localFeedsStr ? JSON.parse(localFeedsStr) : [];
-      customFeeds.push(newFeed);
-      localStorage.setItem('apex_custom_feeds', JSON.stringify(customFeeds));
-      setFeeds([...DEFAULT_FEEDS, ...customFeeds]);
-      showToast(`"${rsshubFeedTitle}" bülteninize eklendi! (Konuk Oturumu)`);
-    }
-
-    // Reset wizard & close modal
-    setSelectedRoute(null);
-    setRsshubSearch('');
-    setIsNewFeedOpen(false);
-  };
-
-  // Delete Custom Feed
   const handleToggleFeedStatus = async (e: React.MouseEvent, feedId: string) => {
     e.stopPropagation();
-    const updatedFeeds = feeds.map(f => {
-      if (f.id === feedId) {
-        const newState = f.isActive === undefined ? false : !f.isActive;
-        return { ...f, isActive: newState };
-      }
-      return f;
-    });
-    setFeeds(updatedFeeds);
-    
-    const targetFeed = updatedFeeds.find(f => f.id === feedId);
-    if (targetFeed) {
-      if (targetFeed.isActive === false) {
-        // Remove articles
-        setArticles(prev => prev.filter(a => a.feedId !== feedId));
-      } else {
-        // Fetch articles for this specific feed
-        fetchSingleFeed(targetFeed);
-      }
+    if (!user) return;
+    try {
+      const currentStatus = feedStates[feedId] !== false;
+      const docId = `${user.uid}_${feedId}`;
+      await setDoc(doc(db, 'bulletin_feed_states', docId), {
+        userId: user.uid,
+        feedId: feedId,
+        isActive: !currentStatus,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error(err);
     }
-    
-    // Update Firestore if it's a custom feed
-    if (targetFeed && !targetFeed.isDefault && user) {
-      try {
-        await setDoc(doc(db, 'users', user.uid, 'feeds', feedId), targetFeed);
-      } catch (err) {
-        console.error("Feed status update error:", err);
-      }
+  };
+
+  const handleAddFeed = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    try {
+      const newId = 'custom_' + Date.now().toString();
+      await setDoc(doc(db, 'bulletin_custom_feeds', newId), {
+        userId: user.uid,
+        title: newFeedTitle,
+        url: newFeedUrl,
+        category: newFeedCategory,
+        isDefault: false,
+        isActive: true,
+        createdAt: new Date().toISOString()
+      });
+      setNewFeedTitle('');
+      setNewFeedUrl('');
+    } catch (err) {
+      console.error(err);
     }
   };
 
   const handleDeleteFeed = async (e: React.MouseEvent, feedId: string) => {
     e.stopPropagation();
-    if (window.confirm("Bu yayını bülteninizden silmek istediğinize emin misiniz?")) {
-      if (user) {
-        await deleteDoc(doc(db, `users/${user.uid}/rss_feeds`, feedId));
-        showToast("Yayın akışı bültenden silindi.");
-      } else {
-        const localFeedsStr = localStorage.getItem('apex_custom_feeds');
-        if (localFeedsStr) {
-          let custom = JSON.parse(localFeedsStr) as RSSFeed[];
-          custom = custom.filter(f => f.id !== feedId);
-          localStorage.setItem('apex_custom_feeds', JSON.stringify(custom));
-          setFeeds([...DEFAULT_FEEDS, ...custom]);
-          showToast("Yayın akışı silindi. (Konuk Oturumu)");
-        }
-      }
+    if (!user || !feedId.startsWith('custom_')) return;
+    if (!window.confirm('Bu kaynağı silmek istediğinize emin misiniz?')) return;
+    try {
+      await deleteDoc(doc(db, 'bulletin_custom_feeds', feedId));
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  // Call server-side Gemini AI for TL;DR summary
-  const handleAiSummarize = async (article: ArticleItem) => {
-    if (aiSummaries[article.id]) return; // Already summarized
-    setSummarizingId(article.id);
-    
+  const generateAIContext = async (article: ArticleItem) => {
+    setSummaryStatus('loading');
     try {
-      // Strip HTML tag content for cleaner API processing
-      const cleanContent = article.content.replace(/<[^>]*>/g, '').substring(0, 4000);
       const res = await fetch('/api/bulletin/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: article.title,
-          content: cleanContent || article.contentSnippet
+          content: article.contentSnippet || article.title
         })
       });
 
-      if (!res.ok) throw new Error("Yapay zeka servisi yanıt vermedi.");
+      if (!res.ok) throw new Error('API Error');
       const data = await res.json();
-      if (data && data.summary) {
-        setAiSummaries(prev => ({ ...prev, [article.id]: data.summary }));
-        showToast("Yapay Zeka özet bülteni hazırlandı!", "success");
-      }
-    } catch (err: any) {
+      setCurrentSummary(data.summary);
+      setSummaryStatus('success');
+    } catch (err) {
       console.error(err);
-      showToast("Özet oluşturulurken bir hata oluştu.", "error");
-    } finally {
-      setSummarizingId(null);
+      setSummaryStatus('error');
     }
   };
 
-  // Filter and Search Articles
-  const filteredArticles = useMemo(() => {
-    let list = activeSubModule === 'saved' ? savedArticlesLocal : articles;
-
-    // Filter by Feed Selection
-    if (activeFeedFilter !== 'all') {
-      if (activeFeedFilter.startsWith('category:')) {
-        const catName = activeFeedFilter.replace('category:', '');
-        list = list.filter(a => a.category === catName);
-      } else if (activeFeedFilter === 'saved') {
-        list = list.filter(a => savedArticleIds.has(a.id));
-      } else if (activeFeedFilter === 'unread') {
-        list = list.filter(a => !readArticleIds.has(a.id));
-      } else {
-        list = list.filter(a => a.feedId === activeFeedFilter);
-      }
+  const formatTimeAgo = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffMins = Math.floor((now.getTime() - d.getTime()) / 60000);
+      if (diffMins < 60) return `${diffMins} dk önce`;
+      const diffHrs = Math.floor(diffMins / 60);
+      if (diffHrs < 24) return `${diffHrs} saat önce`;
+      return `${Math.floor(diffHrs / 24)} gün önce`;
+    } catch {
+      return dateStr;
     }
-
-    // Filter by Search Query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(a => 
-        a.title.toLowerCase().includes(q) || 
-        a.contentSnippet.toLowerCase().includes(q) || 
-        (a.creator && a.creator.toLowerCase().includes(q)) ||
-        a.feedTitle.toLowerCase().includes(q)
-      );
-    }
-
-    return list;
-  }, [articles, savedArticlesLocal, activeFeedFilter, searchQuery, activeSubModule, savedArticleIds, readArticleIds]);
-
-  // Handle article tap
-  const handleSelectArticle = (art: ArticleItem) => {
-    setSelectedArticle(art);
-    handleMarkAsRead(art.id);
   };
-
-  // Render article content with simple HTML parsing or safe representation
-  const renderCleanContent = (htmlContent: string) => {
-    // Basic sanitizing for safety inside our styled div
-    const clean = htmlContent
-      .replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '')
-      .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '')
-      .replace(/on\w+="[^"]*"/g, '');
-    
-    return (
-      <div 
-        className="prose prose-invert max-w-none text-text-primary leading-relaxed space-y-4"
-        style={{ fontSize: `${readerFontSize}px` }}
-        dangerouslySetInnerHTML={{ __html: clean }}
-      />
-    );
-  };
-
-  // Statistics for Dashboard View
-  const unreadCount = useMemo(() => {
-    return Math.max(0, articles.length - readArticleIds.size);
-  }, [articles, readArticleIds]);
 
   return (
-    <div className="flex flex-col h-full w-full max-w-7xl mx-auto p-2 md:p-4 space-y-6 overflow-hidden">
-      
-      {/* Toast Notification */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div 
-            initial={{ opacity: 0, y: -50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            className={`fixed top-6 left-1/2 -translate-x-1/2 z-[1000] px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border ${
-              toast.type === 'success' 
-                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-            }`}
-          >
-            {toast.type === 'success' ? <CheckSquare size={18} /> : <Info size={18} />}
-            <span className="text-xs font-bold font-sans">{toast.message}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
+      {/* Top Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-4 px-6 pt-6 shrink-0">
         <div>
           <h1 className="text-3xl font-display font-bold text-text-primary mb-2 flex items-center gap-3">
             <Rss className="text-rose-500" size={28} />
-            Bülten & Akıllı RSS Haber Merkezi
+            APEXOS Bülten
           </h1>
           <p className="text-text-secondary text-sm">
-            RSSHub ağ entegrasyonu, bülten klasörleri ve Folo esintili ultra konforlu okuma paneli.
+            Resmi ve yasal kaynaklardan derlenen haberler, konforlu okuma paneli.
           </p>
         </div>
-        <button 
-          onClick={() => setIsNewFeedOpen(true)}
-          className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-rose-600/20 self-stretch md:self-auto justify-center"
-        >
-          <Plus size={16} />
-          Yeni Yayın Akışı (RSS)
-        </button>
-      </div>
-
-      {/* MAIN LAYOUT: Bento stats, Feed Folders, Article Feed, & Distraction-free Reading Pane */}
-      {activeSubModule === 'news' ? (
-        /* ================= DUAL PANE FEED READER VIEW ================= */
-        <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-          
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full items-stretch overflow-hidden">
-            
-            {/* 1. LEFT COLUMN: Feeds and Folders (Span 3) */}
-            <AnimatePresence mode="wait">
-              {(!isMobile || mobileView === 'folders') && (
-                <motion.div 
-                  initial={isMobile ? { x: -20, opacity: 0 } : { opacity: 1 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={isMobile ? { x: -20, opacity: 0 } : { opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`lg:col-span-3 bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col space-y-4 overflow-y-auto custom-scrollbar h-[75vh] lg:h-auto ${
-                    isMobile ? 'fixed inset-0 z-30 bg-[#0a0a0a] rounded-none p-6 pb-24' : 'flex'
-                  }`}
-                >
-                  {isMobile && (
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-display font-bold text-text-primary">Kaynaklar</h2>
-                      <button onClick={() => setMobileView('articles')} className="p-2 bg-white/5 rounded-full">
-                        <X size={20} className="text-text-secondary" />
-                      </button>
-                    </div>
-                  )}
-                  
-                  {/* Quick Filter Section */}
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest px-2">Bülten Filtreleri</span>
-                    
-                    <button 
-                      onClick={() => {
-                        setActiveFeedFilter('all');
-                        if (isMobile) setMobileView('articles');
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                        activeFeedFilter === 'all' 
-                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-lg shadow-rose-500/5' 
-                          : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Rss size={14} />
-                        <span>Tüm Haberler</span>
-                      </div>
-                      <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{articles.length}</span>
-                    </button>
-
-                    <button 
-                      onClick={() => {
-                        setActiveFeedFilter('unread');
-                        if (isMobile) setMobileView('articles');
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                        activeFeedFilter === 'unread' 
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-lg shadow-amber-500/5' 
-                          : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <BookOpen size={14} />
-                        <span>Okunmamışlar</span>
-                      </div>
-                      <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{unreadCount}</span>
-                    </button>
-
-                    <button 
-                      onClick={() => {
-                        setActiveFeedFilter('saved');
-                        if (isMobile) setMobileView('articles');
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                        activeFeedFilter === 'saved' 
-                          ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-lg shadow-indigo-500/5' 
-                          : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Bookmark size={14} />
-                        <span>Kaydedilen Bültenler</span>
-                      </div>
-                      <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{savedArticlesLocal.length}</span>
-                    </button>
-                  </div>
-
-                  {/* Folder categories */}
-                  <div className="space-y-3">
-                    <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest px-2 block">Klasörler</span>
-                    
-                    <div className="space-y-1">
-                      {categories.map(cat => {
-                        const isActive = activeFeedFilter === `category:${cat}`;
-                        const count = articles.filter(a => a.category === cat).length;
-                        return (
-                          <button 
-                            key={cat}
-                            onClick={() => {
-                              setActiveFeedFilter(`category:${cat}`);
-                              if (isMobile) setMobileView('articles');
-                            }}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                              isActive 
-                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
-                                : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Folder size={14} className={isActive ? 'text-rose-400' : 'text-text-secondary'} />
-                              <span>{cat}</span>
-                            </div>
-                            <span className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full text-text-secondary">{count}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Subscription Stream List */}
-                  <div className="space-y-1 flex-1">
-                    <span className="text-[10px] font-black text-text-secondary uppercase tracking-widest px-2 block mb-2">Akış Kanallarım</span>
-                    
-                    <div className="space-y-1 max-h-[30vh] overflow-y-auto custom-scrollbar pr-1">
-                      {feeds.map(feed => {
-                        const isActive = activeFeedFilter === feed.id;
-                        const feedArtCount = articles.filter(a => a.feedId === feed.id).length;
-                        return (
-                          <div
-                            key={feed.id}
-                            onClick={() => {
-                              setActiveFeedFilter(feed.id);
-                              if (isMobile) setMobileView('articles');
-                            }}
-                            className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                              isActive 
-                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
-                                : 'text-text-secondary hover:bg-white/[0.03] hover:text-text-primary border border-transparent'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 truncate pr-2">
-                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${feed.isActive !== false ? 'bg-rose-500' : 'bg-white/20'}`} />
-                              <span className={`truncate ${feed.isActive !== false ? 'text-text-primary' : 'text-text-secondary line-through opacity-50'}`}>{feed.title}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={(e) => handleToggleFeedStatus(e, feed.id)}
-                                className={`group/toggle flex items-center p-0.5 rounded transition-all ${feed.isActive !== false ? 'text-rose-400' : 'text-text-secondary'}`}
-                                title={feed.isActive !== false ? 'Akışı Durdur' : 'Akışı Başlat'}
-                              >
-                                <div className={`w-6 h-3 rounded-full relative transition-all ${feed.isActive !== false ? 'bg-rose-500/40' : 'bg-white/10'}`}>
-                                  <motion.div 
-                                    initial={false}
-                                    animate={{ x: feed.isActive !== false ? 12 : 2 }}
-                                    className="absolute top-0.5 w-2 h-2 bg-white rounded-full shadow-sm"
-                                  />
-                                </div>
-                              </button>
-                              <span className="font-mono text-[9px] text-text-secondary/60 bg-black/20 px-1.5 py-0.5 rounded">{feedArtCount}</span>
-                              {!feed.isDefault && (
-                                <button 
-                                  onClick={(e) => handleDeleteFeed(e, feed.id)}
-                                  className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400 rounded transition-all"
-                                  title="Akışı Sil"
-                                >
-                                  <Trash2 size={11} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* 2. MIDDLE COLUMN: Article Cards List (Span 4) */}
-            <AnimatePresence mode="wait">
-              {(!isMobile || mobileView === 'articles') && (
-                <motion.div 
-                  initial={isMobile ? { x: 20, opacity: 0 } : { opacity: 1 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={isMobile ? { x: 20, opacity: 0 } : { opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`lg:col-span-4 bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col space-y-4 overflow-hidden h-[75vh] lg:h-auto ${
-                    isMobile ? 'flex-1' : 'flex'
-                  }`}
-                >
-                  
-                  {isMobile && (
-                    <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                      <div className="flex items-center gap-2">
-                        <Compass size={18} className="text-rose-400" />
-                        <h2 className="text-sm font-bold text-text-primary">
-                          {activeFeedFilter === 'all' 
-                            ? 'Tüm Haberler' 
-                            : activeFeedFilter === 'unread' 
-                              ? 'Okunmamışlar' 
-                              : activeFeedFilter === 'saved' 
-                                ? 'Kaydedilenler' 
-                                : activeFeedFilter.startsWith('category:') 
-                                  ? activeFeedFilter.replace('category:', '') 
-                                  : (feeds.find(f => f.id === activeFeedFilter)?.title || 'Haber Akışı')}
-                        </h2>
-                      </div>
-                      <div className="flex items-center gap-3">
-                         <button onClick={() => fetchAllFeeds(feeds)} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-                           <RefreshCw size={14} className={globalLoading ? "animate-spin text-rose-400" : "text-text-secondary"} />
-                         </button>
-                      </div>
-                    </div>
-                  )}
-            
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
-              <input 
-                type="text" 
-                placeholder="Başlıklarda veya içerikte ara..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-black/20 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs font-display font-semibold text-text-primary placeholder:text-text-secondary/40 outline-none focus:border-rose-500/30 focus:ring-1 focus:ring-rose-500/10 transition-all"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary">
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-
-            {/* List block */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
-              
-              {globalLoading && articles.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 gap-3 text-text-secondary">
-                  <RefreshCw className="animate-spin text-rose-500" size={24} />
-                  <span className="text-xs">Yayın kanalları ve RSS akışları güncelleniyor...</span>
-                </div>
-              )}
-
-              {filteredArticles.map(art => {
-                const isSelected = selectedArticle?.id === art.id;
-                const isRead = readArticleIds.has(art.id);
-                const isSaved = savedArticleIds.has(art.id);
-                
-                return (
-                  <div 
-                    key={art.id}
-                    onClick={() => handleSelectArticle(art)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all relative overflow-hidden group ${
-                      isSelected 
-                        ? 'bg-rose-500/10 border-rose-500/20' 
-                        : 'bg-white/[0.01] border-white/5 hover:bg-white/[0.03] hover:border-white/10'
-                    }`}
-                  >
-                    {/* Read indicator */}
-                    {!isRead && (
-                      <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                    )}
-
-                    <div className="flex gap-3">
-                      
-                      {/* Image Thumbnail (if exists) */}
-                      {art.image && (
-                        <div className="w-16 h-16 rounded-lg bg-black/40 overflow-hidden shrink-0 border border-white/5 relative">
-                          <img 
-                            src={art.image} 
-                            alt="" 
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
-                            referrerPolicy="no-referrer"
-                            onError={(e) => {
-                              // Hide image on error gracefully
-                              (e.target as any).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      )}
-
-                      {/* Info details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                          <span className="text-[10px] text-rose-400 font-bold tracking-tight truncate max-w-[100px]">{art.feedTitle}</span>
-                          <span className="text-[10px] text-text-secondary">•</span>
-                          <span className="text-[9px] text-text-secondary">{new Date(art.pubDate).toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' })}</span>
-                        </div>
-                        <h3 className={`text-xs font-bold leading-snug line-clamp-2 transition-colors ${
-                          isSelected ? 'text-white' : 'text-text-primary group-hover:text-rose-400'
-                        }`}>
-                          {art.title}
-                        </h3>
-                        <p className="text-[10px] text-text-secondary mt-1.5 line-clamp-2 leading-relaxed">
-                          {art.contentSnippet}
-                        </p>
-                      </div>
-
-                    </div>
-
-                    {/* Quick Footer Action Row */}
-                    <div className="flex justify-between items-center mt-3 pt-2 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-all">
-                      <span className="text-[9px] font-mono text-text-secondary uppercase tracking-wider">{art.category}</span>
-                      <div className="flex items-center gap-2">
-                        
-                        {/* Summary indicator if exists */}
-                        {aiSummaries[art.id] && (
-                          <span className="p-1 bg-teal-500/10 text-teal-400 rounded-lg" title="AI Özeti Hazır">
-                            <Sparkles size={11} />
-                          </span>
-                        )}
-
-                        {/* Save Action */}
-                        <button 
-                          onClick={(e) => handleToggleSaveArticle(e, art)}
-                          className={`p-1 rounded-lg hover:bg-white/10 transition-colors ${
-                            isSaved ? 'text-indigo-400' : 'text-text-secondary hover:text-white'
-                          }`}
-                        >
-                          <Bookmark size={12} className={isSaved ? 'fill-current' : ''} />
-                        </button>
-
-                      </div>
-                    </div>
-
-                  </div>
-                );
-              })}
-
-              {filteredArticles.length === 0 && !globalLoading && (
-                <div className="text-center py-20 text-text-secondary border border-dashed border-white/10 rounded-xl bg-black/10">
-                  <Info className="mx-auto text-text-secondary/30 mb-3" size={24} />
-                  <p className="text-xs">Uyuşan makale veya bülten kaydı bulunamadı.</p>
-                </div>
-              )}
-
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-          {/* 3. RIGHT COLUMN: Distraction-free Reading Pane & AI summaries (Span 5) */}
-          <AnimatePresence mode="wait">
-            {(!isMobile || mobileView === 'reading') && (
-              <motion.div 
-                initial={isMobile ? { x: 50, opacity: 0 } : { opacity: 1 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={isMobile ? { x: 50, opacity: 0 } : { opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className={`lg:col-span-5 bg-white/[0.02] border border-white/5 rounded-2xl p-6 flex flex-col overflow-y-auto custom-scrollbar h-[75vh] lg:h-auto ${
-                  isMobile ? 'fixed inset-0 z-40 bg-[#0a0a0a] rounded-none p-4 pb-24' : 'flex'
-                }`}
-              >
-                
-                <AnimatePresence mode="wait">
-                  {selectedArticle ? (
-                    /* Distraction-free Reading pane */
-                    <motion.div 
-                      key={selectedArticle.id}
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -15 }}
-                      className="space-y-6"
-                    >
-                      
-                      {/* Article Controls / Options */}
-                      <div className="flex justify-between items-center border-b border-white/5 pb-4 sticky top-0 bg-[#0a0a0a]/80 backdrop-blur-xl z-20">
-                        <button 
-                          onClick={() => {
-                            setSelectedArticle(null);
-                            if (isMobile) setMobileView('articles');
-                          }}
-                          className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary bg-white/5 hover:bg-white/10 px-2.5 py-1.5 rounded-lg transition-all"
-                        >
-                          <ArrowLeft size={13} />
-                          Kapat
-                        </button>
-
-                        <div className="flex items-center gap-2">
-                          
-                          {/* Font AA adjustments */}
-                          <button 
-                            onClick={() => setReaderFontSize(prev => Math.max(12, prev - 1))}
-                            className="p-1.5 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary rounded-lg text-xs font-bold"
-                            title="Metni Küçült"
-                          >
-                            A-
-                          </button>
-                          <button 
-                            onClick={() => setReaderFontSize(prev => Math.min(22, prev + 1))}
-                            className="p-1.5 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary rounded-lg text-xs font-bold"
-                            title="Metni Büyüt"
-                          >
-                            A+
-                          </button>
-
-                          {/* Web Link */}
-                          <a 
-                            href={selectedArticle.link}
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="p-1.5 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-text-primary rounded-lg"
-                            title="Web sitesinde oku"
-                          >
-                            <ExternalLink size={13} />
-                          </a>
-
-                          {/* Save/Bookmark */}
-                          <button 
-                            onClick={(e) => handleToggleSaveArticle(e, selectedArticle)}
-                            className={`p-1.5 bg-white/5 hover:bg-white/10 rounded-lg ${
-                              savedArticleIds.has(selectedArticle.id) ? 'text-indigo-400' : 'text-text-secondary hover:text-white'
-                            }`}
-                            title="Kaydet"
-                          >
-                            <Bookmark size={13} className={savedArticleIds.has(selectedArticle.id) ? 'fill-current' : ''} />
-                          </button>
-
-                        </div>
-                      </div>
-
-                      {/* Header / Meta */}
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-xs bg-rose-500/10 text-rose-400 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">{selectedArticle.feedTitle}</span>
-                          <span className="text-xs text-text-secondary">{new Date(selectedArticle.pubDate).toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                        </div>
-                        <h1 className="text-2xl font-display font-black text-text-primary tracking-tight leading-tight">
-                          {selectedArticle.title}
-                        </h1>
-                        {selectedArticle.creator && (
-                          <p className="text-xs text-text-secondary flex items-center gap-1">
-                            <span className="font-bold">{selectedArticle.creator}</span> tarafından yayınlandı
-                          </p>
-                        )}
-                      </div>
-
-                      {/* AI SUMMARIZE TRIGGER BLOCK */}
-                      <div className="bg-gradient-to-r from-rose-500/10 via-amber-500/5 to-transparent border border-rose-500/20 p-4 rounded-2xl relative overflow-hidden group">
-                        <div className="absolute right-2 top-2 text-rose-400/10 group-hover:scale-125 transition-transform">
-                          <Sparkles size={48} />
-                        </div>
-                        
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-rose-500/10 rounded-xl text-rose-400 shrink-0">
-                            <Sparkles size={18} className="animate-pulse" />
-                          </div>
-                          <div className="space-y-1 pr-6">
-                            <h4 className="text-xs font-bold text-text-primary">Yapay Zeka Bülten Özet Motoru (Gemini)</h4>
-                            <p className="text-[10px] text-text-secondary leading-relaxed">
-                              Okuma zamanı kısıtlı mı? Bu makalenin anahtar noktalarını saniyeler içinde okumak için Gemini yapay zekasını kullanın.
-                            </p>
-                            
-                            <div className="pt-2">
-                              {summarizingId === selectedArticle.id ? (
-                                <div className="flex items-center gap-2 text-rose-400 text-xs font-bold font-mono">
-                                  <RefreshCw className="animate-spin" size={13} />
-                                  <span>Yapay Zeka makaleyi tahlil ediyor ve özet bülteni hazırlıyor...</span>
-                                </div>
-                              ) : aiSummaries[selectedArticle.id] ? (
-                                <span className="inline-flex items-center gap-1.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-bold">
-                                  <Check size={12} /> Özet Hazırlandı (Aşağıya Eklenmiştir)
-                                </span>
-                              ) : (
-                                <button 
-                                  onClick={() => handleAiSummarize(selectedArticle)}
-                                  className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-lg shadow-rose-600/10"
-                                >
-                                  <Sparkles size={12} />
-                                  Hızlı Bülten Özetini Çıkar
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Gemini AI Summary Renders beautifully if exists */}
-                      {aiSummaries[selectedArticle.id] && (
-                        <motion.div 
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="mt-4 pt-4 border-t border-rose-500/10 space-y-2 bg-black/30 p-3 rounded-xl border border-white/5"
-                        >
-                          <h5 className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
-                            <Sparkles size={12} />
-                            Yapay Zeka Bülten Özeti
-                          </h5>
-                          <div className="text-xs text-text-primary font-display leading-relaxed space-y-2 whitespace-pre-line">
-                            {aiSummaries[selectedArticle.id]}
-                          </div>
-                        </motion.div>
-                      )}
-
-                      {/* Clean Formatted Article Content */}
-                      <div className="pt-2 border-t border-white/5">
-                        {renderCleanContent(selectedArticle.content)}
-                      </div>
-
-                    </motion.div>
-                  ) : (
-                    /* Empty state dashboard / reading suggestions */
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="h-full flex flex-col items-center justify-center text-center py-20 px-4 space-y-4"
-                    >
-                      <div className="w-16 h-16 bg-white/[0.01] border border-white/5 flex items-center justify-center rounded-2xl text-rose-400 shadow-xl shadow-rose-500/5">
-                        <BookOpen size={32} />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold text-text-primary">Folo Reader Okuma Paneli</h3>
-                        <p className="text-xs text-text-secondary mt-1.5 max-w-xs mx-auto leading-relaxed">
-                          Lütfen soldaki listeden bir haber veya makale seçin. Distraction-free (dikkat dağıtmayan) okuma modunun keyfini çıkarın.
-                        </p>
-                      </div>
-
-                      {/* Extra little tip */}
-                      <div className="bg-white/[0.01] border border-white/5 p-4 rounded-xl max-w-sm text-left">
-                        <h4 className="text-xs font-bold text-text-primary flex items-center gap-1.5 mb-1">
-                          <Sparkles size={13} className="text-rose-400" />
-                          İpucu: Kişiselleştirilmiş Bülten
-                        </h4>
-                        <p className="text-[10px] text-text-secondary leading-relaxed">
-                          Folo Reader, makalelerinizi okurken bültene kaydettiğiniz tüm haberleri çevrimdışı dahi olsanız tarayıcınızda veya Firestore üzerinde güvende tutar.
-                        </p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-        </div>
-
-        {/* MOBILE BOTTOM NAVIGATION BAR */}
-        {isMobile && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 px-6 pb-6 pt-2 pointer-events-none">
-            <div className="bg-black/80 backdrop-blur-2xl border border-white/10 rounded-full p-1.5 flex items-center justify-between shadow-2xl pointer-events-auto max-w-sm mx-auto">
-              <button 
-                onClick={() => setMobileView('folders')}
-                className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-full transition-all ${
-                  mobileView === 'folders' ? 'bg-white/10 text-rose-400' : 'text-text-secondary'
-                }`}
-              >
-                <Layers size={18} />
-                <span className="text-[9px] font-bold">Kaynaklar</span>
-              </button>
-              
-              <button 
-                onClick={() => setMobileView('articles')}
-                className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-full transition-all ${
-                  mobileView === 'articles' ? 'bg-white/10 text-rose-400' : 'text-text-secondary'
-                }`}
-              >
-                <Compass size={18} />
-                <span className="text-[9px] font-bold">Akış</span>
-              </button>
-
-              <div className="w-px h-6 bg-white/10 mx-1" />
-
-              <button 
-                onClick={() => setIsNewFeedOpen(true)}
-                className="flex-1 flex flex-col items-center gap-1 py-2 text-text-secondary hover:text-rose-400 transition-all"
-              >
-                <Plus size={18} />
-                <span className="text-[9px] font-bold">Ekle</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        </div>
-      ) : (
-        /* Empty view */
-        <div className="flex-1 flex items-center justify-center border border-white/5 rounded-2xl bg-white/[0.02] text-text-secondary h-[75vh]">
-          <p className="text-sm font-display font-bold">Seçilen modül için içerik bulunmuyor.</p>
-        </div>
-      )}
-
-      {/* ================= NEW RSS FEED DIALOG MODAL WITH RSSHUB CATALOG & WIZARD ================= */}
-      <AnimatePresence>
-        {isNewFeedOpen && (
-          <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 overflow-y-auto">
-            {/* Overlay */}
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                setIsNewFeedOpen(false);
-                setSelectedRoute(null);
-              }}
-              className="fixed inset-0 bg-black/80 backdrop-blur-md"
-            />
-
-            {/* Modal Body */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className={`bg-neutral-950 border border-white/10 w-full rounded-3xl p-6 relative z-10 shadow-2xl flex flex-col space-y-5 transition-all duration-300 max-h-[90vh] ${
-                modalTab === 'rsshub' ? 'max-w-4xl' : 'max-w-md'
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-center">
+          <div className="flex bg-white/[0.03] border border-white/5 p-1 rounded-xl self-start sm:self-auto">
+            <button
+              onClick={() => setCurrentSubModule('news')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-sans transition-all flex items-center gap-1.5 ${
+                currentSubModule === 'news'
+                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/10'
+                  : 'text-text-secondary hover:text-text-primary border border-transparent'
               }`}
             >
-              {/* Modal Header */}
-              <div className="flex justify-between items-center pb-3 border-b border-white/5">
+              <Rss size={13} />
+              Haber Akışı
+            </button>
+            <button
+              onClick={() => setCurrentSubModule('saved')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-sans transition-all flex items-center gap-1.5 ${
+                currentSubModule === 'saved'
+                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/10'
+                  : 'text-text-secondary hover:text-text-primary border border-transparent'
+              }`}
+            >
+              <Bookmark size={13} />
+              Kaydedilenler
+            </button>
+            <button
+              onClick={() => setCurrentSubModule('manage')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-sans transition-all flex items-center gap-1.5 ${
+                currentSubModule === 'manage'
+                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/10'
+                  : 'text-text-secondary hover:text-text-primary border border-transparent'
+              }`}
+            >
+              <Sliders size={13} />
+              Kaynak Yönetimi
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden relative p-6">
+        {(currentSubModule === 'news' || currentSubModule === 'saved') ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full items-stretch overflow-hidden">
+            {/* LEFT SIDEBAR */}
+            <div className="hidden lg:flex lg:col-span-3 flex-col bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden h-full">
+              <div className="p-4 border-b border-white/5 bg-black/20 shrink-0">
+                <h3 className="text-xs font-bold font-display text-text-secondary uppercase tracking-widest flex items-center gap-2">
+                  <Layers size={14} />
+                  Katalog
+                </h3>
+              </div>
+              <div className="p-3 overflow-y-auto custom-scrollbar flex-1 space-y-4">
                 <div>
-                  <h3 className="text-lg font-display font-black text-text-primary flex items-center gap-2">
-                    <Plus size={20} className="text-rose-500" />
-                    Bültene Yayın Akışı Ekle
-                  </h3>
-                  <p className="text-[11px] text-text-secondary mt-0.5">
-                    Seçtiğiniz haber kaynaklarını bülten klasörlerinize bağlayın.
-                  </p>
+                  <button
+                    onClick={() => setActiveFeedFilter('all')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all ${
+                      activeFeedFilter === 'all'
+                        ? 'bg-rose-500/10 text-rose-400 font-bold'
+                        : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
+                    }`}
+                  >
+                    <LayoutList size={16} />
+                    <span className="flex-1 text-left">Tüm Akışlar</span>
+                    {currentSubModule === 'news' && (
+                      <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded-md text-text-secondary/60">
+                        {articles.length}
+                      </span>
+                    )}
+                  </button>
                 </div>
-                <button 
-                  onClick={() => {
-                    setIsNewFeedOpen(false);
-                    setSelectedRoute(null);
-                  }} 
-                  className="text-text-secondary hover:text-text-primary p-1 hover:bg-white/5 rounded-lg transition-all"
-                >
-                  <X size={20} />
-                </button>
-              </div>
 
-              {/* Tab Selector */}
-              <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 self-start text-xs font-bold font-sans">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalTab('rsshub');
-                    setSelectedRoute(null);
-                  }}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg transition-all ${
-                    modalTab === 'rsshub'
-                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                      : 'text-text-secondary hover:text-text-primary'
-                  }`}
-                >
-                  <Compass size={14} />
-                  <span>RSSHub Akış Kataloğu</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalTab('manual');
-                    setSelectedRoute(null);
-                  }}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg transition-all ${
-                    modalTab === 'manual'
-                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                      : 'text-text-secondary hover:text-text-primary'
-                  }`}
-                >
-                  <Rss size={14} />
-                  <span>Manuel URL Ekle</span>
-                </button>
-              </div>
-
-              {/* TAB 1: MANUAL RSS ADDER */}
-              {modalTab === 'manual' && (
-                <form onSubmit={handleAddFeed} className="space-y-4 text-xs">
+                {categories.map(cat => {
+                  const catFeeds = processedFeeds.filter(f => f.category === cat && f.isActive !== false);
+                  if (catFeeds.length === 0) return null;
+                  const isCatSelected = activeFeedFilter === `category:${cat}`;
                   
-                  <div className="space-y-1.5">
-                    <label className="text-text-secondary font-semibold">Yayın Akışı Adı / Başlığı</label>
-                    <input 
-                      type="text" 
-                      placeholder="Örn: Hacker News, GitHub Trends, Webtekno"
-                      value={newFeedTitle}
-                      onChange={(e) => setNewFeedTitle(e.target.value)}
-                      required
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-text-primary outline-none focus:border-rose-500/30 transition-all font-display font-semibold"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-text-secondary font-semibold">RSS / Atom XML URL Adresi</label>
-                    <input 
-                      type="url" 
-                      placeholder="https://örnek.com/rss-veya-atom.xml"
-                      value={newFeedUrl}
-                      onChange={(e) => setNewFeedUrl(e.target.value)}
-                      required
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-text-primary outline-none focus:border-rose-500/30 transition-all font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-text-secondary font-semibold">Klasör / Kategori Grubu</label>
-                    <select 
-                      value={newFeedCategory}
-                      onChange={(e) => setNewFeedCategory(e.target.value)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-text-primary outline-none focus:border-rose-500/30 transition-all font-display font-semibold"
-                    >
-                      <option value="Teknoloji" className="bg-neutral-900 text-text-primary">Teknoloji</option>
-                      <option value="Finans" className="bg-neutral-900 text-text-primary">Finans</option>
-                      <option value="Bilim" className="bg-neutral-900 text-text-primary">Bilim</option>
-                      <option value="Tasarım & Ürün" className="bg-neutral-900 text-text-primary">Tasarım & Ürün</option>
-                      <option value="Diğer" className="bg-neutral-900 text-text-primary">Diğer</option>
-                    </select>
-                  </div>
-
-                  <div className="pt-3 flex gap-3">
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        setIsNewFeedOpen(false);
-                        setSelectedRoute(null);
-                      }}
-                      className="flex-1 bg-white/5 hover:bg-white/10 text-text-secondary font-bold py-2.5 rounded-xl transition-all"
-                    >
-                      Vazgeç
-                    </button>
-                    <button 
-                      type="submit"
-                      className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-rose-600/10"
-                    >
-                      Akışı Ekle
-                    </button>
-                  </div>
-
-                </form>
-              )}
-
-              {/* TAB 2: RSSHUB COMPREHENSIVE CATALOG & PARAMETRIC WIZARD */}
-              {modalTab === 'rsshub' && (
-                <div className="flex-1 overflow-hidden flex flex-col space-y-4">
-                  
-                  {/* SPLIT SCREEN A: Route Catalog List (When no route is selected) */}
-                  {!selectedRoute ? (
-                    <div className="flex-1 flex flex-col space-y-4 overflow-hidden min-h-[350px]">
+                  return (
+                    <div key={cat} className="space-y-1">
+                      <button
+                        onClick={() => setActiveFeedFilter(`category:${cat}`)}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all ${
+                          isCatSelected ? 'text-rose-400' : 'text-text-secondary hover:text-text-primary'
+                        }`}
+                      >
+                        <Folder size={14} className={isCatSelected ? 'fill-rose-500/20' : ''} />
+                        <span className="text-xs font-bold tracking-wide uppercase">{cat}</span>
+                      </button>
                       
-                      {/* Search & Sub-category Filter bar */}
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        {/* Search */}
-                        <div className="relative flex-1 text-xs">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={14} />
-                          <input 
-                            type="text" 
-                            placeholder="RSSHub köprülerini arayın (örn: YouTube, GitHub, Reddit, Medium...)"
-                            value={rsshubSearch}
-                            onChange={(e) => setRsshubSearch(e.target.value)}
-                            className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-text-primary placeholder:text-text-secondary/40 outline-none focus:border-rose-500/30 transition-all font-sans font-semibold"
-                          />
-                        </div>
-
-                        {/* Category filter pills */}
-                        <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full custom-scrollbar text-[10px] font-bold font-sans">
-                          {['all', 'Sosyal Medya & Video', 'Programlama & Teknoloji', 'Eğlence & Multimedya', 'Bilim & Genel'].map(cat => (
+                      <div className="pl-6 space-y-0.5">
+                        {catFeeds.map(feed => {
+                          const isSelected = activeFeedFilter === feed.id;
+                          return (
                             <button
-                              key={cat}
-                              onClick={() => setSelectedRsshubCategory(cat)}
-                              className={`px-3 py-2 rounded-lg whitespace-nowrap border transition-all ${
-                                selectedRsshubCategory === cat
-                                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/25'
-                                  : 'bg-white/[0.02] text-text-secondary border-transparent hover:bg-white/5 hover:text-text-primary'
+                              key={feed.id}
+                              onClick={() => setActiveFeedFilter(feed.id)}
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all ${
+                                isSelected
+                                  ? 'bg-white/10 text-white font-bold'
+                                  : 'text-text-secondary/80 hover:bg-white/5 hover:text-text-primary'
                               }`}
                             >
-                              {cat === 'all' ? 'Tümü' : cat}
+                              <span className="w-1.5 h-1.5 rounded-full bg-white/20 shrink-0" />
+                              <span className="flex-1 text-left truncate">{feed.title}</span>
                             </button>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
-
-                      {/* Routes Grid list */}
-                      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 grid grid-cols-1 md:grid-cols-2 gap-3 pb-4">
-                        {RSSHUB_CATALOG_ROUTES.filter(route => {
-                          const matchesCat = selectedRsshubCategory === 'all' || route.category === selectedRsshubCategory;
-                          const matchesSearch = rsshubSearch.trim() === '' || 
-                            route.name.toLowerCase().includes(rsshubSearch.toLowerCase()) ||
-                            route.desc.toLowerCase().includes(rsshubSearch.toLowerCase());
-                          return matchesCat && matchesSearch;
-                        }).map(route => (
-                          <div
-                            key={route.id}
-                            onClick={() => setSelectedRoute(route)}
-                            className="p-4 bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-2xl cursor-pointer transition-all flex flex-col justify-between group"
-                          >
-                            <div className="space-y-1.5">
-                              <div className="flex justify-between items-start gap-2">
-                                <h4 className="text-xs font-bold text-text-primary group-hover:text-rose-400 transition-colors">
-                                  {route.name}
-                                </h4>
-                                <span className="text-[8px] font-bold font-sans bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider">
-                                  {route.category.replace(' & Video', '').replace(' & Teknoloji', '')}
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-text-secondary leading-relaxed line-clamp-2">
-                                {route.desc}
-                              </p>
-                            </div>
-                            
-                            <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-white/5 text-[9px] font-mono text-text-secondary/60">
-                              <span>Sihirbaz Yol Haritası:</span>
-                              <span className="bg-black/30 px-2 py-0.5 rounded text-white font-semibold">
-                                {route.pathTemplate}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Informational guide line about RSSHub */}
-                      <div className="bg-white/[0.01] border border-white/5 p-3 rounded-xl flex items-start gap-2.5 text-[10px] text-text-secondary leading-relaxed">
-                        <Info size={16} className="text-rose-400 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-bold text-text-primary block mb-0.5">RSSHub Nedir?</span>
-                          Sosyal mecraları (YouTube, Reddit, GitHub, Twitter vb.) anlık takip edilebilir standart RSS akışlarına dönüştüren açık kaynak kodlu akıllı bir köprü ağıdır. Parametrik değerler girerek saniyeler içinde özel bülteninizi bağlayabilirsiniz.
-                        </div>
-                      </div>
-
                     </div>
-                  ) : (
-                    /* SPLIT SCREEN B: Parameters Generator & Feed Creator Form */
-                    <form onSubmit={handleSubscribeToRSSHub} className="flex-1 overflow-y-auto custom-scrollbar pr-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[350px]">
-                      
-                      {/* Left Side: Parameters Inputs form (Span 7) */}
-                      <div className="lg:col-span-7 space-y-4 text-xs">
-                        
-                        {/* Selected Route Info Header */}
-                        <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-1">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedRoute(null)}
-                            className="text-[10px] text-rose-400 font-bold hover:underline mb-1 flex items-center gap-1"
-                          >
-                            <ArrowLeft size={10} /> Kataloğa Geri Dön
-                          </button>
-                          <h4 className="text-xs font-bold text-text-primary flex items-center gap-1.5">
-                            <Compass size={14} className="text-rose-400" />
-                            {selectedRoute.name}
-                          </h4>
-                          <p className="text-[10px] text-text-secondary leading-relaxed">
-                            {selectedRoute.desc}
-                          </p>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* MIDDLE PANEL */}
+            <div className={`col-span-1 lg:col-span-4 flex flex-col bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden h-full ${
+              !isMobileListOpen && selectedArticle ? 'hidden lg:flex' : 'flex'
+            }`}>
+              <div className="p-4 border-b border-white/5 bg-black/20 shrink-0 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-display font-bold text-text-primary flex items-center gap-2">
+                    {currentSubModule === 'saved' ? 'Kaydedilenler' : 'Son Gelişmeler'}
+                    {isLoading && <RefreshCw size={14} className="animate-spin text-text-secondary" />}
+                  </h2>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={fetchRSSFeeds}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-text-secondary hover:text-white transition-colors"
+                      title="Yenile"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                    <div className="flex bg-white/5 rounded-lg p-0.5">
+                      <button 
+                        onClick={() => setLayoutMode('comfortable')}
+                        className={`p-1 rounded-md transition-all ${layoutMode === 'comfortable' ? 'bg-white/10 text-white shadow-sm' : 'text-text-secondary hover:text-white'}`}
+                      >
+                        <LayoutTemplate size={14} />
+                      </button>
+                      <button 
+                        onClick={() => setLayoutMode('compact')}
+                        className={`p-1 rounded-md transition-all ${layoutMode === 'compact' ? 'bg-white/10 text-white shadow-sm' : 'text-text-secondary hover:text-white'}`}
+                      >
+                        <LayoutList size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+                  <input
+                    type="text"
+                    placeholder="Haberlerde ara..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-text-primary outline-none focus:border-rose-500/50 transition-all font-sans"
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-white"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                {isLoading && articles.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-40 text-text-secondary space-y-3">
+                    <RefreshCw size={24} className="animate-spin text-rose-500" />
+                    <p className="text-xs font-mono">Bültenler senkronize ediliyor...</p>
+                  </div>
+                ) : filteredArticles.length > 0 ? (
+                  filteredArticles.map(article => {
+                    const isSelected = selectedArticle?.id === article.id;
+                    const isRead = readArticleIds.has(article.id);
+                    const isSaved = savedArticleIds.has(article.id);
+
+                    return (
+                      <button
+                        key={article.id}
+                        onClick={() => handleSelectArticle(article)}
+                        className={`w-full text-left p-3 rounded-2xl transition-all border ${
+                          isSelected
+                            ? 'bg-white/[0.08] border-white/10 shadow-lg'
+                            : isRead
+                              ? 'bg-transparent border-transparent hover:bg-white/[0.04] opacity-70'
+                              : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.06] hover:border-white/10'
+                        } flex flex-col gap-2`}
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="text-[9px] font-black tracking-wider uppercase text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full line-clamp-1">
+                            {article.feedTitle}
+                          </span>
+                          <span className="text-[10px] text-text-secondary/60 font-mono shrink-0">
+                            {formatTimeAgo(article.pubDate)}
+                          </span>
                         </div>
 
-                        {/* Parametric input fields loop */}
-                        {selectedRoute.params.length > 0 ? (
-                          <div className="space-y-3.5 bg-black/20 p-4 rounded-2xl border border-white/5">
-                            <span className="text-[10px] font-black uppercase text-text-secondary/50 tracking-wider flex items-center gap-1 mb-2">
-                              <Sliders size={12} />
-                              Sihirbaz Parametreleri
-                            </span>
-                            
-                            {selectedRoute.params.map(p => (
-                              <div key={p.name} className="space-y-1.5">
-                                <label className="text-text-secondary font-semibold flex items-center justify-between">
-                                  <span>{p.label}</span>
-                                  {selectedRoute.exampleInputs[p.name] && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setRouteParamValues(prev => ({ ...prev, [p.name]: selectedRoute.exampleInputs[p.name] }))}
-                                      className="text-[9px] text-rose-400 hover:underline"
-                                    >
-                                      Örnek Doldur
-                                    </button>
-                                  )}
-                                </label>
-
-                                {p.type === 'select' ? (
-                                  <select
-                                    value={routeParamValues[p.name] || ''}
-                                    onChange={(e) => setRouteParamValues(prev => ({ ...prev, [p.name]: e.target.value }))}
-                                    className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-text-primary font-display font-semibold outline-none focus:border-rose-500/30"
-                                  >
-                                    {p.options?.map(opt => (
-                                      <option key={opt.value} value={opt.value} className="bg-neutral-950">
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    type="text"
-                                    placeholder={p.placeholder}
-                                    value={routeParamValues[p.name] || ''}
-                                    onChange={(e) => setRouteParamValues(prev => ({ ...prev, [p.name]: e.target.value }))}
-                                    required
-                                    className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-text-primary font-mono outline-none focus:border-rose-500/30 transition-all"
-                                  />
-                                )}
-                              </div>
-                            ))}
+                        <div className="flex gap-3">
+                          <div className="flex-1 space-y-1 min-w-0">
+                            <h3 className={`font-bold font-sans text-sm leading-snug line-clamp-2 ${
+                              isSelected ? 'text-white' : isRead ? 'text-text-secondary' : 'text-text-primary'
+                            }`}>
+                              {article.title}
+                            </h3>
+                            {layoutMode === 'comfortable' && article.contentSnippet && (
+                              <p className="text-xs text-text-secondary/70 line-clamp-2 leading-relaxed">
+                                {article.contentSnippet}
+                              </p>
+                            )}
                           </div>
-                        ) : (
-                          <div className="bg-black/20 p-4 rounded-2xl border border-white/5 text-center text-text-secondary py-6 text-[10px]">
-                            <Check size={20} className="mx-auto text-emerald-500 mb-2" />
-                            Bu akış için ek parametre gerekmemektedir.
-                          </div>
-                        )}
-
-                        {/* Custom Instance setting block (Advanced) */}
-                        <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2xl space-y-3">
-                          <div>
-                            <span className="text-[10px] font-black uppercase text-text-secondary/50 tracking-wider flex items-center gap-1.5">
-                              <Globe size={12} />
-                              RSSHub Ağ Sunucusu (Instance)
-                            </span>
-                            <p className="text-[9px] text-text-secondary mt-0.5">
-                              Rate limit engellemelerini aşmak için sunucu seçin veya kendi yerel sunucunuzu bağlayın.
-                            </p>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 font-sans font-semibold text-[10px]">
-                            <button
-                              type="button"
-                              onClick={() => setRsshubInstance('https://rsshub.app')}
-                              className={`py-2 px-2.5 rounded-lg border transition-all truncate ${
-                                rsshubInstance === 'https://rsshub.app'
-                                  ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                                  : 'bg-black/20 border-white/5 text-text-secondary hover:text-text-primary hover:border-white/10'
-                              }`}
-                              title="Resmi RSSHub Sunucusu"
-                            >
-                              rsshub.app (Resmi)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setRsshubInstance('https://rsshub.live')}
-                              className={`py-2 px-2.5 rounded-lg border transition-all truncate ${
-                                rsshubInstance === 'https://rsshub.live'
-                                  ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                                  : 'bg-black/20 border-white/5 text-text-secondary hover:text-text-primary hover:border-white/10'
-                              }`}
-                              title="Popüler Public Mirror"
-                            >
-                              rsshub.live (Mirror)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setRsshubInstance('custom')}
-                              className={`py-2 px-2.5 rounded-lg border transition-all truncate ${
-                                rsshubInstance === 'custom'
-                                  ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                                  : 'bg-black/20 border-white/5 text-text-secondary hover:text-text-primary hover:border-white/10'
-                              }`}
-                            >
-                              Özel Sunucu...
-                            </button>
-                          </div>
-
-                          {rsshubInstance === 'custom' && (
-                            <div className="space-y-1 pt-1">
-                              <input
-                                type="url"
-                                placeholder="https://rsshub.kendisunucunuz.com"
-                                value={customInstanceUrl}
-                                onChange={(e) => setCustomInstanceUrl(e.target.value)}
-                                required
-                                className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-text-primary font-mono outline-none focus:border-rose-500/30 text-xs"
-                              />
+                          {layoutMode === 'comfortable' && article.image && (
+                            <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-white/10 relative">
+                              <img src={article.image} alt="" className="w-full h-full object-cover" />
                             </div>
                           )}
                         </div>
 
+                        <div className="flex items-center justify-between mt-1 pt-2 border-t border-white/5">
+                          <div className="flex items-center gap-2">
+                            {isSaved && <Bookmark size={12} className="text-rose-500 fill-rose-500" />}
+                            {isRead && <Check size={12} className="text-emerald-500" />}
+                          </div>
+                          <span className="text-[10px] text-text-secondary/50 font-medium truncate max-w-[150px]">
+                            {article.creator}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-40 text-text-secondary/60">
+                    <Search size={24} className="mb-2 opacity-50" />
+                    <p className="text-xs font-medium">İçerik bulunamadı.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT PANEL */}
+            <div className={`col-span-1 lg:col-span-5 bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden h-full flex flex-col ${
+              isMobileListOpen && selectedArticle ? 'hidden lg:flex' : 'flex'
+            }`}>
+              {selectedArticle ? (
+                <>
+                  <div className="p-4 border-b border-white/5 bg-black/20 shrink-0 flex justify-between items-center sticky top-0 z-10 backdrop-blur-xl">
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => setIsMobileListOpen(true)}
+                        className="lg:hidden p-2 bg-white/5 rounded-xl hover:bg-white/10 transition-all text-text-primary"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary">
+                          Okuma Paneli
+                        </span>
+                        <div className="text-xs font-bold text-rose-400 mt-0.5">
+                          {selectedArticle.feedTitle}
+                        </div>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => handleToggleSave(e, selectedArticle)}
+                        className={`p-2.5 rounded-xl border transition-all ${
+                          savedArticleIds.has(selectedArticle.id)
+                            ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
+                            : 'bg-white/5 border-transparent text-text-secondary hover:bg-white/10 hover:text-white'
+                        }`}
+                        title={savedArticleIds.has(selectedArticle.id) ? "Kaydedilenlerden Çıkar" : "Kaydet"}
+                      >
+                        <Bookmark size={16} className={savedArticleIds.has(selectedArticle.id) ? "fill-current" : ""} />
+                      </button>
+                      <a
+                        href={selectedArticle.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all"
+                      >
+                        <span className="hidden sm:inline">Kaynağa Git</span>
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  </div>
 
-                      {/* Right Side: Subscription details & Live preview (Span 5) */}
-                      <div className="lg:col-span-5 space-y-4 text-xs flex flex-col justify-between">
-                        
-                        <div className="space-y-4">
-                          {/* Folder & Name assignment */}
-                          <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2xl space-y-3">
-                            <span className="text-[10px] font-black uppercase text-text-secondary/50 tracking-wider block">
-                              Yayın Aboneliği Bilgileri
-                            </span>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-10 scroll-smooth">
+                    <article className="max-w-2xl mx-auto">
+                      <header className="mb-8 space-y-4">
+                        <div className="flex flex-wrap gap-2 items-center text-xs font-mono text-text-secondary">
+                          <span className="bg-white/5 px-2.5 py-1 rounded-lg font-bold">{selectedArticle.category}</span>
+                          <span>•</span>
+                          <span className="opacity-70">{new Date(selectedArticle.pubDate).toLocaleString('tr-TR', { dateStyle: 'long', timeStyle: 'short' })}</span>
+                          {selectedArticle.creator && (
+                            <>
+                              <span>•</span>
+                              <span className="opacity-70">Yazar: {selectedArticle.creator}</span>
+                            </>
+                          )}
+                        </div>
+                        <h1 className="text-2xl lg:text-3xl font-display font-black text-text-primary leading-tight">
+                          {selectedArticle.title}
+                        </h1>
+                      </header>
 
-                            <div className="space-y-1.5">
-                              <label className="text-text-secondary font-semibold">Bülten Yayın Adı</label>
-                              <input
-                                type="text"
-                                placeholder="Örn: Teknoloji Akışı, YouTube Bilim"
-                                value={rsshubFeedTitle}
-                                onChange={(e) => setRsshubFeedTitle(e.target.value)}
-                                required
-                                className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-text-primary outline-none focus:border-rose-500/30 transition-all font-display font-semibold text-xs"
-                              />
+                      {/* AI Summary Widget */}
+                      <div className="mb-8">
+                        {summaryStatus === 'idle' ? (
+                          <button
+                            onClick={() => generateAIContext(selectedArticle)}
+                            className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl hover:bg-indigo-500/20 transition-all group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-400 group-hover:scale-110 transition-transform">
+                                <Sparkles size={16} />
+                              </div>
+                              <div className="text-left">
+                                <h4 className="text-sm font-bold text-indigo-300">AI Context Builder</h4>
+                                <p className="text-[11px] text-indigo-400/70 mt-0.5">Metni analiz et ve kavramsal özet çıkar</p>
+                              </div>
                             </div>
-
-                            <div className="space-y-1.5">
-                              <label className="text-text-secondary font-semibold">Bülten Klasörü (Kategori)</label>
-                              <select
-                                value={rsshubFeedCategory}
-                                onChange={(e) => setRsshubFeedCategory(e.target.value)}
-                                className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-text-primary outline-none focus:border-rose-500/30 transition-all font-display font-semibold text-xs"
-                              >
-                                <option value="Teknoloji" className="bg-neutral-950">Teknoloji</option>
-                                <option value="Finans" className="bg-neutral-950">Finans</option>
-                                <option value="Bilim" className="bg-neutral-950">Bilim</option>
-                                <option value="Tasarım & Ürün" className="bg-neutral-950">Tasarım & Ürün</option>
-                                <option value="Diğer" className="bg-neutral-950">Diğer</option>
-                              </select>
+                            <ChevronLeft size={16} className="text-indigo-400/50 rotate-180" />
+                          </button>
+                        ) : summaryStatus === 'loading' ? (
+                          <div className="w-full p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col items-center justify-center space-y-3">
+                            <Sparkles size={24} className="text-indigo-400 animate-pulse" />
+                            <p className="text-xs font-mono text-indigo-300/70 animate-pulse">Analiz ediliyor...</p>
+                          </div>
+                        ) : summaryStatus === 'error' ? (
+                          <div className="w-full p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-400">
+                            <AlertCircle size={16} />
+                            <p className="text-xs font-medium">Özetleme başarısız oldu. API limitleri aşılmış olabilir.</p>
+                          </div>
+                        ) : (
+                          <div className="w-full p-6 bg-gradient-to-b from-indigo-500/10 to-transparent border border-indigo-500/20 rounded-2xl space-y-4">
+                            <div className="flex items-center gap-2 pb-3 border-b border-indigo-500/10">
+                              <Sparkles size={16} className="text-indigo-400" />
+                              <h4 className="text-sm font-black text-indigo-300 tracking-wide uppercase">AI Bağlam Özeti</h4>
+                            </div>
+                            <div className="prose prose-invert prose-sm prose-indigo max-w-none prose-p:leading-relaxed prose-p:text-indigo-100/80 prose-strong:text-indigo-300 prose-ul:text-indigo-100/80">
+                              {currentSummary ? (
+                                <div dangerouslySetInnerHTML={{ __html: currentSummary }} />
+                              ) : (
+                                "Özet bulunamadı."
+                              )}
                             </div>
                           </div>
-
-                          {/* Generated RSS Address Preview Box */}
-                          <div className="bg-black/30 border border-white/10 p-4 rounded-2xl space-y-2 relative overflow-hidden group">
-                            <div className="absolute right-2 top-2 text-white/[0.02]">
-                              <Code size={36} />
-                            </div>
-                            <span className="text-[9px] font-black uppercase text-text-secondary/60 tracking-wider flex items-center gap-1">
-                              <Eye size={11} /> Canlı Köprü Adresi Önizleme
-                            </span>
-                            <div className="bg-black/50 border border-white/5 p-2.5 rounded-xl text-[10px] font-mono text-text-primary overflow-x-auto select-all max-h-[80px] break-all custom-scrollbar">
-                              {generatedRsshubUrl || 'Gerekli parametreler doldurulduğunda görüntülenecektir.'}
-                            </div>
-                            <p className="text-[9px] text-text-secondary leading-normal">
-                              Bu dinamik URL adresi arka planda her saniye güncellenerek bülteninize taze veriler çeker.
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="pt-3 flex gap-2.5">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedRoute(null)}
-                            className="flex-1 bg-white/5 hover:bg-white/10 text-text-secondary font-bold py-2.5 rounded-xl transition-all font-sans"
-                          >
-                            Geri Dön
-                          </button>
-                          <button
-                            type="submit"
-                            className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-rose-600/20 font-sans"
-                          >
-                            Bültene Abone Ol
-                          </button>
-                        </div>
-
+                        )}
                       </div>
 
-                    </form>
-                  )}
-
+                      {/* Content Body */}
+                      <div className="prose prose-invert prose-rose max-w-none prose-p:text-text-secondary/90 prose-p:leading-loose prose-a:text-rose-400 prose-img:rounded-2xl prose-headings:font-display prose-headings:font-bold prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-code:text-rose-300">
+                        <div dangerouslySetInnerHTML={{ __html: selectedArticle.content || selectedArticle.contentSnippet }} />
+                      </div>
+                      
+                      <div className="mt-12 pt-8 border-t border-white/5 text-center">
+                        <a
+                          href={selectedArticle.link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-text-primary rounded-xl text-sm font-bold transition-all border border-white/10 hover:border-white/20"
+                        >
+                          Makalenin Tamamını Oku
+                          <ExternalLink size={16} />
+                        </a>
+                      </div>
+                    </article>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-text-secondary/50 p-6 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center">
+                    <Rss size={24} className="opacity-50" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-display font-bold text-text-primary">Okuma Paneli</h3>
+                    <p className="text-sm mt-1 max-w-xs">Listeden bir haber seçerek reklamsız okuma modunda görüntüleyin.</p>
+                  </div>
                 </div>
               )}
-
-            </motion.div>
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+        ) : currentSubModule === 'manage' ? (
+          <div className="flex flex-col space-y-6 overflow-y-auto custom-scrollbar h-full lg:pr-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch shrink-0">
+              {/* Info Summary */}
+              <div className="lg:col-span-4 bg-white/[0.02] border border-white/5 rounded-3xl p-6 flex flex-col justify-between space-y-6">
+                <div>
+                  <span className="text-[10px] font-black tracking-widest text-rose-400 uppercase">Özet İstatistikler</span>
+                  <h3 className="text-xl font-display font-bold text-text-primary mt-1 mb-3">Akış Kaynakları</h3>
+                  <p className="text-text-secondary text-xs leading-relaxed">
+                    Bülteninizdeki tüm haber kaynaklarını buradan yönetebilir, dilediğiniz kategoriyi geçici olarak deaktif edebilir veya kendi özel akışlarınızı ekleyebilirsiniz.
+                  </p>
+                </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-black/40 border border-white/5 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] text-text-secondary font-bold block">Toplam Kaynak</span>
+                    <span className="text-2xl font-display font-black text-rose-500 mt-1 block">
+                      {processedFeeds.length}
+                    </span>
+                  </div>
+                  <div className="bg-black/40 border border-white/5 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] text-text-secondary font-bold block">Aktif Akışlar</span>
+                    <span className="text-2xl font-display font-black text-emerald-500 mt-1 block">
+                      {processedFeeds.filter(f => f.isActive !== false).length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Legal Notice */}
+              <div className="lg:col-span-8 bg-white/[0.02] border border-white/5 rounded-3xl p-6 flex flex-col justify-between">
+                <div className="mb-4">
+                  <span className="text-[10px] font-black tracking-widest text-amber-400 uppercase flex items-center gap-1.5">
+                    <Info size={12} />
+                    Kullanım Koşulları ve Hukuki Sınırlar
+                  </span>
+                  <h3 className="text-xl font-display font-bold text-text-primary mt-1 mb-2">Adil RSS Kullanım Bildirgesi</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-1 bg-black/20 border border-white/5 p-3.5 rounded-2xl">
+                    <h4 className="font-bold text-text-primary flex items-center gap-1.5">
+                      <Globe size={13} className="text-rose-400" />
+                      Doğrudan Yerel Çekim
+                    </h4>
+                    <p className="text-text-secondary text-[11px] leading-relaxed">
+                      Tüm akışlar doğrudan yayıncıların resmi XML uçlarından RSS/Atom protokolü ile çekilir. Sunucularımızda hiçbir makale verisi kopyalanmaz.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1 bg-black/20 border border-white/5 p-3.5 rounded-2xl">
+                    <h4 className="font-bold text-text-primary flex items-center gap-1.5">
+                      <ExternalLink size={13} className="text-amber-400" />
+                      Orijinal Kaynak Yönlendirmesi
+                    </h4>
+                    <p className="text-text-secondary text-[11px] leading-relaxed">
+                      Telif haklarına saygı gösterilir. Kullanıcılar her zaman yayıncının kendi orijinal web sitesine yönlendirilir.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1 bg-black/20 border border-white/5 p-3.5 rounded-2xl">
+                    <h4 className="font-bold text-text-primary flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-indigo-400" />
+                      Özetleme ve Adil Kullanım
+                    </h4>
+                    <p className="text-text-secondary text-[11px] leading-relaxed">
+                      Yapay zeka TL;DR özetleri, adil kullanım (fair use) kapsamında anlık konsept kavrayışı sağlamak üzere tasarlanmıştır.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1 bg-black/20 border border-white/5 p-3.5 rounded-2xl">
+                    <h4 className="font-bold text-text-primary flex items-center gap-1.5">
+                      <CheckSquare size={13} className="text-emerald-400" />
+                      Kişisel Deneyim Odaklı
+                    </h4>
+                    <p className="text-text-secondary text-[11px] leading-relaxed">
+                      Bu bülten ticari bir yeniden dağıtım aracı değildir. Kapalı devre, kişisel okuma asistanı standartlarına göre dizayn edilmiştir.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Add Custom Feed */}
+            <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 shrink-0">
+              <span className="text-[10px] font-black tracking-widest text-rose-400 uppercase">Hızlı Entegrasyon</span>
+              <h3 className="text-lg font-display font-bold text-text-primary mt-1 mb-4">Yeni RSS/Atom Akışı Tanımla</h3>
+              
+              <form onSubmit={handleAddFeed} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end text-xs">
+                <div className="md:col-span-3 space-y-1.5">
+                  <label className="text-text-secondary font-bold">Akış Başlığı / Yayıncı</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: Bilim Teknik"
+                    value={newFeedTitle}
+                    onChange={(e) => setNewFeedTitle(e.target.value)}
+                    required
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-text-primary outline-none focus:border-rose-500/30 transition-all font-sans font-semibold"
+                  />
+                </div>
+
+                <div className="md:col-span-5 space-y-1.5">
+                  <label className="text-text-secondary font-bold">Resmi RSS URL Adresi</label>
+                  <input
+                    type="url"
+                    placeholder="https://yayinici.com/rss.xml"
+                    value={newFeedUrl}
+                    onChange={(e) => setNewFeedUrl(e.target.value)}
+                    required
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-text-primary outline-none focus:border-rose-500/30 transition-all font-mono"
+                  />
+                </div>
+
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="text-text-secondary font-bold">Kategori Klasörü</label>
+                  <select
+                    value={newFeedCategory}
+                    onChange={(e) => setNewFeedCategory(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-text-primary outline-none focus:border-rose-500/30 transition-all font-sans font-bold"
+                  >
+                    <option value="Teknoloji" className="bg-neutral-900 text-text-primary">Teknoloji</option>
+                    <option value="Bilim" className="bg-neutral-900 text-text-primary">Bilim</option>
+                    <option value="Finans" className="bg-neutral-900 text-text-primary">Finans</option>
+                    <option value="Haber" className="bg-neutral-900 text-text-primary">Haber</option>
+                    <option value="Tasarım & Ürün" className="bg-neutral-900 text-text-primary">Tasarım & Ürün</option>
+                    <option value="Kültür & Sanat" className="bg-neutral-900 text-text-primary">Kültür & Sanat</option>
+                    <option value="Diğer" className="bg-neutral-900 text-text-primary">Diğer</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="md:col-span-2 bg-rose-600 hover:bg-rose-700 text-white font-bold h-[38px] rounded-xl transition-all shadow-lg shadow-rose-600/10 flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} />
+                  Akışı Kaydet
+                </button>
+              </form>
+            </div>
+
+            {/* Feeds List */}
+            <div className="space-y-6 pb-6">
+              {categories.map(cat => {
+                const catFeeds = processedFeeds.filter(f => f.category === cat);
+                if (catFeeds.length === 0) return null;
+
+                return (
+                  <div key={cat} className="space-y-4">
+                    <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                      <Folder size={16} className="text-rose-500/80" />
+                      <h4 className="text-sm font-display font-black text-text-primary uppercase tracking-wider">{cat} Klasörü</h4>
+                      <span className="text-[10px] font-mono bg-white/5 text-text-secondary px-2 py-0.5 rounded-full font-bold">
+                        {catFeeds.length} Kaynak
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {catFeeds.map(feed => (
+                        <div 
+                          key={feed.id} 
+                          className={`bg-white/[0.02] border rounded-2xl p-4 flex flex-col justify-between space-y-4 transition-all duration-300 hover:bg-white/[0.04] ${
+                            feed.isActive !== false ? 'border-white/5' : 'border-white/5 opacity-60'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="space-y-1 min-w-0">
+                              <h5 className="font-sans font-bold text-xs text-text-primary truncate" title={feed.title}>
+                                {feed.title}
+                              </h5>
+                              <a 
+                                href={feed.url} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="font-mono text-[9px] text-text-secondary/60 hover:text-rose-400 flex items-center gap-1 truncate"
+                              >
+                                <ExternalLink size={8} />
+                                {feed.url}
+                              </a>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              {feed.isDefault ? (
+                                <span className="text-[8px] font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded-full tracking-wider">
+                                  SİSTEM
+                                </span>
+                              ) : (
+                                <span className="text-[8px] font-black text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded-full tracking-wider">
+                                  KİŞİSEL
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                            <div className="flex items-center gap-2">
+                              <span className={`relative flex h-2 w-2`}>
+                                {feed.isActive !== false && (
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                )}
+                                <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                                  feed.isActive !== false ? 'bg-emerald-500' : 'bg-neutral-600'
+                                }`}></span>
+                              </span>
+                              <span className="text-[10px] text-text-secondary font-bold">
+                                {feed.isActive !== false ? 'Aktif Akış' : 'Devredışı'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={(e) => handleToggleFeedStatus(e, feed.id)}
+                                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                  feed.isActive !== false ? 'bg-rose-500' : 'bg-neutral-700'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                    feed.isActive !== false ? 'translate-x-4' : 'translate-x-0'
+                                  }`}
+                                />
+                              </button>
+
+                              {!feed.isDefault && (
+                                <button
+                                  onClick={(e) => handleDeleteFeed(e, feed.id)}
+                                  className="text-text-secondary/60 hover:text-rose-400 p-1.5 hover:bg-rose-500/10 rounded-lg transition-all"
+                                  title="Kaynağı Sil"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
