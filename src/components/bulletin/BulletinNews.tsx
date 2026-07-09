@@ -49,6 +49,7 @@ export interface RSSFeed {
   url: string;
   category: string;
   isDefault?: boolean;
+  isActive?: boolean;
 }
 
 export interface ArticleItem {
@@ -88,14 +89,32 @@ export interface RSSHubRoute {
 
 // Pre-defined default feeds (some official feeds, some RSSHub feeds)
 const DEFAULT_FEEDS: RSSFeed[] = [
-  { id: 'hn', title: 'Hacker News', url: 'https://news.ycombinator.com/rss', category: 'Teknoloji', isDefault: true },
-  { id: 'tc', title: 'TechCrunch', url: 'https://techcrunch.com/feed/', category: 'Teknoloji', isDefault: true },
-  { id: 'webtekno', title: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', category: 'Teknoloji', isDefault: true },
-  { id: 'bloomberg', title: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', category: 'Finans', isDefault: true },
-  { id: 'coindesk', title: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss', category: 'Finans', isDefault: true },
-  { id: 'nasa', title: 'NASA Image of the Day', url: 'https://www.nasa.gov/feeds/iotd-feed/', category: 'Bilim', isDefault: true },
-  { id: 'popsci', title: 'Popular Science', url: 'https://www.popsci.com/feed/', category: 'Bilim', isDefault: true },
-  { id: 'producthunt', title: 'Product Hunt Today (RSSHub)', url: 'https://rsshub.app/producthunt/today', category: 'Tasarım & Ürün', isDefault: true }
+  // Teknoloji & Bilim
+  { id: 'hn', title: 'Hacker News', url: 'https://news.ycombinator.com/rss', category: 'Teknoloji', isDefault: true, isActive: true },
+  { id: 'tc', title: 'TechCrunch', url: 'https://techcrunch.com/feed/', category: 'Teknoloji', isDefault: true, isActive: true },
+  { id: 'verge', title: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', category: 'Teknoloji', isDefault: true, isActive: true },
+  { id: 'webtekno', title: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', category: 'Teknoloji', isDefault: true, isActive: true },
+  { id: 'donanimhaber', title: 'DonanımHaber', url: 'https://www.donanimhaber.com/rss/tum/', category: 'Teknoloji', isDefault: true, isActive: true },
+  { id: 'nasa', title: 'NASA Image of the Day', url: 'https://www.nasa.gov/feeds/iotd-feed/', category: 'Bilim', isDefault: true, isActive: true },
+  
+  // Haber & Gündem (Global)
+  { id: 'bbc_world', title: 'BBC World News', url: 'http://feeds.bbci.co.uk/news/world/rss.xml', category: 'Haber', isDefault: true, isActive: true },
+  { id: 'reuters', title: 'Reuters World', url: 'https://www.reutersagency.com/feed/', category: 'Haber', isDefault: true, isActive: true },
+  { id: 'nyt', title: 'The New York Times', url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml', category: 'Haber', isDefault: true, isActive: true },
+  { id: 'aljazeera', title: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml', category: 'Haber', isDefault: true, isActive: true },
+
+  // Haber & Gündem (Türkçe)
+  { id: 'aa_guncel', title: 'Anadolu Ajansı', url: 'https://www.aa.com.tr/tr/rss/default?cat=guncel', category: 'Haber', isDefault: true, isActive: true },
+  { id: 'trthaber', title: 'TRT Haber', url: 'https://www.trthaber.com/manset_articles.rss', category: 'Haber', isDefault: true, isActive: true },
+  { id: 'cumhuriyet', title: 'Cumhuriyet', url: 'https://www.cumhuriyet.com.tr/rss', category: 'Haber', isDefault: true, isActive: true },
+  
+  // Finans & Ekonomi
+  { id: 'bloomberg', title: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', category: 'Finans', isDefault: true, isActive: true },
+  { id: 'ekonomist', title: 'Ekonomist', url: 'https://www.ekonomist.com.tr/rss', category: 'Finans', isDefault: true, isActive: true },
+  { id: 'coindesk', title: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss', category: 'Finans', isDefault: true, isActive: true },
+
+  // Kültür & Sanat & Diğer
+  { id: 'producthunt', title: 'Product Hunt Today', url: 'https://rsshub.app/producthunt/today', category: 'Tasarım & Ürün', isDefault: true, isActive: true }
 ];
 
 // Suggested RSSHub discovery channels
@@ -103,7 +122,11 @@ const RSSHUB_DISCOVERY = [
   { title: 'GitHub Günlük Trendler', url: 'https://rsshub.app/github/trending/daily/any', category: 'Teknoloji', desc: 'Geliştiriciler için günlük popüler projeler' },
   { title: 'Dribbble Popüler Haftalık', url: 'https://rsshub.app/dribbble/popular/week', category: 'Tasarım & Ürün', desc: 'Dünyanın en iyi tasarımcılarından haftalık popüler işler' },
   { title: 'Reddit Technology', url: 'https://rsshub.app/reddit/r/technology/hot', category: 'Teknoloji', desc: 'Reddit üzerindeki en sıcak teknoloji tartışmaları' },
-  { title: 'Dev.to En İyiler', url: 'https://rsshub.app/devto/top/week', category: 'Teknoloji', desc: 'Yazılımcılar için haftalık popüler makaleler' }
+  { title: 'Dev.to En İyiler', url: 'https://rsshub.app/devto/top/week', category: 'Teknoloji', desc: 'Yazılımcılar için haftalık popüler makaleler' },
+  { title: 'YouTube: Barış Özcan', url: 'https://rsshub.app/youtube/channel/UCXuqSBlHAE6Xw-yeJA0Tunw', category: 'Bilim', desc: 'Sanat, tasarım ve teknoloji üzerine hikayeler' },
+  { title: 'Medium: Netflix TechBlog', url: 'https://rsshub.app/medium/user/netflix-techblog', category: 'Teknoloji', desc: 'Netflix mühendislik ekibinden teknik makaleler' },
+  { title: 'BBC Türkçe', url: 'https://rsshub.app/bbc/turkce', category: 'Haber', desc: 'Dünya gündemi Türkçe bülteni' },
+  { title: 'Steam: Popüler Yeni Oyunlar', url: 'https://rsshub.app/steam/search/sort=released_at&term=popular', category: 'Eğlence', desc: 'Steam platformunda yeni çıkan popüler oyunlar' }
 ];
 
 // Full catalog of standard RSSHub routing templates
@@ -221,6 +244,39 @@ const RSSHUB_CATALOG_ROUTES: RSSHubRoute[] = [
       { name: 'appid', label: 'Steam Oyun ID\'si (AppID)', placeholder: 'Örn: 730 (CS2), 570 (Dota 2), 1085660 (Destiny 2)', type: 'text' }
     ],
     exampleInputs: { appid: '730' }
+  },
+  {
+    id: 'bilibili_user',
+    name: 'Bilibili Kullanıcı Videoları',
+    category: 'Sosyal Medya & Video',
+    desc: 'Bilibili üzerindeki içerik üreticilerinin yeni videolarını takip edin.',
+    pathTemplate: '/bilibili/user/video/:uid',
+    params: [
+      { name: 'uid', label: 'Bilibili Kullanıcı ID (UID)', placeholder: 'Örn: 2267573', type: 'text' }
+    ],
+    exampleInputs: { uid: '2267573' }
+  },
+  {
+    id: 'weibo_user',
+    name: 'Weibo Kullanıcı Gönderileri',
+    category: 'Sosyal Medya & Video',
+    desc: 'Weibo üzerindeki popüler hesapların ve haber kanallarının gönderilerini takip edin.',
+    pathTemplate: '/weibo/user/:uid',
+    params: [
+      { name: 'uid', label: 'Weibo Kullanıcı ID', placeholder: 'Örn: 1195231234', type: 'text' }
+    ],
+    exampleInputs: { uid: '1195231234' }
+  },
+  {
+    id: 'twitter_user',
+    name: 'Twitter (X) Kullanıcı Akışı',
+    category: 'Sosyal Medya & Video',
+    desc: 'Twitter (X) üzerindeki hesapların tweetlerini RSS olarak takip edin (Instance bağımlıdır).',
+    pathTemplate: '/twitter/user/:id',
+    params: [
+      { name: 'id', label: 'Twitter Kullanıcı Adı', placeholder: 'Örn: elonmusk', type: 'text' }
+    ],
+    exampleInputs: { id: 'elonmusk' }
   },
   {
     id: 'nasa_apod',
@@ -435,13 +491,67 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const mapFeedItemToArticle = (item: any, idx: number, feed: RSSFeed): ArticleItem => {
+    let image = null;
+    if (item.enclosure && item.enclosure.url) {
+      image = item.enclosure.url;
+    } else if (item.mediaContent && item.mediaContent.$ && item.mediaContent.$.url) {
+      image = item.mediaContent.$.url;
+    } else {
+      const contentStr = item.content || item.description || '';
+      const match = contentStr.match(/<img[^>]+src="([^">]+)"/i);
+      if (match && match[1]) image = match[1];
+    }
+
+    return {
+      id: item.guid || item.link || `${feed.id}-${idx}`,
+      title: item.title || 'Başlıksız Makale',
+      link: item.link || '',
+      pubDate: item.pubDate || item.isoDate || new Date().toISOString(),
+      creator: item.creator || item.author || feed.title,
+      content: item.content || item.description || 'İçerik bulunmuyor.',
+      contentSnippet: item.contentSnippet || (item.description ? item.description.replace(/<[^>]*>/g, '').substring(0, 180) : 'Özet bulunmuyor.'),
+      feedId: feed.id,
+      feedTitle: feed.title,
+      category: feed.category,
+      image: image || undefined
+    };
+  };
+
+  const fetchSingleFeed = async (feed: RSSFeed) => {
+    setLoadingFeeds(prev => ({ ...prev, [feed.id]: true }));
+    try {
+      const proxyUrl = `/api/rss-proxy?url=${encodeURIComponent(feed.url)}`;
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error("Proxy error");
+      const data = await response.json();
+      
+      if (data && data.items) {
+        const feedArticles: ArticleItem[] = data.items.map((item: any, idx: number) => mapFeedItemToArticle(item, idx, feed));
+        setArticles(prev => {
+          const filtered = prev.filter(a => a.feedId !== feed.id);
+          const merged = [...filtered, ...feedArticles];
+          merged.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
+          return merged;
+        });
+      }
+    } catch (err) {
+      console.warn(`Could not load feed: ${feed.title}`, err);
+    } finally {
+      setLoadingFeeds(prev => ({ ...prev, [feed.id]: false }));
+    }
+  };
+
   // Fetch all active feeds on launch or filter change
   const fetchAllFeeds = async (feedsToFetch: RSSFeed[]) => {
     setGlobalLoading(true);
     let allArticles: ArticleItem[] = [];
 
+    // Filter only active feeds
+    const activeFeeds = feedsToFetch.filter(f => f.isActive !== false);
+
     // Parallel fetch using Promise.all
-    const promises = feedsToFetch.map(async (feed) => {
+    const promises = activeFeeds.map(async (feed) => {
       setLoadingFeeds(prev => ({ ...prev, [feed.id]: true }));
       try {
         const proxyUrl = `/api/rss-proxy?url=${encodeURIComponent(feed.url)}`;
@@ -451,34 +561,7 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
         const data = await response.json();
         
         if (data && data.items) {
-          const feedArticles: ArticleItem[] = data.items.map((item: any, idx: number) => {
-            // Robust image extractor
-            let image = null;
-            if (item.enclosure && item.enclosure.url) {
-              image = item.enclosure.url;
-            } else if (item.mediaContent && item.mediaContent.$ && item.mediaContent.$.url) {
-              image = item.mediaContent.$.url;
-            } else {
-              // Extract from HTML
-              const contentStr = item.content || item.description || '';
-              const match = contentStr.match(/<img[^>]+src="([^">]+)"/i);
-              if (match && match[1]) image = match[1];
-            }
-
-            return {
-              id: item.guid || item.link || `${feed.id}-${idx}`,
-              title: item.title || 'Başlıksız Makale',
-              link: item.link || '',
-              pubDate: item.pubDate || item.isoDate || new Date().toISOString(),
-              creator: item.creator || item.author || feed.title,
-              content: item.content || item.description || 'İçerik bulunmuyor.',
-              contentSnippet: item.contentSnippet || (item.description ? item.description.replace(/<[^>]*>/g, '').substring(0, 180) : 'Özet bulunmuyor.'),
-              feedId: feed.id,
-              feedTitle: feed.title,
-              category: feed.category,
-              image: image || undefined
-            };
-          });
+          const feedArticles: ArticleItem[] = data.items.map((item: any, idx: number) => mapFeedItemToArticle(item, idx, feed));
           allArticles = [...allArticles, ...feedArticles];
         }
       } catch (err) {
@@ -496,12 +579,15 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
     setGlobalLoading(false);
   };
 
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
   // Trigger feed loading
   useEffect(() => {
-    if (feeds.length > 0) {
+    if (feeds.length > 0 && !initialLoadDone) {
       fetchAllFeeds(feeds);
+      setInitialLoadDone(true);
     }
-  }, [feeds]);
+  }, [feeds, initialLoadDone]);
 
   // Handle Save / Bookmark Article
   const handleToggleSaveArticle = async (e: React.MouseEvent, article: ArticleItem) => {
@@ -557,7 +643,8 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
       id: `feed_${Date.now()}`,
       title: newFeedTitle,
       url: newFeedUrl,
-      category: newFeedCategory
+      category: newFeedCategory,
+      isActive: true
     };
 
     if (user) {
@@ -590,7 +677,8 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
       id: `feed_${Date.now()}`,
       title: discovery.title,
       url: discovery.url,
-      category: discovery.category
+      category: discovery.category,
+      isActive: true
     };
 
     if (user) {
@@ -629,7 +717,8 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
       id: `feed_${Date.now()}`,
       title: rsshubFeedTitle,
       url: finalUrl,
-      category: rsshubFeedCategory
+      category: rsshubFeedCategory,
+      isActive: true
     };
 
     if (user) {
@@ -655,6 +744,38 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
   };
 
   // Delete Custom Feed
+  const handleToggleFeedStatus = async (e: React.MouseEvent, feedId: string) => {
+    e.stopPropagation();
+    const updatedFeeds = feeds.map(f => {
+      if (f.id === feedId) {
+        const newState = f.isActive === undefined ? false : !f.isActive;
+        return { ...f, isActive: newState };
+      }
+      return f;
+    });
+    setFeeds(updatedFeeds);
+    
+    const targetFeed = updatedFeeds.find(f => f.id === feedId);
+    if (targetFeed) {
+      if (targetFeed.isActive === false) {
+        // Remove articles
+        setArticles(prev => prev.filter(a => a.feedId !== feedId));
+      } else {
+        // Fetch articles for this specific feed
+        fetchSingleFeed(targetFeed);
+      }
+    }
+    
+    // Update Firestore if it's a custom feed
+    if (targetFeed && !targetFeed.isDefault && user) {
+      try {
+        await setDoc(doc(db, 'users', user.uid, 'feeds', feedId), targetFeed);
+      } catch (err) {
+        console.error("Feed status update error:", err);
+      }
+    }
+  };
+
   const handleDeleteFeed = async (e: React.MouseEvent, feedId: string) => {
     e.stopPropagation();
     if (window.confirm("Bu yayını bülteninizden silmek istediğinize emin misiniz?")) {
@@ -948,15 +1069,28 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
                             }`}
                           >
                             <div className="flex items-center gap-2 truncate pr-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                              <span className="truncate">{feed.title}</span>
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${feed.isActive !== false ? 'bg-rose-500' : 'bg-white/20'}`} />
+                              <span className={`truncate ${feed.isActive !== false ? 'text-text-primary' : 'text-text-secondary line-through opacity-50'}`}>{feed.title}</span>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={(e) => handleToggleFeedStatus(e, feed.id)}
+                                className={`group/toggle flex items-center p-0.5 rounded transition-all ${feed.isActive !== false ? 'text-rose-400' : 'text-text-secondary'}`}
+                                title={feed.isActive !== false ? 'Akışı Durdur' : 'Akışı Başlat'}
+                              >
+                                <div className={`w-6 h-3 rounded-full relative transition-all ${feed.isActive !== false ? 'bg-rose-500/40' : 'bg-white/10'}`}>
+                                  <motion.div 
+                                    initial={false}
+                                    animate={{ x: feed.isActive !== false ? 12 : 2 }}
+                                    className="absolute top-0.5 w-2 h-2 bg-white rounded-full shadow-sm"
+                                  />
+                                </div>
+                              </button>
                               <span className="font-mono text-[9px] text-text-secondary/60 bg-black/20 px-1.5 py-0.5 rounded">{feedArtCount}</span>
                               {!feed.isDefault && (
                                 <button 
                                   onClick={(e) => handleDeleteFeed(e, feed.id)}
-                                  className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400 rounded transition-all ml-1"
+                                  className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-400 rounded transition-all"
                                   title="Akışı Sil"
                                 >
                                   <Trash2 size={11} />
