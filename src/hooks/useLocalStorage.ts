@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { db, auth } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -44,6 +44,8 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
                   });
               }
           }
+        }, (error) => {
+          handleFirestoreError(error, OperationType.GET, `users/${user.uid}/app_state/${key}`);
         });
 
         return () => unsubscribeSnapshot();
@@ -69,7 +71,11 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         const docRef = doc(db, `users/${auth.currentUser.uid}/app_state/${key}`);
         setDoc(docRef, { data: valueToStore }, { merge: true })
           .catch(err => {
-             console.warn(`Error writing key "${key}" to firestore:`, err);
+             try {
+               handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser?.uid}/app_state/${key}`);
+             } catch (e) {
+               console.warn(`Error writing key "${key}" to firestore:`, e);
+             }
           })
           .finally(() => {
              setTimeout(() => { isWritingRef.current = false; }, 500);
