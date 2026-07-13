@@ -56,9 +56,14 @@ async function startServer() {
 
   // API Route: RSS Proxy Fetcher
   app.get("/api/rss-proxy", async (req, res) => {
-    const { url } = req.query;
-    if (!url || typeof url !== 'string') {
+    const { url: rawUrl } = req.query;
+    if (!rawUrl || typeof rawUrl !== 'string') {
       return res.status(400).json({ error: "URL query parameter is required" });
+    }
+
+    let url = rawUrl.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
     }
 
     // Extract origin to mimic referrer headers correctly

@@ -173,54 +173,59 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
         const chunk = feedsToFetch.slice(i, i + CHUNK_SIZE);
         const chunkPromises = chunk.map(async (feed) => {
           try {
-            const res = await fetch(`/api/rss-proxy?url=${encodeURIComponent(feed.url)}`);
+            let normalizedUrl = feed.url.trim();
+            if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+              normalizedUrl = 'https://' + normalizedUrl;
+            }
+
+            const res = await fetch(`/api/rss-proxy?url=${encodeURIComponent(normalizedUrl)}`);
             if (!res.ok) {
-              console.error('RSS Proxy HTTP Error:', res.status, feed.url);
+              console.error('RSS Proxy HTTP Error:', res.status, normalizedUrl);
               return [];
             }
             const data = await res.json();
-            if (!data || !data.items) {
-              console.error('RSS API Data Error:', data, feed.url);
+            if (!data || !data.items || !Array.isArray(data.items)) {
+              console.error('RSS API Data Error or Empty Items:', data, normalizedUrl);
               return [];
             }
 
             return data.items.slice(0, 15).map((item: any) => {
-              const rawTitle = ensureString(item.title);
-              const rawContent = ensureString(item.content || '');
-              const rawSnippet = ensureString(item.contentSnippet || '');
+              const rawTitle = ensureString(item.title).trim().replace(/\s+/g, ' ');
+              const rawContent = ensureString(item.content || '').trim();
+              const rawSnippet = ensureString(item.contentSnippet || '').trim();
               
               let snippet = rawSnippet || rawContent || '';
-              snippet = snippet.replace(/<[^>]+>/g, '').trim().slice(0, 250);
+              snippet = snippet.replace(/<[^>]+>/g, '').trim().replace(/\s+/g, ' ').slice(0, 250);
 
               let image = '';
               if (item.image) {
                 if (typeof item.image === 'string') {
-                  image = item.image;
+                  image = item.image.trim();
                 } else if (typeof item.image === 'object' && item.image.$ && item.image.$.url) {
-                  image = ensureString(item.image.$.url);
+                  image = ensureString(item.image.$.url).trim();
                 }
               }
               if (!image && item.enclosure && item.enclosure.url) {
-                image = ensureString(item.enclosure.url);
+                image = ensureString(item.enclosure.url).trim();
               }
               if (!image && item.mediaContent && item.mediaContent['$'] && item.mediaContent['$'].url) {
-                image = ensureString(item.mediaContent['$'].url);
+                image = ensureString(item.mediaContent['$'].url).trim();
               }
               if (!image && rawContent) {
                 const imgMatch = rawContent.match(/<img[^>]+src="([^">]+)"/i);
-                if (imgMatch) image = imgMatch[1];
+                if (imgMatch) image = imgMatch[1].trim();
               }
 
-              const guid = ensureString(item.guid || item.id || item.link);
-              const link = ensureLink(item.link);
-              const pubDate = ensureString(item.isoDate || item.pubDate || new Date().toISOString());
-              const creator = ensureString(item.creator || feed.title);
+              const guid = ensureString(item.guid || item.id || item.link).trim();
+              const link = ensureLink(item.link).trim();
+              const pubDate = ensureString(item.isoDate || item.pubDate || new Date().toISOString()).trim();
+              const creator = ensureString(item.creator || feed.title).trim().replace(/\s+/g, ' ');
 
               return {
                 id: `${feed.id}-${guid}`,
                 feedId: feed.id,
-                feedTitle: feed.title,
-                category: feed.category,
+                feedTitle: feed.title.trim(),
+                category: feed.category.trim(),
                 title: rawTitle,
                 link: link,
                 pubDate: pubDate,
@@ -276,12 +281,12 @@ export function BulletinNews({ activeSubModule = 'news' }: BulletinNewsProps) {
       }
     }
     if (searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.toLocaleLowerCase('tr-TR');
       list = list.filter(
         (a) =>
-          a.title.toLowerCase().includes(q) ||
-          a.feedTitle.toLowerCase().includes(q) ||
-          a.contentSnippet.toLowerCase().includes(q)
+          a.title.toLocaleLowerCase('tr-TR').includes(q) ||
+          a.feedTitle.toLocaleLowerCase('tr-TR').includes(q) ||
+          a.contentSnippet.toLocaleLowerCase('tr-TR').includes(q)
       );
     }
     return list;
