@@ -158,6 +158,55 @@
             "rules": [
               { "allow": "read, write", "condition": "request.auth.uid == uid" }
             ]
+          },
+          {
+            "name": "todos",
+            "description": "User advanced task and todo items",
+            "documentId": "auto",
+            "fields": [
+              { "name": "title", "type": "string" },
+              { "name": "description", "type": "string" },
+              { "name": "completed", "type": "boolean" },
+              { "name": "priority", "type": "string" },
+              { "name": "category", "type": "string" },
+              { "name": "dueDate", "type": "string" },
+              { "name": "createdAt", "type": "string" },
+              { "name": "updatedAt", "type": "string" },
+              { "name": "subtasks", "type": "array" },
+              { "name": "tags", "type": "array" },
+              { "name": "notes", "type": "string" },
+              { "name": "pomodoroSessions", "type": "number" },
+              { "name": "completedPomodoros", "type": "number" },
+              { "name": "elapsedTime", "type": "number" },
+              { "name": "history", "type": "array" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
+          },
+          {
+            "name": "bookmarks",
+            "description": "User bookmarks, links and collections",
+            "documentId": "auto",
+            "fields": [
+              { "name": "title", "type": "string" },
+              { "name": "url", "type": "string" },
+              { "name": "description", "type": "string" },
+              { "name": "category", "type": "string" },
+              { "name": "tags", "type": "array" },
+              { "name": "favorite", "type": "boolean" },
+              { "name": "rating", "type": "number" },
+              { "name": "createdAt", "type": "string" },
+              { "name": "updatedAt", "type": "string" },
+              { "name": "notes", "type": "string" },
+              { "name": "aiSummary", "type": "string" },
+              { "name": "aiTags", "type": "array" },
+              { "name": "clicks", "type": "number" },
+              { "name": "status", "type": "string" }
+            ],
+            "rules": [
+              { "allow": "read, write", "condition": "request.auth.uid == uid" }
+            ]
           }
         ]
       }

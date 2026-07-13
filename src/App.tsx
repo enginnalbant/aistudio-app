@@ -52,6 +52,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Zap } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
 import { BulletinNews } from './components/bulletin/BulletinNews';
+import { NotesQuick } from './components/notes/NotesQuick';
+import { NotesNotebook } from './components/notes/NotesNotebook';
+import { NotesTodo } from './components/notes/NotesTodo';
+import { NotesBookmarks } from './components/notes/NotesBookmarks';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -252,6 +256,14 @@ function AppLayout() {
                     title={activeModule.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
                     brandName="APEXOS KÜTÜPHANE" 
                   />
+                ) : activeModule === 'notes-quick' ? (
+                  <NotesQuick />
+                ) : activeModule === 'notes-notebook' ? (
+                  <NotesNotebook />
+                ) : activeModule === 'notes-todo' ? (
+                  <NotesTodo />
+                ) : activeModule === 'notes-bookmarks' ? (
+                  <NotesBookmarks />
                 ) : activeModule.startsWith('notes-') ? (
                   <ComingSoon 
                     title={activeModule.replace('notes-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 

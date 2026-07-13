@@ -6,7 +6,7 @@ import { formatTimeAgo, ensureString } from './utils';
 interface ArticlesListProps {
   currentSubModule: string;
   isLoading: boolean;
-  fetchRSSFeeds: () => void;
+  onRefresh: () => void;
   layoutMode: 'comfortable' | 'compact';
   setLayoutMode: (mode: 'comfortable' | 'compact') => void;
   searchQuery: string;
@@ -23,7 +23,7 @@ interface ArticlesListProps {
 export function ArticlesList({
   currentSubModule,
   isLoading,
-  fetchRSSFeeds,
+  onRefresh,
   layoutMode,
   setLayoutMode,
   searchQuery,
@@ -50,7 +50,7 @@ export function ArticlesList({
           </h2>
           <div className="flex gap-2">
             <button
-              onClick={fetchRSSFeeds}
+              onClick={onRefresh}
               className="p-1.5 rounded-lg hover:bg-white/10 text-text-secondary hover:text-white transition-colors"
               title="Yenile"
             >
@@ -101,7 +101,7 @@ export function ArticlesList({
         {isLoading && articlesLength === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-text-secondary space-y-3">
             <RefreshCw size={24} className="animate-spin text-rose-500" />
-            <p className="text-xs font-mono">Bültenler senkronize ediliyor...</p>
+            <p className="text-xs font-mono">Haberler yükleniyor...</p>
           </div>
         ) : filteredArticles.length > 0 ? (
           filteredArticles.map((article) => {
@@ -152,7 +152,7 @@ export function ArticlesList({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between mt-1 pt-2 border-t border-white/5">
+                <div className="flex items-center justify-between mt-1 pt-2 border-t border-t-white/5">
                   <div className="flex items-center gap-2">
                     {isSaved && <Bookmark size={12} className="text-rose-500 fill-rose-500" />}
                     {isRead && <Check size={12} className="text-emerald-500" />}
