@@ -27,7 +27,8 @@ import {
   HelpCircle,
   Play,
   RefreshCw,
-  Clock
+  Clock,
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../context/AuthContext';
@@ -97,6 +98,7 @@ export function NotesBookmarks() {
   const [tagsInput, setTagsInput] = useState('');
   const [favorite, setFavorite] = useState(false);
   const [rating, setRating] = useState(0);
+  const [analysisMode, setAnalysisMode] = useState<'ai' | 'local'>('ai');
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [isAddingBookmark, setIsAddingBookmark] = useState(false);
 
@@ -293,10 +295,10 @@ export function NotesBookmarks() {
     const processItem = async (item: WizardItem) => {
       setItemStatus(item.id, { status: 'analyzing' });
       try {
-        const response = await fetch('/api/bookmarks/analyze', {
+        const response = await fetch('/api/analyze-bookmark', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: item.url, title: item.title })
+          body: JSON.stringify({ url: item.url, title: item.title, mode: analysisMode })
         });
         
         if (!response.ok) {
@@ -421,22 +423,22 @@ export function NotesBookmarks() {
     }
   };
 
-  // Run AI Analyzer to pre-fill/save
+  // Run AI/Local Analyzer to pre-fill/save
   const handleAiAnalyze = async () => {
     if (!url.trim()) {
-      alert('Yapay zeka analizi için geçerli bir URL girmelisiniz!');
+      alert('Analiz için geçerli bir URL girmelisiniz!');
       return;
     }
     setIsAiAnalyzing(true);
     try {
-      const response = await fetch('/api/bookmarks/analyze', {
+      const response = await fetch('/api/analyze-bookmark', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim(), title: title.trim(), notes: notes.trim() })
+        body: JSON.stringify({ url: url.trim(), title: title.trim(), notes: notes.trim(), mode: analysisMode })
       });
 
       if (!response.ok) {
-        throw new Error('Yapay zeka sunucusu yanıt vermedi.');
+        throw new Error('Analiz sunucusu yanıt vermedi.');
       }
 
       const data = await response.json();
@@ -444,16 +446,16 @@ export function NotesBookmarks() {
       // Auto populate form
       setTitle(data.title || '');
       setCategory(data.category || 'Yazılım & Geliştirme');
-      setNotes(prev => prev ? `${prev}\n\nAI Notu: ${data.description}` : data.description);
+      setNotes(prev => prev ? `${prev}\n\nAnaliz Notu: ${data.description}` : data.description);
       if (data.tags && data.tags.length > 0) {
         setTagsInput(data.tags.join(', '));
       }
       
-      // We will also bundle the AI specific fields
-      alert('Yapay zeka siteyi başarıyla analiz etti! Kategoriyi, başlığı ve etiketleri otomatik güncelledik.');
+      const methodLabel = data.method === 'ai' ? 'Yapay zeka' : 'Dinamik yerel algoritmalar';
+      alert(`${methodLabel} siteyi başarıyla analiz etti! Kategoriyi, başlığı ve etiketleri otomatik güncelledik.`);
     } catch (err: any) {
       console.error(err);
-      alert('Yapay zeka analizi başarısız oldu. Manuel girmeye devam edebilirsiniz.');
+      alert('Analiz başarısız oldu. Manuel girmeye devam edebilirsiniz.');
     } finally {
       setIsAiAnalyzing(false);
     }
@@ -479,10 +481,10 @@ export function NotesBookmarks() {
 
     try {
       // If title was blank or user requested auto analysis, hit the analyzer
-      const response = await fetch('/api/bookmarks/analyze', {
+      const response = await fetch('/api/analyze-bookmark', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: targetUrl, title: title.trim(), notes: notes.trim() })
+        body: JSON.stringify({ url: targetUrl, title: title.trim(), notes: notes.trim(), mode: analysisMode })
       });
 
       if (response.ok) {
@@ -1076,7 +1078,27 @@ export function NotesBookmarks() {
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="md:col-span-3 space-y-1">
-                    <label className="text-[10px] font-mono text-text-secondary uppercase">Bağlantı Adresi (URL) *</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-mono text-text-secondary uppercase">Bağlantı Adresi (URL) *</label>
+                      
+                      {/* Analysis Method Toggle */}
+                      <div className="flex items-center gap-1 bg-black/40 border border-white/5 rounded-lg p-0.5 text-[10px] font-mono">
+                        <button
+                          type="button"
+                          onClick={() => setAnalysisMode('ai')}
+                          className={`px-2 py-0.5 rounded-md transition-all ${analysisMode === 'ai' ? 'bg-grow-phosphor/20 text-grow-phosphor font-semibold' : 'text-text-secondary hover:text-text-primary'}`}
+                        >
+                          Yapay Zeka (AI)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAnalysisMode('local')}
+                          className={`px-2 py-0.5 rounded-md transition-all ${analysisMode === 'local' ? 'bg-focus-neon/20 text-focus-neon font-semibold' : 'text-text-secondary hover:text-text-primary'}`}
+                        >
+                          Dinamik Yerel
+                        </button>
+                      </div>
+                    </div>
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -1090,15 +1112,17 @@ export function NotesBookmarks() {
                         type="button"
                         onClick={handleAiAnalyze}
                         disabled={isAiAnalyzing || !url}
-                        className="px-3 bg-grow-phosphor/10 hover:bg-grow-phosphor/20 border border-grow-phosphor/20 hover:border-grow-phosphor/40 text-grow-phosphor text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                        title="Link bilgilerini ve özetini yapay zeka ile otomatik doldur"
+                        className={`px-3 border text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${analysisMode === 'ai' ? 'bg-grow-phosphor/10 hover:bg-grow-phosphor/20 border-grow-phosphor/20 hover:border-grow-phosphor/40 text-grow-phosphor' : 'bg-focus-neon/10 hover:bg-focus-neon/20 border-focus-neon/20 hover:border-focus-neon/40 text-focus-neon'}`}
+                        title={analysisMode === 'ai' ? "Link bilgilerini ve özetini yapay zeka ile otomatik doldur" : "Link bilgilerini ve kategorisini internet sitesinden anlık çekerek doldur (API anahtarı gerekmez)"}
                       >
                         {isAiAnalyzing ? (
                           <Loader2 size={13} className="animate-spin" />
-                        ) : (
+                        ) : analysisMode === 'ai' ? (
                           <Sparkles size={13} />
+                        ) : (
+                          <Globe size={13} />
                         )}
-                        AI Analiz
+                        {analysisMode === 'ai' ? 'AI Analiz' : 'Yerel Analiz'}
                       </button>
                     </div>
                   </div>
@@ -1503,6 +1527,27 @@ export function NotesBookmarks() {
                       </button>
 
                       <div className="h-6 w-px bg-white/10 hidden sm:block" />
+
+                      {/* Analysis Mode Toggle in Wizard */}
+                      <div className="flex items-center gap-1 bg-black/40 border border-white/5 rounded-lg p-1 h-9 text-[11px] font-mono">
+                        <span className="text-[10px] text-text-secondary uppercase px-1.5">Yöntem:</span>
+                        <button
+                          type="button"
+                          onClick={() => setAnalysisMode('ai')}
+                          className={`px-2.5 py-1 rounded-md transition-all ${analysisMode === 'ai' ? 'bg-grow-phosphor/20 text-grow-phosphor font-bold text-xs' : 'text-text-secondary hover:text-text-primary text-xs'}`}
+                          disabled={isWizardRunning}
+                        >
+                          Yapay Zeka (AI)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAnalysisMode('local')}
+                          className={`px-2.5 py-1 rounded-md transition-all ${analysisMode === 'local' ? 'bg-focus-neon/20 text-focus-neon font-bold text-xs' : 'text-text-secondary hover:text-text-primary text-xs'}`}
+                          disabled={isWizardRunning}
+                        >
+                          Dinamik Yerel
+                        </button>
+                      </div>
 
                       {/* Concurrency speed selector control */}
                       <div className="flex items-center gap-2 bg-black/40 border border-white/5 rounded-lg px-2.5 py-1.5 h-9">

@@ -21,18 +21,21 @@ import {
   ShieldCheck,
   Lock,
   Database,
-  Calendar
+  Calendar,
+  Link
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import { clsx } from 'clsx';
 import { Switch } from './ui/switch';
 import { CalendarPage } from './CalendarPage';
+import { IntegrationsSettings } from './settings/IntegrationsSettings';
 
 const tabs = [
   { id: 'user', label: 'Kullanıcı', icon: User },
   { id: 'appearance', label: 'Görünüm', icon: Palette },
   { id: 'calendar', label: 'Takvim', icon: Calendar },
   { id: 'app', label: 'Uygulama', icon: LayoutGrid },
+  { id: 'integrations', label: 'Entegrasyonlar', icon: Link },
   { id: 'security', label: 'Güvenlik', icon: ShieldCheck },
   { id: 'admin', label: 'Admin', icon: Lock },
 ];
@@ -204,6 +207,10 @@ export function SettingsPanel({ isOpen, onClose }: { isOpen: boolean; onClose: (
                         {renderInput('app.language', 'Dil')}
                         {renderToggle('app.notifications.enabled', 'Bildirimler', <Zap size={20} />)}
                       </div>
+                    )}
+
+                    {activeTab === 'integrations' && (
+                      <IntegrationsSettings />
                     )}
 
                     {activeTab === 'security' && (

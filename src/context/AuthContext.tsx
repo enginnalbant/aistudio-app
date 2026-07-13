@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, googleProvider } from '../lib/firebase';
-import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, User, browserPopupRedirectResolver } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, User, browserPopupRedirectResolver, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDocFromServer } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
+  accessToken: string | null;
   session: any | null;
   loading: boolean;
   signOut: () => Promise<void>;
@@ -17,6 +18,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  accessToken: null,
   session: null,
   loading: true,
   signOut: async () => {},
@@ -30,6 +32,7 @@ export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [session, setSession] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -39,7 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Test connection as recommended by guidelines
     const testConnection = async () => {
       try {
         if (db) {
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (!currentUser) setAccessToken(null);
       setSession(currentUser ? { user: currentUser } : null);
       setLoading(false);
     });
@@ -64,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!auth) return;
     try {
       await firebaseSignOut(auth);
+      setAccessToken(null);
     } catch (error) {
       console.error("Error signing out", error);
     }
@@ -94,9 +98,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("Initiating Google Sign-In popup...");
       // Explicitly use popup resolver to handle iframe constraints better
-      const userCredential = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
-      console.log("Sign-In successful:", userCredential.user.email);
-      return { data: { user: userCredential.user }, error: null };
+      const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+      
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setAccessToken(credential.accessToken);
+      }
+      
+      console.log("Sign-In successful:", result.user.email);
+      return { data: { user: result.user }, error: null };
     } catch (error: any) {
       console.error("Sign-In Error:", error);
       // Provide a more helpful error message for common iframe/popup issues
@@ -119,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut, signIn, signUp, signInWithGoogle, signInAsGuest }}>
+    <AuthContext.Provider value={{ user, accessToken, session, loading, signOut, signIn, signUp, signInWithGoogle, signInAsGuest }}>
       {children}
     </AuthContext.Provider>
   );

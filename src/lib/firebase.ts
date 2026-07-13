@@ -7,6 +7,14 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/drive');
+googleProvider.addScope('https://www.googleapis.com/auth/documents.readonly');
+googleProvider.addScope('https://www.googleapis.com/auth/spreadsheets.readonly');
+googleProvider.addScope('https://www.googleapis.com/auth/presentations.readonly');
+googleProvider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+googleProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+googleProvider.addScope('https://www.googleapis.com/auth/tasks.readonly');
+googleProvider.addScope('https://www.googleapis.com/auth/contacts.readonly');
 
 export const loginWithGoogle = () => auth ? signInWithPopup(auth, googleProvider) : Promise.reject("Auth not initialized");
 export const logout = () => auth ? signOut(auth) : Promise.resolve();

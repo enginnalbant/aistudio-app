@@ -3,16 +3,17 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, User, Settings2, Palette, Bell, Shield, 
   Globe, Moon, Sun, Monitor, Camera, Lock,
-  Save, LogOut, Trash2
+  Save, LogOut, Trash2, Link
 } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
+import { IntegrationsSettings } from '../settings/IntegrationsSettings';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type SettingsTab = 'profile' | 'general' | 'customization' | 'notifications' | 'security' | 'privacy';
+type SettingsTab = 'profile' | 'general' | 'customization' | 'integrations' | 'notifications' | 'security' | 'privacy';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
@@ -22,6 +23,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     { id: 'profile', label: 'Profil', icon: <User size={18} /> },
     { id: 'general', label: 'Genel', icon: <Settings2 size={18} /> },
     { id: 'customization', label: 'Özelleştirme', icon: <Palette size={18} /> },
+    { id: 'integrations', label: 'Entegrasyonlar', icon: <Link size={18} /> },
     { id: 'notifications', label: 'Bildirimler', icon: <Bell size={18} /> },
     { id: 'security', label: 'Güvenlik', icon: <Shield size={18} /> },
     { id: 'privacy', label: 'Veri & Gizlilik', icon: <Lock size={18} /> },
@@ -193,6 +195,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                            <button className="flex-1 px-4 py-2 bg-focus-neon/10 border border-focus-neon rounded-xl text-xs font-bold text-focus-neon">Kompakt</button>
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'integrations' && (
+                    <div className="space-y-6">
+                       <IntegrationsSettings />
                     </div>
                   )}
 

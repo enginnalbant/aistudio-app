@@ -56,6 +56,8 @@ import { NotesQuick } from './components/notes/NotesQuick';
 import { NotesNotebook } from './components/notes/NotesNotebook';
 import { NotesTodo } from './components/notes/NotesTodo';
 import { NotesBookmarks } from './components/notes/NotesBookmarks';
+import { NotesPasswords } from './components/notes/NotesPasswords';
+import { NotesBooks } from './components/notes/NotesBooks';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -251,6 +253,8 @@ function AppLayout() {
                   <ReconReports />
                 ) : activeModule === 'recon-analytics' ? (
                   <ReconAnalytics />
+                ) : activeModule === 'library-ebooks' ? (
+                  <NotesBooks />
                 ) : activeModule.startsWith('library-') ? (
                   <ComingSoon 
                     title={activeModule.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
@@ -264,6 +268,10 @@ function AppLayout() {
                   <NotesTodo />
                 ) : activeModule === 'notes-bookmarks' ? (
                   <NotesBookmarks />
+                ) : activeModule === 'notes-passwords' ? (
+                  <NotesPasswords />
+                ) : activeModule === 'notes-books' ? (
+                  <NotesBooks />
                 ) : activeModule.startsWith('notes-') ? (
                   <ComingSoon 
                     title={activeModule.replace('notes-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
