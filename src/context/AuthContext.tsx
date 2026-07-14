@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [session, setSession] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     if (!auth) {
@@ -54,10 +55,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     testConnection();
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) setAccessToken(null);
-      setSession(currentUser ? { user: currentUser } : null);
-      setLoading(false);
+      if (currentUser) {
+        setUser(currentUser);
+        setAccessToken(null);
+        setSession({ user: currentUser });
+        setIsGuest(false);
+        setLoading(false);
+      } else {
+        setUser(prev => {
+          if (prev && prev.uid === 'guest-user') return prev;
+          setAccessToken(null);
+          setSession(null);
+          return null;
+        });
+        setLoading(false);
+      }
     });
 
     return () => unsubscribe();
@@ -125,7 +137,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInAsGuest = () => {
-    // Optionally implement anonymous login using signInAnonymously(auth)
+    setIsGuest(true);
+    setUser({
+      uid: 'guest-user',
+      email: 'misafir@apexos.com',
+      displayName: 'Misafir Kullanıcı',
+      photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest'
+    } as any);
   };
 
   return (

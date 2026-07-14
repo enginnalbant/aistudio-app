@@ -12,11 +12,19 @@ const PageContainer = ({ title, subtitle }: { title: string; subtitle: string })
 );
 
 // FASON İŞLER
-export const FasonDashboard = () => <PageContainer title="Fason İşler - Dashboard" subtitle="Fason süreçleri genel özeti" />;
-export const FasonOutgoing = () => <PageContainer title="Giden İşler" subtitle="Fasona gönderilen işlerin listesi" />;
-export const FasonAll = () => <PageContainer title="Tüm İşler" subtitle="Tüm fason operasyonları arşivi" />;
-export const FasonReports = () => <PageContainer title="Fason Raporlar" subtitle="Operasyonel raporlama ekranı" />;
-export const FasonAnalytics = () => <PageContainer title="Fason Analizler" subtitle="Verimlilik ve maliyet analizleri" />;
+import {
+  FasonDashboard as FasonDashboardComp,
+  FasonOutgoing as FasonOutgoingComp,
+  FasonAll as FasonAllComp,
+  FasonReports as FasonReportsComp,
+  FasonAnalytics as FasonAnalyticsComp
+} from './fason/FasonComponents';
+
+export const FasonDashboard = () => <FasonDashboardComp />;
+export const FasonOutgoing = () => <FasonOutgoingComp />;
+export const FasonAll = () => <FasonAllComp />;
+export const FasonReports = () => <FasonReportsComp />;
+export const FasonAnalytics = () => <FasonAnalyticsComp />;
 
 // STOKLAR
 import { StockDashboard } from './StockDashboard';
