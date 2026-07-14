@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { runFinanceHealthEngine, UserProfile } from '../../lib/financeHealthEngine';
 import { motion, AnimatePresence } from 'motion/react';
+import { AIForecastWidget } from './AIForecastWidget';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -1169,6 +1170,9 @@ export const FinanceDashboard = () => {
           ))}
         </div>
       </div>
+
+      {/* AI Forecasting & Prediction Widget */}
+      <AIForecastWidget />
 
 
 

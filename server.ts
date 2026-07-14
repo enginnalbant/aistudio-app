@@ -399,6 +399,98 @@ Başlık: ${title}
     }
   });
 
+  // API Route: AI Personal Chat Assistant
+  app.post("/api/ai/chat", async (req, res) => {
+    const { message, chatHistory = [], context = "" } = req.body;
+    if (!message) {
+      return res.status(400).json({ error: "Mesaj parametresi zorunludur." });
+    }
+
+    try {
+      console.log(`[AI Chat] Processing user message...`);
+
+      const historyPrompt = chatHistory.map((h: any) => `${h.sender === 'user' ? 'Kullanıcı' : 'Asistan'}: ${h.text}`).join("\n");
+      const prompt = `Kullanıcı Verileri ve Durum Bağlamı:
+${context}
+
+Önceki Sohbet Geçmişi:
+${historyPrompt}
+
+Yeni Kullanıcı Mesajı:
+${message}
+
+Lütfen yukarıdaki bağlamı, geçmişi ve mesajı göz önünde bulundurarak samimi, son derece zeki, finansal okuryazarlığı yüksek ve yapıcı bir Türkçe yanıt üret. En fazla 3-4 cümlede net öneriler ver, karmaşık analizleri maddeler halinde açıkla.`;
+
+      const response = await getAi().models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "Sen APEXOS işletim sisteminin yerleşik akıllı asistanı 'Apex AI'sın. Kullanıcıya bütçe analizi, harcama tasarrufları, stok seviyeleri ve işletme kararları konularında yardımcı olursun. Net, profesyonel, yapıcı ve tamamen Türkçe cevaplar verirsin.",
+        }
+      });
+
+      const responseText = response.text ? response.text.trim() : "Üzgünüm, şu an bunu işleyemiyorum.";
+      res.json({ reply: responseText });
+    } catch (err: any) {
+      console.error("[AI Chat] Error calling Gemini API:", err);
+      res.status(500).json({ error: "Yapay zeka asistanı şu an yanıt veremiyor.", details: err.message });
+    }
+  });
+
+  // API Route: AI Predictive Forecasting
+  app.post("/api/ai/forecast", async (req, res) => {
+    const { context } = req.body;
+    if (!context) {
+      return res.status(400).json({ error: "Context data is required." });
+    }
+
+    try {
+      console.log(`[AI Forecast] Running predictive engine...`);
+
+      const prompt = `Kullanıcının mevcut finansal/stok verileri:
+${context}
+
+Lütfen bu verileri analiz ederek önümüzdeki 3 döneme (aylık) ait tahminleri ve akıllı bütçe uyarılarını hesapla.
+Dönecek çıktı tam olarak şu JSON yapısında olmalıdır:
+{
+  "futurePredictions": [
+    { "period": "Dönem adı örn: Temmuz", "income": 45000, "expense": 32000, "savings": 13000, "note": "Kısa tahmin açıklaması" }
+  ],
+  "warnings": ["Harcama veya stok eşiği limit aşım uyarısı örn: Gıda giderlerinizde artış riski var."],
+  "scoreForecast": "Tahmini gelecek sağlık skoru örn: 85",
+  "confidence": "Tahmin güvenilirlik yüzdesi örn: %92",
+  "advice": "Tasarrufları optimize etmek veya stok bitmesini önlemek için 1-2 cümlelik yapıcı, akıllı tavsiye."
+}
+
+Önemli: Sadece saf JSON döndür, açıklama veya markdown kesmeleri (\`\`\`json) yazma.`;
+
+      const response = await getAi().models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "Sen APEXOS bütçe ve stok tahminleme motorusun. Verilerden yola çıkarak mantıklı gelecek tahminleri yapar ve JSON formatında sunarsın.",
+        }
+      });
+
+      const responseText = response.text ? response.text.trim() : "";
+
+      let cleanJson = responseText;
+      if (cleanJson.startsWith("```json")) {
+        cleanJson = cleanJson.substring(7);
+      }
+      if (cleanJson.endsWith("```")) {
+        cleanJson = cleanJson.substring(0, cleanJson.length - 3);
+      }
+      cleanJson = cleanJson.trim();
+
+      const parsed = JSON.parse(cleanJson);
+      res.json(parsed);
+    } catch (err: any) {
+      console.error("[AI Forecast] Error calling Gemini:", err);
+      res.status(500).json({ error: "Tahmin motoru başarısız oldu.", details: err.message });
+    }
+  });
+
   // API Route: AI Notes Wizard
   app.post("/api/notes/wizard", async (req, res) => {
     const { rawText } = req.body;
@@ -764,9 +856,10 @@ Lütfen sitenin amacını ve içeriğini göz önünde bulundurarak en doğru ve
     const tasks = google.tasks({ version: 'v1', auth: oauth2Client });
     try {
       const taskLists = await tasks.tasklists.list();
-      if (!taskLists.data.taskLists || taskLists.data.taskLists.length === 0) return res.json({ items: [] });
+      const items = (taskLists.data as any).items;
+      if (!items || items.length === 0) return res.json({ items: [] });
       
-      const taskItems = await tasks.tasks.list({ tasklist: taskLists.data.taskLists[0].id!, maxResults: 5 });
+      const taskItems = await tasks.tasks.list({ tasklist: items[0].id!, maxResults: 5 });
       res.json(taskItems.data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
