@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { supabase } from '../lib/supabase';
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
   const [storedValue, setStoredValue] = useState<T>(() => {
@@ -21,41 +19,79 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
     storedValueRef.current = storedValue;
   }, [storedValue]);
 
+  // Sync with Supabase on mount/auth state change
   useEffect(() => {
-    if (!auth || !db) return;
+    let channel: any = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // Sync data from local storage to Firebase if Firebase is empty, or load from Firebase
-        const docRef = doc(db, `users/${user.uid}/app_state/${key}`);
-        
-        const unsubscribeSnapshot = onSnapshot(docRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.data().data as T;
-            if (data !== undefined && JSON.stringify(data) !== JSON.stringify(storedValueRef.current) && !isWritingRef.current) {
-               setStoredValue(data);
-               window.localStorage.setItem(key, JSON.stringify(data));
-            }
-          } else {
-              // Document doesn't exist, let's create it with local data if we have any
-              if (JSON.stringify(storedValueRef.current) !== JSON.stringify(initialValue) && Array.isArray(storedValueRef.current) && storedValueRef.current.length > 0) {
-                  setDoc(docRef, { data: storedValueRef.current }, { merge: true }).catch(err => {
-                      console.warn(`Error setting initial doc for key "${key}" in firestore:`, err);
-                  });
-              }
+    const setupSync = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) return;
+
+      try {
+        // 1. Initial Fetch
+        const { data, error } = await supabase
+          .from('app_states')
+          .select('data')
+          .eq('user_id', user.id)
+          .eq('key', key)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          throw error;
+        }
+
+        if (data) {
+          const cloudVal = data.data as T;
+          if (JSON.stringify(cloudVal) !== JSON.stringify(storedValueRef.current) && !isWritingRef.current) {
+            setStoredValue(cloudVal);
+            window.localStorage.setItem(key, JSON.stringify(cloudVal));
           }
-        }, (error) => {
-          handleFirestoreError(error, OperationType.GET, `users/${user.uid}/app_state/${key}`);
-        });
+        } else {
+          // Row does not exist in DB, insert if local value is non-empty
+          if (JSON.stringify(storedValueRef.current) !== JSON.stringify(initialValue)) {
+            await supabase.from('app_states').upsert({
+              user_id: user.id,
+              key: key,
+              data: storedValueRef.current,
+              updated_at: new Date().toISOString()
+            });
+          }
+        }
 
-        return () => unsubscribeSnapshot();
+        // 2. Realtime subscription to state changes
+        channel = supabase
+          .channel(`state_sync_${key}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'app_states', filter: `user_id=eq.${user.id}` },
+            (payload) => {
+              if (payload.new && payload.new.key === key) {
+                const cloudVal = payload.new.data as T;
+                if (JSON.stringify(cloudVal) !== JSON.stringify(storedValueRef.current) && !isWritingRef.current) {
+                  setStoredValue(cloudVal);
+                  window.localStorage.setItem(key, JSON.stringify(cloudVal));
+                }
+              }
+            }
+          )
+          .subscribe();
+
+      } catch (err) {
+        console.warn(`[Supabase State Sync] Error for key "${key}":`, err);
       }
-    });
+    };
 
-    return () => unsubscribeAuth();
+    setupSync();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [key, initialValue]);
 
-  const setValue = (value: T | ((val: T) => T)) => {
+  const setValue = async (value: T | ((val: T) => T)) => {
     try {
       const valueToStore = value instanceof Function ? value(storedValueRef.current) : value;
       setStoredValue(valueToStore);
@@ -66,20 +102,17 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
         window.dispatchEvent(new Event('local-storage'));
       }
 
-      if (auth?.currentUser && db) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (user) {
         isWritingRef.current = true;
-        const docRef = doc(db, `users/${auth.currentUser.uid}/app_state/${key}`);
-        setDoc(docRef, { data: valueToStore }, { merge: true })
-          .catch(err => {
-             try {
-               handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser?.uid}/app_state/${key}`);
-             } catch (e) {
-               console.warn(`Error writing key "${key}" to firestore:`, e);
-             }
-          })
-          .finally(() => {
-             setTimeout(() => { isWritingRef.current = false; }, 500);
-          });
+        await supabase.from('app_states').upsert({
+          user_id: user.id,
+          key: key,
+          data: valueToStore,
+          updated_at: new Date().toISOString()
+        });
+        setTimeout(() => { isWritingRef.current = false; }, 500);
       }
     } catch (error) {
       console.warn(`Error setting localStorage key "${key}":`, error);

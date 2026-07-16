@@ -19,8 +19,7 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { db } from '../../lib/firebase';
-import { collection, addDoc, query, onSnapshot, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 interface BookItem {
   id: string;
@@ -36,7 +35,7 @@ interface BookItem {
 
 export const NotesBooks = () => {
   const { user } = useAuth();
-  const [books, setBooks] = useState<BookItem[]>([]);
+  const [books, setBooks] = useLocalStorage<BookItem[]>('apex_books', []);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBook, setSelectedBook] = useState<BookItem | null>(null);
   
@@ -49,14 +48,7 @@ export const NotesBooks = () => {
   const [tagInput, setTagInput] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'users', user.uid, 'books'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setBooks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BookItem)));
-    });
-    return () => unsubscribe();
-  }, [user]);
+
 
   const filteredBooks = books.filter(b => 
     b.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -76,12 +68,14 @@ export const NotesBooks = () => {
   };
 
   const saveBook = async () => {
-    if (!user || !newBook.title) return;
+    if (!newBook.title) return;
     try {
-      await addDoc(collection(db, 'users', user.uid, 'books'), {
+      const entry = {
+        id: crypto.randomUUID(),
         ...newBook,
         createdAt: new Date().toISOString()
-      });
+      };
+      setBooks(prev => [entry, ...prev]);
       setNewBook({ title: '', author: '', category: '', tags: [], coverUrl: '', description: '' });
       setShowWizard(false);
       setWizardStep(1);
@@ -91,8 +85,7 @@ export const NotesBooks = () => {
   };
 
   const deleteBook = async (id: string) => {
-    if (!user) return;
-    await deleteDoc(doc(db, 'users', user.uid, 'books', id));
+    setBooks(prev => prev.filter(b => b.id !== id));
     if (selectedBook?.id === id) setSelectedBook(null);
   };
 

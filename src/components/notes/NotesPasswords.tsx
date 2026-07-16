@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Key, Plus, Trash2, Copy, Eye, EyeOff, Search, RefreshCw, Check, ShieldAlert, ChevronRight, ChevronLeft, Save, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { db } from '../../lib/firebase';
-import { collection, addDoc, query, onSnapshot, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 interface PasswordEntry {
   id: string;
@@ -17,7 +16,7 @@ interface PasswordEntry {
 
 export const NotesPasswords = () => {
   const { user } = useAuth();
-  const [passwords, setPasswords] = useState<PasswordEntry[]>([]);
+  const [passwords, setPasswords] = useLocalStorage<PasswordEntry[]>('apex_passwords', []);
   const [showWizard, setShowWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [newPasswordData, setNewPasswordData] = useState({
@@ -31,30 +30,24 @@ export const NotesPasswords = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedPasswordId, setSelectedPasswordId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'users', user.uid, 'passwords'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setPasswords(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PasswordEntry)));
-    });
-    return () => unsubscribe();
-  }, [user]);
+
 
   const addPassword = async () => {
-    if (!user || !newPasswordData.siteName || !newPasswordData.password) return;
-    await addDoc(collection(db, 'users', user.uid, 'passwords'), {
+    if (!newPasswordData.siteName || !newPasswordData.password) return;
+    const newEntry = {
+      id: crypto.randomUUID(),
       ...newPasswordData,
       createdAt: Date.now(),
       lastChanged: Date.now()
-    });
+    };
+    setPasswords(prev => [newEntry, ...prev]);
     setNewPasswordData({ siteName: '', username: '', password: '', url: '' });
     setShowWizard(false);
     setWizardStep(1);
   };
 
   const deletePassword = async (id: string) => {
-    if (!user) return;
-    await deleteDoc(doc(db, 'users', user.uid, 'passwords', id));
+    setPasswords(prev => prev.filter(p => p.id !== id));
     if (selectedPasswordId === id) setSelectedPasswordId(null);
   };
 
