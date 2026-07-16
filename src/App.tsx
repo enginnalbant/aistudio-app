@@ -1,24 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { Sidebar } from './components/Sidebar';
-import { Header } from './components/Header';
-import { MobileNav } from './components/MobileNav';
-import { SpatialBackground } from './components/SpatialBackground';
+import { Sidebar, Header, MobileNav, SpatialBackground } from './components/layout';
 import { SettingsModal } from './components/ui/SettingsModal';
 import { NotificationPage } from './components/NotificationPage';
 import { NotificationSettings } from './components/NotificationSettings';
 import { CalendarPage } from './components/CalendarPage';
-import { 
-  PurchasingDashboard,
-  PurchasingRequests,
-  PurchasingLists,
-  PurchasingQuotes,
-  PurchasingPendingOrders,
-  PurchasingSentOrders,
-  PurchasingAllOrders,
-  PurchasingReports,
-  PurchasingAnalytics
-} from './components/PurchasingModules';
 import {
   FinanceDashboard,
   FinanceIncomes,
@@ -29,25 +15,6 @@ import {
   FinanceAnalytics,
   FinanceReports
 } from './components/finance';
-import {
-  FasonDashboard,
-  FasonOutgoing,
-  FasonAll,
-  FasonReports,
-  FasonAnalytics,
-  StocksDashboard,
-  StocksList,
-  StocksReports,
-  StocksAnalytics,
-  ContactsDashboard,
-  ContactsList,
-  ContactsReports,
-  ContactsAnalytics,
-  ReconDashboard,
-  ReconContacts,
-  ReconReports,
-  ReconAnalytics
-} from './components/ModulePages';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
@@ -202,58 +169,6 @@ function AppLayout() {
                   <FinanceAnalytics />
                 ) : activeModule === 'finance-reports' ? (
                   <FinanceReports />
-                ) : activeModule === 'purchasing-dashboard' ? (
-                  <PurchasingDashboard />
-                ) : activeModule === 'purchasing-requests' ? (
-                  <PurchasingRequests />
-                ) : activeModule === 'purchasing-lists' ? (
-                  <PurchasingLists />
-                ) : activeModule === 'purchasing-quotes' ? (
-                  <PurchasingQuotes />
-                ) : activeModule === 'purchasing-pending-orders' ? (
-                  <PurchasingPendingOrders />
-                ) : activeModule === 'purchasing-sent-orders' ? (
-                  <PurchasingSentOrders />
-                ) : activeModule === 'purchasing-all-orders' ? (
-                  <PurchasingAllOrders />
-                ) : activeModule === 'purchasing-reports' ? (
-                  <PurchasingReports />
-                ) : activeModule === 'purchasing-analytics' ? (
-                  <PurchasingAnalytics />
-                ) : activeModule === 'fason-dashboard' ? (
-                  <FasonDashboard />
-                ) : activeModule === 'fason-outgoing' ? (
-                  <FasonOutgoing />
-                ) : activeModule === 'fason-all' ? (
-                  <FasonAll />
-                ) : activeModule === 'fason-reports' ? (
-                  <FasonReports />
-                ) : activeModule === 'fason-analytics' ? (
-                  <FasonAnalytics />
-                ) : activeModule === 'stocks-dashboard' ? (
-                  <StocksDashboard />
-                ) : activeModule === 'stocks-list' ? (
-                  <StocksList />
-                ) : activeModule === 'stocks-reports' ? (
-                  <StocksReports />
-                ) : activeModule === 'stocks-analytics' ? (
-                  <StocksAnalytics />
-                ) : activeModule === 'contacts-dashboard' ? (
-                  <ContactsDashboard />
-                ) : activeModule === 'contacts-list' ? (
-                  <ContactsList />
-                ) : activeModule === 'contacts-reports' ? (
-                  <ContactsReports />
-                ) : activeModule === 'contacts-analytics' ? (
-                  <ContactsAnalytics />
-                ) : activeModule === 'recon-dashboard' ? (
-                  <ReconDashboard />
-                ) : activeModule === 'recon-contacts' ? (
-                  <ReconContacts />
-                ) : activeModule === 'recon-reports' ? (
-                  <ReconReports />
-                ) : activeModule === 'recon-analytics' ? (
-                  <ReconAnalytics />
                 ) : activeModule === 'library-ebooks' ? (
                   <NotesBooks />
                 ) : activeModule.startsWith('library-') ? (

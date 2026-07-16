@@ -32,17 +32,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../context/AuthContext';
-import { db, handleFirestoreError, OperationType } from '../../lib/firebase';
-import { 
-  collection, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc 
-} from 'firebase/firestore';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 interface TodoItem {
   text: string;
@@ -107,7 +97,7 @@ const COLOR_MAP = {
 
 export function NotesQuick() {
   const { user } = useAuth();
-  const [notes, setNotes] = useState<QuickNote[]>([]);
+  const [notes, setNotes] = useLocalStorage<QuickNote[]>('apex_quick_notes', []);
   const [isLoading, setIsLoading] = useState(true);
 
   // Form States
@@ -157,42 +147,7 @@ export function NotesQuick() {
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const editContentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Subscription for Real-time notes
-  useEffect(() => {
-    if (!user) {
-      setNotes([]);
-      setIsLoading(false);
-      return;
-    }
-
-    const path = `users/${user.uid}/quick_notes`;
-    const notesQuery = query(collection(db, 'users', user.uid, 'quick_notes'), orderBy('createdAt', 'desc'));
-    
-    const unsub = onSnapshot(notesQuery, (snapshot) => {
-      const list: QuickNote[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        list.push({
-          id: doc.id,
-          title: data.title || 'Başlıksız Not',
-          content: data.content || '',
-          tags: Array.isArray(data.tags) ? data.tags : [],
-          color: data.color || 'amber',
-          category: data.category || 'Genel',
-          todoItems: Array.isArray(data.todoItems) ? data.todoItems : [],
-          links: Array.isArray(data.links) ? data.links : [],
-          createdAt: data.createdAt || new Date().toISOString(),
-          isPinned: !!data.isPinned
-        });
-      });
-      setNotes(list);
-      setIsLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
-    });
-
-    return () => unsub();
-  }, [user]);
+useEffect(() => { setIsLoading(false); }, []);
 
   // Insert Rich Text Formatting
   const insertFormat = (formatType: 'bold' | 'italic' | 'heading' | 'code' | 'bullet' | 'todo' | 'link', isEdit = false) => {
