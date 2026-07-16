@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Book, 
@@ -11,7 +11,6 @@ import {
   Tag, 
   Folder, 
   Sparkles,
-  Database,
   ChevronRight,
   ChevronLeft,
   Save,
@@ -48,8 +47,6 @@ export const NotesBooks = () => {
   const [tagInput, setTagInput] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
-
-
   const filteredBooks = books.filter(b => 
     b.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     b.author?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -74,7 +71,7 @@ export const NotesBooks = () => {
         id: crypto.randomUUID(),
         ...newBook,
         createdAt: new Date().toISOString()
-      };
+      } as BookItem;
       setBooks(prev => [entry, ...prev]);
       setNewBook({ title: '', author: '', category: '', tags: [], coverUrl: '', description: '' });
       setShowWizard(false);
@@ -93,7 +90,7 @@ export const NotesBooks = () => {
     setIsSyncing(true);
     setTimeout(() => {
       setIsSyncing(false);
-      // In a real app, this would fetch from Drive API and save to Firestore
+      // In a real app, this would fetch from Drive API and save to local list
       alert('Google Drive senkronizasyonu tamamlandı (Simülasyon)');
     }, 2000);
   };
@@ -102,14 +99,11 @@ export const NotesBooks = () => {
     if (!selectedBook || !user) return;
     // Simulate fetching metadata (cover, description)
     setIsSyncing(true);
-    setTimeout(async () => {
+    setTimeout(() => {
       const mockDescription = "Bu kitap internetten çekilmiş otomatik bir açıklama metnine sahiptir. Yazarın eşsiz anlatımıyla dikkat çeken eser, okuyucuları derin düşüncelere sevk ediyor.";
       const mockCover = "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=200&auto=format&fit=crop";
       
-      await updateDoc(doc(db, 'users', user.uid, 'books', selectedBook.id), {
-        description: mockDescription,
-        coverUrl: mockCover
-      });
+      setBooks(prev => prev.map(b => b.id === selectedBook.id ? { ...b, description: mockDescription, coverUrl: mockCover } : b));
       setSelectedBook(prev => prev ? { ...prev, description: mockDescription, coverUrl: mockCover } : null);
       setIsSyncing(false);
     }, 1500);
@@ -326,4 +320,3 @@ export const NotesBooks = () => {
     </div>
   );
 };
-

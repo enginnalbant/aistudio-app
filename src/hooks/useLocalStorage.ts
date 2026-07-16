@@ -65,9 +65,9 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'app_states', filter: `user_id=eq.${user.id}` },
-            (payload) => {
-              if (payload.new && payload.new.key === key) {
-                const cloudVal = payload.new.data as T;
+            (payload: any) => {
+              if (payload.new && (payload.new as any).key === key) {
+                const cloudVal = (payload.new as any).data as T;
                 if (JSON.stringify(cloudVal) !== JSON.stringify(storedValueRef.current) && !isWritingRef.current) {
                   setStoredValue(cloudVal);
                   window.localStorage.setItem(key, JSON.stringify(cloudVal));

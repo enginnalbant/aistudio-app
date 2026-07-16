@@ -7,14 +7,44 @@ import {
   Mail,
   Lock,
   Smartphone,
-  ArrowRight,
-  HelpCircle,
-  ShieldCheck,
   KeyRound,
   RefreshCw,
   Sparkles,
   ChevronRight
 } from 'lucide-react';
+
+// Maps common Supabase / Postgres auth error messages/codes into highly readable Turkish explanations
+function translateAuthError(error: any): string {
+  if (!error) return 'Bilinmeyen bir hata oluştu.';
+  const message = error.message || String(error);
+
+  if (message.includes('Invalid login credentials') || message.includes('invalid_credentials')) {
+    return 'Giriş bilgileri geçersiz. E-posta adresinizi veya şifrenizi kontrol edin.';
+  }
+  if (message.includes('User already registered') || message.includes('already_registered')) {
+    return 'Bu e-posta adresiyle zaten kayıtlı bir kullanıcı bulunuyor.';
+  }
+  if (message.includes('Password should be at least 6 characters')) {
+    return 'Güvenliğiniz için şifreniz en az 6 karakterden oluşmalıdır.';
+  }
+  if (message.includes('Email not confirmed')) {
+    return 'E-posta adresiniz henüz doğrulanmamış. Lütfen gelen kutunuzu (ve spam klasörünü) kontrol edin.';
+  }
+  if (message.includes('Too many requests') || message.includes('rate limit')) {
+    return 'Çok fazla istek gönderildi. Lütfen bir dakika bekledikten sonra tekrar deneyin.';
+  }
+  if (message.includes('signup_disabled')) {
+    return 'Yeni kullanıcı kaydı şu anda geçici olarak devre dışıdır.';
+  }
+  if (message.includes('SMS spoofing') || message.includes('sms_provider_error')) {
+    return 'SMS gönderimi sırasında bir hata oluştu. Lütfen numaranızı kontrol edin.';
+  }
+  if (message.includes('Invalid OTP') || message.includes('invalid_grant')) {
+    return 'Girilen 6 haneli doğrulama kodu geçersiz veya süresi dolmuş.';
+  }
+
+  return `Kimlik doğrulama hatası: ${message}`;
+}
 
 export function LoginPage() {
   const {
@@ -55,17 +85,34 @@ export function LoginPage() {
     }, 1500);
   };
 
+  // Basic email validation regex
+  const isValidEmail = (val: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  };
+
   // Submit Handler: Email & Password (Login or Register)
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    setErrorMsg(null);
+    setInfoMsg(null);
+
+    // 1. Validation checks
+    if (!email.trim() || !password) {
       triggerError('Lütfen tüm alanları doldurun.');
       return;
     }
 
+    if (!isValidEmail(email)) {
+      triggerError('Lütfen geçerli bir e-posta adresi girin (örn. adsoyad@sirket.com).');
+      return;
+    }
+
+    if (password.length < 6) {
+      triggerError('Şifreniz güvenlik nedeniyle en az 6 karakter uzunluğunda olmalıdır.');
+      return;
+    }
+
     setIsLoading(true);
-    setErrorMsg(null);
-    setInfoMsg(null);
 
     try {
       if (isRegister) {
@@ -81,7 +128,7 @@ export function LoginPage() {
         setIsSuccess(true);
       }
     } catch (err: any) {
-      triggerError(err.message || 'Giriş işlemi başarısız oldu.');
+      triggerError(translateAuthError(err));
     } finally {
       setIsLoading(false);
     }
@@ -90,21 +137,35 @@ export function LoginPage() {
   // Submit Handler: Request OTP via SMS
   const handlePhoneRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone) {
+    setErrorMsg(null);
+    setInfoMsg(null);
+
+    // Clean and validate Turkish phone number format (+905xxxxxxxxxx)
+    const cleanedPhone = phone.replace(/\s+/g, '');
+    if (!cleanedPhone) {
       triggerError('Lütfen telefon numaranızı girin.');
       return;
     }
 
+    if (!cleanedPhone.startsWith('+')) {
+      triggerError('Telefon numarası ülke kodu ile başlamalıdır (Örn: +905XXXXXXXXX).');
+      return;
+    }
+
+    if (cleanedPhone.length < 10) {
+      triggerError('Lütfen geçerli uzunlukta bir telefon numarası girin.');
+      return;
+    }
+
     setIsLoading(true);
-    setErrorMsg(null);
 
     try {
-      const { error } = await signInWithPhone(phone);
+      const { error } = await signInWithPhone(cleanedPhone);
       if (error) throw error;
       setOtpSent(true);
-      setInfoMsg('Tek kullanımlık SMS kodu telefonunuza gönderildi.');
+      setInfoMsg('Tek kullanımlık 6 haneli SMS kodu telefonunuza gönderildi.');
     } catch (err: any) {
-      triggerError(err.message || 'SMS gönderme işlemi başarısız oldu.');
+      triggerError(translateAuthError(err));
     } finally {
       setIsLoading(false);
     }
@@ -113,20 +174,21 @@ export function LoginPage() {
   // Submit Handler: Verify OTP Code
   const handlePhoneVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otp) {
-      triggerError('Lütfen doğrulama kodunu girin.');
+    setErrorMsg(null);
+
+    if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
+      triggerError('Lütfen telefonunuza gelen 6 haneli doğrulama kodunu eksiksiz girin.');
       return;
     }
 
     setIsLoading(true);
-    setErrorMsg(null);
 
     try {
       const { error } = await verifyPhoneOTP(phone, otp);
       if (error) throw error;
       setIsSuccess(true);
     } catch (err: any) {
-      triggerError(err.message || 'Doğrulama kodu geçersiz.');
+      triggerError(translateAuthError(err));
     } finally {
       setIsLoading(false);
     }
@@ -140,7 +202,7 @@ export function LoginPage() {
       const { error } = await signInWithGoogle();
       if (error) throw error;
     } catch (err: any) {
-      triggerError(err.message || 'Google ile giriş hatası.');
+      triggerError(translateAuthError(err));
     } finally {
       setIsLoading(false);
     }
@@ -208,14 +270,14 @@ export function LoginPage() {
           {!otpSent && (
             <div className="grid grid-cols-2 p-1 rounded-xl bg-skel-matte/10 border border-skel-metal/5 text-sm font-semibold">
               <button
-                onClick={() => { setUsePhone(false); setErrorMsg(null); }}
-                className={`py-2.5 rounded-lg transition-all duration-300 ${!usePhone ? 'bg-bg-card text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                onClick={() => { setUsePhone(false); setErrorMsg(null); setInfoMsg(null); }}
+                className={`py-2.5 rounded-lg transition-all duration-300 cursor-pointer ${!usePhone ? 'bg-bg-card text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
               >
                 E-Posta / Şifre
               </button>
               <button
-                onClick={() => { setUsePhone(true); setErrorMsg(null); }}
-                className={`py-2.5 rounded-lg transition-all duration-300 ${usePhone ? 'bg-bg-card text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                onClick={() => { setUsePhone(true); setErrorMsg(null); setInfoMsg(null); }}
+                className={`py-2.5 rounded-lg transition-all duration-300 cursor-pointer ${usePhone ? 'bg-bg-card text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
               >
                 Telefon No (OTP)
               </button>
@@ -372,7 +434,7 @@ export function LoginPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => { setOtpSent(false); setOtp(''); }}
+                    onClick={() => { setOtpSent(false); setOtp(''); setErrorMsg(null); setInfoMsg(null); }}
                     className="flex-1 py-3 px-4 rounded-xl bg-skel-matte/10 hover:bg-skel-matte/15 text-text-primary text-sm font-semibold transition-colors cursor-pointer"
                   >
                     Geri Git
@@ -432,7 +494,7 @@ export function LoginPage() {
             <p className="text-center text-xs text-text-secondary">
               {isRegister ? 'Zaten bir hesabınız var mı? ' : 'Henüz hesabınız yok mu? '}
               <button
-                onClick={() => { setIsRegister(!isRegister); setErrorMsg(null); }}
+                onClick={() => { setIsRegister(!isRegister); setErrorMsg(null); setInfoMsg(null); }}
                 className="font-bold text-focus-neon hover:underline cursor-pointer"
               >
                 {isRegister ? 'Giriş Yap' : 'Kayıt Ol'}
