@@ -22,13 +22,7 @@ import {
   Italic,
   Code,
   List,
-  Smile,
-  Briefcase,
-  Wand2,
-  Settings,
-  CornerDownRight,
-  Globe,
-  PlusCircle
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../context/AuthContext';
@@ -147,7 +141,7 @@ export function NotesQuick() {
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const editContentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-useEffect(() => { setIsLoading(false); }, []);
+  useEffect(() => { setIsLoading(false); }, []);
 
   // Insert Rich Text Formatting
   const insertFormat = (formatType: 'bold' | 'italic' | 'heading' | 'code' | 'bullet' | 'todo' | 'link', isEdit = false) => {
@@ -259,7 +253,8 @@ useEffect(() => { setIsLoading(false); }, []);
         .map(t => t.trim())
         .filter(t => t.length > 0);
 
-      const newNote = {
+      const newNote: QuickNote = {
+        id: crypto.randomUUID(),
         title: title.trim() || 'Hızlı Not',
         content: content.trim(),
         tags: processedTags,
@@ -271,7 +266,7 @@ useEffect(() => { setIsLoading(false); }, []);
         isPinned: false
       };
 
-      await addDoc(collection(db, 'users', user.uid, 'quick_notes'), newNote);
+      setNotes(prev => [newNote, ...prev]);
       
       // Reset Form
       setTitle('');
@@ -337,7 +332,8 @@ useEffect(() => { setIsLoading(false); }, []);
   const handleSaveWizardResult = async () => {
     if (!user || !wizardResult) return;
     try {
-      await addDoc(collection(db, 'users', user.uid, 'quick_notes'), {
+      const newNote: QuickNote = {
+        id: crypto.randomUUID(),
         title: wizardResult.title || 'Asistan Notu',
         content: wizardResult.content || '',
         tags: wizardResult.tags || [],
@@ -347,7 +343,9 @@ useEffect(() => { setIsLoading(false); }, []);
         links: wizardResult.links || [],
         createdAt: new Date().toISOString(),
         isPinned: false
-      });
+      };
+
+      setNotes(prev => [newNote, ...prev]);
 
       // Clear states
       setWizardText('');
@@ -362,7 +360,7 @@ useEffect(() => { setIsLoading(false); }, []);
   const handleDeleteNote = async (id: string) => {
     if (!user) return;
     try {
-      await deleteDoc(doc(db, 'users', user.uid, 'quick_notes', id));
+      setNotes(prev => prev.filter(n => n.id !== id));
     } catch (err) {
       console.error(err);
     }
@@ -371,9 +369,7 @@ useEffect(() => { setIsLoading(false); }, []);
   const handleTogglePin = async (note: QuickNote) => {
     if (!user) return;
     try {
-      await updateDoc(doc(db, 'users', user.uid, 'quick_notes', note.id), {
-        isPinned: !note.isPinned
-      });
+      setNotes(prev => prev.map(n => n.id === note.id ? { ...n, isPinned: !n.isPinned } : n));
     } catch (err) {
       console.error(err);
     }
@@ -385,9 +381,7 @@ useEffect(() => { setIsLoading(false); }, []);
     updatedTodos[index].completed = !updatedTodos[index].completed;
     
     try {
-      await updateDoc(doc(db, 'users', user.uid, 'quick_notes', note.id), {
-        todoItems: updatedTodos
-      });
+      setNotes(prev => prev.map(n => n.id === note.id ? { ...n, todoItems: updatedTodos } : n));
     } catch (err) {
       console.error(err);
     }
@@ -445,7 +439,7 @@ useEffect(() => { setIsLoading(false); }, []);
     setEditTodos(note.todoItems || []);
   };
 
-  // Save Edit Note Changes to Firebase
+  // Save Edit Note Changes to LocalStorage
   const handleSaveEdit = async () => {
     if (!user || !editingNote) return;
     try {
@@ -454,7 +448,8 @@ useEffect(() => { setIsLoading(false); }, []);
         .map(t => t.trim())
         .filter(t => t.length > 0);
 
-      await updateDoc(doc(db, 'users', user.uid, 'quick_notes', editingNote.id), {
+      const updated: QuickNote = {
+        ...editingNote,
         title: editTitle.trim() || 'Hızlı Not',
         content: editContent.trim(),
         tags: processedTags,
@@ -462,9 +457,9 @@ useEffect(() => { setIsLoading(false); }, []);
         color: editColor,
         links: editLinks,
         todoItems: editTodos,
-        updatedAt: new Date().toISOString()
-      });
+      };
 
+      setNotes(prev => prev.map(n => n.id === editingNote.id ? updated : n));
       setEditingNote(null);
     } catch (err) {
       console.error(err);
@@ -505,7 +500,7 @@ useEffect(() => { setIsLoading(false); }, []);
     return list.sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      return new Date(a.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [notes, searchQuery, selectedTag]);
 
@@ -814,7 +809,7 @@ useEffect(() => { setIsLoading(false); }, []);
                   <div className="flex flex-wrap gap-1.5 bg-amber-500/5 border border-amber-500/10 rounded-xl p-2.5">
                     <span className="text-[9px] font-mono text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1 w-full mb-1">
                       <Sparkles size={11} />
-                      Akıllı Asistan Araçları
+                      Yapay Zeka Asistan Araçları
                     </span>
                     <button
                       type="button"
