@@ -30,11 +30,6 @@ import {
   FinanceReports
 } from './components/finance';
 import {
-  FasonDashboard,
-  FasonOutgoing,
-  FasonAll,
-  FasonReports,
-  FasonAnalytics,
   StocksDashboard,
   StocksList,
   StocksReports,
@@ -42,11 +37,7 @@ import {
   ContactsDashboard,
   ContactsList,
   ContactsReports,
-  ContactsAnalytics,
-  ReconDashboard,
-  ReconContacts,
-  ReconReports,
-  ReconAnalytics
+  ContactsAnalytics
 } from './components/ModulePages';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap } from 'lucide-react';
@@ -217,16 +208,6 @@ function AppLayout() {
                   <PurchasingReports />
                 ) : activeModule === 'purchasing-analytics' ? (
                   <PurchasingAnalytics />
-                ) : activeModule === 'fason-dashboard' ? (
-                  <FasonDashboard />
-                ) : activeModule === 'fason-outgoing' ? (
-                  <FasonOutgoing />
-                ) : activeModule === 'fason-all' ? (
-                  <FasonAll />
-                ) : activeModule === 'fason-reports' ? (
-                  <FasonReports />
-                ) : activeModule === 'fason-analytics' ? (
-                  <FasonAnalytics />
                 ) : activeModule === 'stocks-dashboard' ? (
                   <StocksDashboard />
                 ) : activeModule === 'stocks-list' ? (
@@ -243,14 +224,6 @@ function AppLayout() {
                   <ContactsReports />
                 ) : activeModule === 'contacts-analytics' ? (
                   <ContactsAnalytics />
-                ) : activeModule === 'recon-dashboard' ? (
-                  <ReconDashboard />
-                ) : activeModule === 'recon-contacts' ? (
-                  <ReconContacts />
-                ) : activeModule === 'recon-reports' ? (
-                  <ReconReports />
-                ) : activeModule === 'recon-analytics' ? (
-                  <ReconAnalytics />
                 ) : activeModule === 'library-ebooks' ? (
                   <NotesBooks />
                 ) : activeModule.startsWith('library-') ? (

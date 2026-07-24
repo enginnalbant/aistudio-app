@@ -36,9 +36,7 @@ import {
   Image as ImageIcon,
   Rss,
   PlaySquare,
-  CalendarDays,
-  Sparkles,
-  Radio
+  CalendarDays
 } from "lucide-react";
 import { SettingsModal } from './SettingsModal';
 import { clsx } from "clsx";
@@ -237,17 +235,17 @@ function getSidebarContent(activeSection: string): SidebarContent {
           ],
         },
         {
-          title: "Notlar",
-          items: [
-            { id: 'notes-quick', icon: <Zap size={16} />, label: 'Hızlı Notlar', moduleId: 'notes-quick' },
-            { id: 'notes-notebook', icon: <BookText size={16} />, label: 'Not Defteri', moduleId: 'notes-notebook' },
-          ],
-        },
-        {
           title: "Planlayıcı",
           items: [
             { id: 'notes-planner-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'notes-planner-dashboard' },
             { id: 'notes-planner-plans', icon: <CalendarDays size={16} />, label: 'Günlük/Haftalık/Aylık', moduleId: 'notes-planner-plans' },
+          ],
+        },
+        {
+          title: "Notlar",
+          items: [
+            { id: 'notes-quick', icon: <Zap size={16} />, label: 'Hızlı Notlar', moduleId: 'notes-quick' },
+            { id: 'notes-notebook', icon: <BookText size={16} />, label: 'Not Defteri', moduleId: 'notes-notebook' },
           ],
         },
       ],
@@ -259,10 +257,8 @@ function getSidebarContent(activeSection: string): SidebarContent {
           title: "Genel",
           items: [
             { id: 'bulletin-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'bulletin-dashboard' },
-            { id: 'bulletin-news', icon: <Rss size={16} />, label: 'Haber & Akışlar', moduleId: 'bulletin-news' },
-            { id: 'bulletin-digest', icon: <Sparkles size={16} />, label: 'Akıllı Bülten (AI)', moduleId: 'bulletin-digest' },
+            { id: 'bulletin-news', icon: <Rss size={16} />, label: 'Haberler', moduleId: 'bulletin-news' },
             { id: 'bulletin-saved', icon: <Bookmark size={16} />, label: 'Kaydedilenler', moduleId: 'bulletin-saved' },
-            { id: 'bulletin-feeds', icon: <Radio size={16} />, label: 'RSS Kaynakları', moduleId: 'bulletin-feeds' },
           ],
         },
         {
