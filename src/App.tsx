@@ -44,6 +44,8 @@ import { Zap } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
 import { BulletinNews } from './components/bulletin/BulletinNews';
 import { NotesTodo } from './components/notes/NotesTodo';
+import { NotesQuick } from './components/notes/NotesQuick';
+import { NotesNotebook } from './components/notes/NotesNotebook';
 import { NotesBookmarks } from './components/notes/NotesBookmarks';
 import { NotesPasswords } from './components/notes/NotesPasswords';
 import { NotesBooks } from './components/notes/NotesBooks';
@@ -232,15 +234,9 @@ function AppLayout() {
                     brandName="APEXOS KÜTÜPHANE" 
                   />
                 ) : activeModule === 'notes-quick' ? (
-                  <ComingSoon 
-                    title="Hızlı Notlar" 
-                    brandName="APEXOS" 
-                  />
+                  <NotesQuick />
                 ) : activeModule === 'notes-notebook' ? (
-                  <ComingSoon 
-                    title="Not Defteri" 
-                    brandName="APEXOS" 
-                  />
+                  <NotesNotebook />
                 ) : activeModule === 'notes-todo' ? (
                   <NotesTodo />
                 ) : activeModule === 'notes-bookmarks' ? (
