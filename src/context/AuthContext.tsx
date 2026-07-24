@@ -1,22 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  auth, 
-  googleProvider, 
-  db, 
-  doc, 
-  getDocFromServer,
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut as firebaseSignOut,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  User,
-  browserPopupRedirectResolver,
-  GoogleAuthProvider 
-} from '../lib/firebase';
+import { supabase } from '../lib/supabase';
+
+export interface UnifiedUser {
+  uid: string;
+  id: string;
+  email?: string;
+  displayName?: string;
+  photoURL?: string;
+  phone?: string;
+  isGuest?: boolean;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: UnifiedUser | null;
   accessToken: string | null;
   session: any | null;
   loading: boolean;
@@ -25,6 +21,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, metadata?: any) => Promise<{ data: any, error: any }>;
   signInWithGoogle: () => Promise<{ data: any, error: any }>;
   signInAsGuest: () => void;
+  signInWithPhone: (phone: string) => Promise<{ data: any, error: any }>;
+  verifyPhoneOTP: (phone: string, token: string) => Promise<{ data: any, error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -37,120 +35,202 @@ const AuthContext = createContext<AuthContextType>({
   signUp: async () => ({ data: null, error: null }),
   signInWithGoogle: async () => ({ data: null, error: null }),
   signInAsGuest: () => {},
+  signInWithPhone: async () => ({ data: null, error: null }),
+  verifyPhoneOTP: async () => ({ data: null, error: null }),
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UnifiedUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [session, setSession] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
-
-    const testConnection = async () => {
-      try {
-        if (db) {
-          await getDocFromServer(doc(db, 'test', 'connection'));
-        }
-      } catch (error) {
-        console.warn("Firebase connection test failed (expected if collection 'test' is empty or rules block it):", error);
-      }
-    };
-    testConnection();
-
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) {
-        setAccessToken(null);
-        localStorage.removeItem('oauth_access_token');
-      } else {
-        const stored = localStorage.getItem('oauth_access_token');
-        if (stored) {
-          setAccessToken(stored);
-        }
-      }
-      setSession(currentUser ? { user: currentUser } : null);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const signOut = async () => {
-    if (!auth) return;
+  // Helper to ensure profile row exists in DB
+  const ensureProfileExists = async (sessionUser: any) => {
     try {
-      await firebaseSignOut(auth);
-      setAccessToken(null);
-      localStorage.removeItem('oauth_access_token');
-    } catch (error) {
-      console.error("Error signing out", error);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', sessionUser.id)
+        .single();
+
+      if (error && error.code === 'PGRST116') {
+        // Profile does not exist, insert it
+        await supabase.from('profiles').insert({
+          id: sessionUser.id,
+          email: sessionUser.email,
+          display_name: sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.display_name || sessionUser.email?.split('@')[0],
+          avatar_url: sessionUser.user_metadata?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + sessionUser.id,
+        });
+        console.log('[Supabase Auth] Profile row created successfully.');
+      }
+    } catch (err: any) {
+      console.warn('[Supabase Auth Warning] Error during auto profiling:', err.message);
     }
   };
 
+  useEffect(() => {
+    // 1. Initial Session Check from Supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        const unified: UnifiedUser = {
+          uid: session.user.id,
+          id: session.user.id,
+          email: session.user.email,
+          displayName: session.user.user_metadata?.full_name || session.user.user_metadata?.display_name || session.user.email?.split('@')[0],
+          photoURL: session.user.user_metadata?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + session.user.id,
+          phone: session.user.phone,
+        };
+        setUser(unified);
+        setSession(session);
+        setAccessToken(session.access_token);
+        ensureProfileExists(session.user);
+      } else {
+        // Fallback to local guest if saved in localStorage
+        const guest = {
+          uid: 'guest-user',
+          id: 'guest-user',
+          email: 'misafir@apexos.com',
+          displayName: 'Misafir Kullanıcı',
+          photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest',
+          isGuest: true,
+        };
+        localStorage.setItem('guest_user', JSON.stringify(guest));
+        setUser(guest);
+      }
+      setLoading(false);
+    });
+
+    // 2. Listen to Auth State Changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        const unified: UnifiedUser = {
+          uid: session.user.id,
+          id: session.user.id,
+          email: session.user.email,
+          displayName: session.user.user_metadata?.full_name || session.user.user_metadata?.display_name || session.user.email?.split('@')[0],
+          photoURL: session.user.user_metadata?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + session.user.id,
+          phone: session.user.phone,
+        };
+        setUser(unified);
+        setSession(session);
+        setAccessToken(session.access_token);
+        ensureProfileExists(session.user);
+      } else {
+        const guest = {
+          uid: 'guest-user',
+          id: 'guest-user',
+          email: 'misafir@apexos.com',
+          displayName: 'Misafir Kullanıcı',
+          photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest',
+          isGuest: true,
+        };
+        localStorage.setItem('guest_user', JSON.stringify(guest));
+        setUser(guest);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const signOut = async () => {
+    localStorage.removeItem('guest_user');
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setAccessToken(null);
+  };
+
   const signIn = async (email: string, password: string) => {
-    if (!auth) return { data: null, error: new Error("Auth not initialized") };
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      return { data: { user: userCredential.user }, error: null };
-    } catch (error) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error: any) {
+      console.error('[Supabase Auth] Login Error:', error.message);
       return { data: null, error };
     }
   };
 
   const signUp = async (email: string, password: string, metadata?: any) => {
-    if (!auth) return { data: null, error: new Error("Auth not initialized") };
     try {
-       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-       return { data: { user: userCredential.user }, error: null };
-    } catch (error) {
-       return { data: null, error };
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata || {},
+        },
+      });
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error: any) {
+      console.error('[Supabase Auth] Registration Error:', error.message);
+      return { data: null, error };
     }
   };
 
   const signInWithGoogle = async () => {
-    if (!auth) return { data: null, error: new Error("Auth not initialized") };
     try {
-      console.log("Initiating Google Sign-In popup...");
-      // Explicitly use popup resolver to handle iframe constraints better
-      const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
-      
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (credential?.accessToken) {
-        setAccessToken(credential.accessToken);
-        localStorage.setItem('oauth_access_token', credential.accessToken);
-      }
-      
-      console.log("Sign-In successful:", result.user.email);
-      return { data: { user: result.user }, error: null };
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) throw error;
+      return { data, error: null };
     } catch (error: any) {
-      console.error("Sign-In Error:", error);
-      // Provide a more helpful error message for common iframe/popup issues
-      let errorMessage = error.message;
-      if (error.code === 'auth/popup-closed-by-user') {
-        errorMessage = "Giriş penceresi kapatıldı.";
-      } else if (error.code === 'auth/cancelled-popup-request') {
-        errorMessage = "Giriş isteği iptal edildi.";
-      } else if (error.code === 'auth/popup-blocked') {
-        errorMessage = "Tarayıcı pencereyi engelledi. Lütfen izin verin.";
-      } else if (error.code === 'auth/operation-not-allowed') {
-        errorMessage = "Google ile giriş Firebase konsolunda etkinleştirilmemiş olabilir.";
-      }
-      return { data: null, error: { ...error, message: errorMessage } };
+      console.error('[Supabase Auth] Google Auth Error:', error.message);
+      return { data: null, error };
+    }
+  };
+
+  const signInWithPhone = async (phone: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOtp({ phone });
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error: any) {
+      console.error('[Supabase Auth] Phone OTP Request Error:', error.message);
+      return { data: null, error };
+    }
+  };
+
+  const verifyPhoneOTP = async (phone: string, token: string) => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone,
+        token,
+        type: 'sms',
+      });
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error: any) {
+      console.error('[Supabase Auth] Phone OTP Verification Error:', error.message);
+      return { data: null, error };
     }
   };
 
   const signInAsGuest = () => {
-    // Optionally implement anonymous login using signInAnonymously(auth)
+    const guest: UnifiedUser = {
+      uid: 'guest-user',
+      id: 'guest-user',
+      email: 'misafir@apexos.com',
+      displayName: 'Misafir Kullanıcı',
+      photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest',
+      isGuest: true,
+    };
+    localStorage.setItem('guest_user', JSON.stringify(guest));
+    setUser(guest);
   };
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, session, loading, signOut, signIn, signUp, signInWithGoogle, signInAsGuest }}>
+    <AuthContext.Provider value={{ user, accessToken, session, loading, signOut, signIn, signUp, signInWithGoogle, signInAsGuest, signInWithPhone, verifyPhoneOTP }}>
       {children}
     </AuthContext.Provider>
   );
