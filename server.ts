@@ -9,6 +9,14 @@ import { google } from "googleapis";
 // Allow connections to servers with expired or custom SSL/TLS certificates for RSS feeds
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
+process.on('unhandledRejection', (reason) => {
+  console.warn('[Server] Caught Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Server] Caught Uncaught Exception:', err);
+});
+
 const parser = new Parser({
   customFields: {
     item: [
@@ -191,9 +199,136 @@ async function startServer() {
     return cleaned;
   };
 
+  // In-Memory RSS Proxy Cache (5-minute TTL)
+  const rssProxyCache = new Map<string, { xmlText: string; timestamp: number }>();
+  const RSS_PROXY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+  // In-Memory YouTube Channel ID Resolution Cache
+  const youtubeChannelCache = new Map<string, string>([
+    ['siyahzetsu', 'UCxHlq3cewhURy3V05cjBvTQ'],
+    ['beyazzetsu', 'UCxHlq3cewhURy3V05cjBvTQ'],
+    ['pintipandayt', 'UCuU0qYesQjAT_qXcQJqgV3w'],
+    ['pintipanda', 'UCuU0qYesQjAT_qXcQJqgV3w']
+  ]);
+
+  async function resolveYouTubeChannelId(handleOrUser: string): Promise<string | null> {
+    const cleanHandle = handleOrUser.replace(/^@/, '').trim();
+    if (!cleanHandle) return null;
+    const lowerKey = cleanHandle.toLowerCase();
+    if (youtubeChannelCache.has(lowerKey)) {
+      return youtubeChannelCache.get(lowerKey)!;
+    }
+
+    const urlsToTry = [
+      `https://www.youtube.com/@${cleanHandle}`,
+      `https://www.youtube.com/user/${cleanHandle}`,
+      `https://www.youtube.com/c/${cleanHandle}`
+    ];
+
+    const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+    for (const tryUrl of urlsToTry) {
+      try {
+        const res = await fetch(tryUrl, {
+          headers: {
+            'User-Agent': ua,
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          signal: AbortSignal.timeout(5000)
+        });
+        if (!res.ok) continue;
+        const html = await res.text();
+
+        const matches = [
+          html.match(/"channelId":"(UC[a-zA-Z0-9_-]{22})"/),
+          html.match(/itemprop="identifier" content="(UC[a-zA-Z0-9_-]{22})"/),
+          html.match(/"externalId":"(UC[a-zA-Z0-9_-]{22})"/),
+          html.match(/"browseId":"(UC[a-zA-Z0-9_-]{22})"/),
+          html.match(/channel_id=(UC[a-zA-Z0-9_-]{22})/)
+        ];
+
+        for (const m of matches) {
+          if (m && m[1]) {
+            const channelId = m[1];
+            youtubeChannelCache.set(lowerKey, channelId);
+            return channelId;
+          }
+        }
+      } catch (e) {
+        console.warn(`[resolveYouTubeChannelId] Error fetching ${tryUrl}:`, e);
+      }
+    }
+
+    return null;
+  }
+
+  async function fetchGitHubTrendingRSS(): Promise<string> {
+    const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+    const res = await fetch('https://github.com/trending', {
+      headers: {
+        'User-Agent': ua,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
+      },
+      signal: AbortSignal.timeout(6000)
+    });
+
+    if (!res.ok) {
+      throw new Error(`GitHub Trending status: ${res.status}`);
+    }
+
+    const html = await res.text();
+    const repoBlocks = html.split('<article class="Box-row');
+    const items: string[] = [];
+
+    for (let i = 1; i < repoBlocks.length && i <= 25; i++) {
+      const block = repoBlocks[i];
+      const titleMatch = block.match(/href="\/([a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)"/);
+      if (!titleMatch || !titleMatch[1]) continue;
+      const repoPath = titleMatch[1];
+      const repoUrl = `https://github.com/${repoPath}`;
+
+      const descMatch = block.match(/<p class="col-9[^">]*">([\s\S]*?)<\/p>/);
+      let description = descMatch ? descMatch[1].replace(/<[^>]+>/g, '').trim() : 'GitHub Trending Repository';
+
+      const langMatch = block.match(/itemprop="programmingLanguage">([^<]+)</);
+      const language = langMatch ? langMatch[1].trim() : '';
+
+      const starsMatch = block.match(/([0-9,]+)\s+stars\s+today/i);
+      const starsToday = starsMatch ? starsMatch[1].trim() : '';
+
+      const fullTitle = `${repoPath}${language ? ` [${language}]` : ''}${starsToday ? ` (+${starsToday} stars today)` : ''}`;
+
+      items.push(`
+        <item>
+          <title><![CDATA[${fullTitle}]]></title>
+          <link>${repoUrl}</link>
+          <guid isPermaLink="true">${repoUrl}</guid>
+          <description><![CDATA[${description}]]></description>
+          <pubDate>${new Date().toUTCString()}</pubDate>
+        </item>
+      `);
+    }
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>GitHub Trending Repositories</title>
+    <link>https://github.com/trending</link>
+    <description>Daily trending repositories on GitHub</description>
+    <pubDate>${new Date().toUTCString()}</pubDate>
+    ${items.join('\n')}
+  </channel>
+</rss>`;
+  }
+
+  function escapeXml(str: string): string {
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   // API Route: RSS Proxy Fetcher
   app.get("/api/rss-proxy", async (req, res) => {
-    const { url: rawUrl } = req.query;
+    const { url: rawUrl, force } = req.query;
     if (!rawUrl || typeof rawUrl !== 'string') {
       return res.status(400).json({ error: "URL query parameter is required" });
     }
@@ -201,6 +336,49 @@ async function startServer() {
     let url = rawUrl.trim();
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       url = 'https://' + url;
+    }
+
+    // Special Handler: GitHub Trending Feed
+    if (url.includes('github-trending') || url.includes('github.com/trending')) {
+      try {
+        const xml = await fetchGitHubTrendingRSS();
+        rssProxyCache.set(url, { xmlText: xml, timestamp: Date.now() });
+        res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+        return res.send(xml);
+      } catch (err: any) {
+        console.warn('[GitHub Trending Proxy Error]:', err);
+      }
+    }
+
+    // Special Handler: YouTube Feed (Videos Only)
+    if (url.includes('youtube.com')) {
+      let channelId: string | null = null;
+      const chMatch = url.match(/channel_id=(UC[a-zA-Z0-9_-]{22})/i);
+      if (chMatch && chMatch[1]) {
+        channelId = chMatch[1];
+      } else {
+        const userMatch = url.match(/[?&]user=([^&]+)/i) || url.match(/youtube\.com\/@([^/?&]+)/i);
+        if (userMatch && userMatch[1]) {
+          channelId = await resolveYouTubeChannelId(userMatch[1]);
+        }
+      }
+
+      if (channelId) {
+        url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+      }
+    }
+
+    // Check in-memory cache unless force reload is requested
+    const isForce = force === 'true' || force === '1';
+    const cached = rssProxyCache.get(url);
+    if (!isForce && cached && (Date.now() - cached.timestamp < RSS_PROXY_CACHE_TTL_MS)) {
+      let cachedXml = cached.xmlText;
+      if (url.includes('UCxHlq3cewhURy3V05cjBvTQ') || url.includes('siyahzetsu')) {
+        cachedXml = cachedXml.replace(/Beyaz Zetsu/g, 'Siyah Zetsu');
+      }
+      res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+      res.setHeader('X-Cache', 'HIT');
+      return res.send(cachedXml);
     }
 
     // Extract origin to mimic referrer headers correctly
@@ -236,26 +414,19 @@ async function startServer() {
             'Referer': origin || targetUrl,
             'Connection': 'keep-alive'
           },
-          redirect: 'follow'
+          redirect: 'follow',
+          signal: AbortSignal.timeout(4000)
         });
       },
-      // Strategy B: Bare minimum headers (bypasses signature-matching blocks)
+      // Strategy B: Bare minimum headers
       async (targetUrl: string, ua: string) => {
         return await fetch(targetUrl, {
           headers: {
             'User-Agent': ua,
             'Accept': '*/*'
           },
-          redirect: 'follow'
-        });
-      },
-      // Strategy C: Pure browser mimic without security tags
-      async (targetUrl: string, ua: string) => {
-        return await fetch(targetUrl, {
-          headers: {
-            'User-Agent': ua
-          },
-          redirect: 'follow'
+          redirect: 'follow',
+          signal: AbortSignal.timeout(4000)
         });
       }
     ];
@@ -263,10 +434,15 @@ async function startServer() {
     // Try rotating strategies and user agents
     direct_fetch_loop:
     for (const strategy of fetchStrategies) {
-      for (const ua of userAgents) {
+      for (const ua of userAgents.slice(0, 2)) {
         try {
-          console.log(`[RSS Proxy] Fetching directly: ${url} using UA: ${ua.substring(0, 40)}...`);
           const response = await strategy(url, ua);
+
+          if (response.status === 403 || response.status === 404 || response.status === 401) {
+            lastError = new Error(`HTTP ${response.status}`);
+            // If WAF/Cloudflare blocks IP with 403, don't waste time repeating direct requests
+            break direct_fetch_loop;
+          }
 
           if (!response.ok) {
             throw new Error(`HTTP ${response.status} ${response.statusText}`);
@@ -284,16 +460,15 @@ async function startServer() {
           break direct_fetch_loop;
         } catch (err: any) {
           lastError = err;
-          console.warn(`[RSS Proxy] Direct fetch strategy failed for ${url}: ${err.message}`);
-          await new Promise(resolve => setTimeout(resolve, 80));
+          if (err.message && (err.message.includes('403') || err.message.includes('404'))) {
+            break direct_fetch_loop;
+          }
         }
       }
     }
 
     // Fallback: try public distributed raw proxies if direct fetches failed
     if (!success) {
-      console.log(`[RSS Proxy] Direct fetch failed. Trying high-reputation public CORS proxies for ${url}...`);
-      
       const publicProxies = [
         `https://corsproxy.io/?${encodeURIComponent(url)}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
@@ -301,12 +476,12 @@ async function startServer() {
 
       for (const proxyUrl of publicProxies) {
         try {
-          console.log(`[RSS Proxy] Fetching via proxy: ${proxyUrl.substring(0, 60)}...`);
           const response = await fetch(proxyUrl, {
             headers: {
               'User-Agent': userAgents[0]
             },
-            redirect: 'follow'
+            redirect: 'follow',
+            signal: AbortSignal.timeout(4000)
           });
 
           if (!response.ok) {
@@ -319,55 +494,314 @@ async function startServer() {
           if (trimmed.length > 100 && !trimmed.startsWith('<!DOCTYPE html') && !trimmed.startsWith('<html')) {
             xmlText = text;
             success = true;
-            console.log(`[RSS Proxy] Successfully retrieved XML via public proxy fallback!`);
             break;
           } else {
             throw new Error("Proxy response is empty or HTML.");
           }
         } catch (proxyErr: any) {
-          console.warn(`[RSS Proxy] Proxy failed for ${url}: ${proxyErr.message}`);
+          // Silent catch for proxy fallback
         }
       }
     }
 
     if (success && xmlText) {
+      if (url.includes('UCxHlq3cewhURy3V05cjBvTQ') || url.includes('siyahzetsu')) {
+        xmlText = xmlText.replace(/Beyaz Zetsu/g, 'Siyah Zetsu');
+      }
+      rssProxyCache.set(url, { xmlText, timestamp: Date.now() });
+      res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+      res.setHeader('X-Cache', 'MISS');
+      return res.send(xmlText);
+    } else {
+      res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+      return res.send(`<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Unavailable</title><description>Feed could not be retrieved (${lastError?.message || 'Access Restricted'})</description></channel></rss>`);
+    }
+  });
+
+  // Helper: Fetch and verify if an RSS feed URL returns valid XML
+  async function fetchAndVerifyRSS(targetUrl: string): Promise<{ ok: boolean; xml?: string; error?: string }> {
+    let url = targetUrl.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+
+    if (url.includes('github-trending') || url.includes('github.com/trending')) {
       try {
-        const sanitizedXml = sanitizeXml(xmlText);
-        const feed = await parser.parseString(sanitizedXml);
-        return res.json(feed);
-      } catch (parseErr: any) {
-        console.warn(`[RSS Proxy] Sanitized XML parsing failed for ${url}, trying raw XML...`, parseErr.message);
-        try {
-          const feed = await parser.parseString(xmlText);
-          return res.json(feed);
-        } catch (rawParseErr: any) {
-          console.error(`[RSS Proxy] Parsing completely failed for ${url}:`, rawParseErr);
-          try {
-            const feed = await parser.parseURL(url);
-            return res.json(feed);
-          } catch (fallbackErr: any) {
-            return res.status(500).json({
-              error: "Failed to parse feed content.",
-              details: rawParseErr.message,
-              fallbackDetails: fallbackErr.message
-            });
+        const xml = await fetchGitHubTrendingRSS();
+        return { ok: true, xml };
+      } catch (e: any) {
+        return { ok: false, error: e.message };
+      }
+    }
+
+    if (url.includes('youtube.com')) {
+      let channelId: string | null = null;
+      const chMatch = url.match(/channel_id=(UC[a-zA-Z0-9_-]{22})/i);
+      if (chMatch && chMatch[1]) {
+        channelId = chMatch[1];
+      } else {
+        const userMatch = url.match(/[?&]user=([^&]+)/i) || url.match(/youtube\.com\/@([^/?&]+)/i);
+        if (userMatch && userMatch[1]) {
+          channelId = await resolveYouTubeChannelId(userMatch[1]);
+        }
+      }
+
+      if (channelId) {
+        url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+      }
+    }
+
+    const userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15'
+    ];
+
+    for (const ua of userAgents) {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent': ua,
+            'Accept': 'application/rss+xml, application/rdf+xml, application/xml, text/xml, */*'
+          },
+          redirect: 'follow',
+          signal: AbortSignal.timeout(6000)
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        }
+
+        const text = await res.text();
+        const trimmed = text.trim();
+
+        if (trimmed.startsWith('<!DOCTYPE html') || trimmed.startsWith('<html') || trimmed.startsWith('<!doctype html')) {
+          throw new Error("Received HTML page instead of XML feed");
+        }
+
+        if (
+          (trimmed.includes('<rss') || trimmed.includes('<feed') || trimmed.includes('<channel') || trimmed.includes('<?xml')) &&
+          (trimmed.includes('<item') || trimmed.includes('<entry') || trimmed.includes('<title>'))
+        ) {
+          return { ok: true, xml: text };
+        } else {
+          throw new Error("Invalid RSS/Atom XML structure");
+        }
+      } catch (err: any) {
+        // Try next strategy
+      }
+    }
+
+    // Proxy Fallback
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    try {
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const text = await res.text();
+        const trimmed = text.trim();
+        if (
+          !trimmed.startsWith('<!DOCTYPE html') &&
+          !trimmed.startsWith('<html') &&
+          (trimmed.includes('<rss') || trimmed.includes('<feed') || trimmed.includes('<channel'))
+        ) {
+          return { ok: true, xml: text };
+        }
+      }
+    } catch (e) {}
+
+    return { ok: false, error: 'Feed cannot be accessed or invalid XML' };
+  }
+
+  // Helper: Try to auto-repair a broken RSS feed URL
+  async function tryAutoRepairRSS(originalUrl: string, title?: string): Promise<{ ok: boolean; repairedUrl?: string; error?: string }> {
+    const firstCheck = await fetchAndVerifyRSS(originalUrl);
+    if (firstCheck.ok) {
+      return { ok: true, repairedUrl: originalUrl };
+    }
+
+    let domain = '';
+    let path = '';
+    try {
+      const parsed = new URL(originalUrl);
+      domain = `${parsed.protocol}//${parsed.hostname}`;
+      path = parsed.pathname;
+    } catch (e) {
+      return { ok: false, error: 'Invalid URL format' };
+    }
+
+    // Domain Specific Known Overrides
+    if (originalUrl.includes('youtube.com') || (title && title.toLowerCase().includes('youtube'))) {
+      let handleCandidate = '';
+      const match = originalUrl.match(/[?&]user=([^&]+)/i) || originalUrl.match(/youtube\.com\/@([^/?&]+)/i);
+      if (match && match[1]) {
+        handleCandidate = match[1];
+      } else if (title) {
+        const titleMatch = title.match(/@([a-zA-Z0-9_.-]+)/) || title.match(/youtube\s*-\s*@?([a-zA-Z0-9_.-]+)/i);
+        if (titleMatch && titleMatch[1]) handleCandidate = titleMatch[1];
+      }
+
+      if (handleCandidate) {
+        const channelId = await resolveYouTubeChannelId(handleCandidate);
+        if (channelId) {
+          const repUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+          const check = await fetchAndVerifyRSS(repUrl);
+          if (check.ok) return { ok: true, repairedUrl: repUrl };
+        }
+      }
+    }
+
+    if (originalUrl.includes('github-trending') || originalUrl.includes('github.com')) {
+      const repUrl = 'https://github.com/trending';
+      const check = await fetchAndVerifyRSS(repUrl);
+      if (check.ok) return { ok: true, repairedUrl: repUrl };
+    }
+
+    if (originalUrl.includes('ntvspor.net')) {
+      const candidate = 'https://www.ntv.com.tr/spor.rss';
+      const check = await fetchAndVerifyRSS(candidate);
+      if (check.ok) return { ok: true, repairedUrl: candidate };
+    }
+    if (originalUrl.includes('ntv.com.tr') && originalUrl.includes('gundem')) {
+      const candidate = 'https://www.ntv.com.tr/gundem.rss';
+      const check = await fetchAndVerifyRSS(candidate);
+      if (check.ok) return { ok: true, repairedUrl: candidate };
+    }
+
+    const candidateUrls: string[] = [];
+    const cleanPath = path.replace(/\/$/, '');
+    const pathParts = cleanPath.split('/').filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1] || '';
+
+    if (lastPart) {
+      candidateUrls.push(`${domain}/${lastPart}.rss`);
+      candidateUrls.push(`${domain}/${lastPart}/feed`);
+      candidateUrls.push(`${domain}/rss/${lastPart}`);
+    }
+
+    candidateUrls.push(`${domain}/feed`);
+    candidateUrls.push(`${domain}/feed/`);
+    candidateUrls.push(`${domain}/rss`);
+    candidateUrls.push(`${domain}/rss.xml`);
+    candidateUrls.push(`${domain}/rss/tum/`);
+    candidateUrls.push(`${domain}/rss/anasayfa`);
+    candidateUrls.push(`${domain}/atom.xml`);
+    candidateUrls.push(`${domain}/index.xml`);
+    candidateUrls.push(`${domain}/sondakika.rss`);
+    candidateUrls.push(`${domain}/export/rss`);
+
+    if (originalUrl.startsWith('http://')) {
+      candidateUrls.push(originalUrl.replace('http://', 'https://'));
+    } else if (originalUrl.startsWith('https://')) {
+      candidateUrls.push(originalUrl.replace('https://', 'http://'));
+    }
+
+    const uniqueCandidates = Array.from(new Set(candidateUrls)).filter(u => u !== originalUrl);
+
+    for (const candidate of uniqueCandidates) {
+      const check = await fetchAndVerifyRSS(candidate);
+      if (check.ok) {
+        console.log(`[RSS Auto-Repair] Successfully auto-repaired ${originalUrl} -> ${candidate}`);
+        return { ok: true, repairedUrl: candidate };
+      }
+    }
+
+    // Scraping Domain HTML for feed link tags
+    try {
+      const pageRes = await fetch(domain, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        signal: AbortSignal.timeout(5000)
+      });
+      if (pageRes.ok) {
+        const html = await pageRes.text();
+        const rssLinkMatches = Array.from(html.matchAll(/<link[^>]+type=["']application\/(rss\+xml|atom\+xml|xml)["'][^>]+href=["']([^"']+)["']/gi));
+        for (const match of rssLinkMatches) {
+          let href = match[2];
+          if (href) {
+            if (href.startsWith('/')) href = domain + href;
+            if (!href.startsWith('http')) href = domain + '/' + href;
+            const check = await fetchAndVerifyRSS(href);
+            if (check.ok) {
+              console.log(`[RSS Auto-Repair Scraped] Auto-repaired ${originalUrl} -> ${href}`);
+              return { ok: true, repairedUrl: href };
+            }
           }
         }
       }
+    } catch (e) {}
+
+    return { ok: false, error: 'HTTP 404/403 veya geçersiz XML formatı. Otomatik onarım alternatifleri başarısız oldu.' };
+  }
+
+  // API Route: RSS Health Check & Auto-Repair for single URL
+  app.get("/api/rss-health/check", async (req, res) => {
+    const { url: rawUrl, title } = req.query;
+    if (!rawUrl || typeof rawUrl !== 'string') {
+      return res.status(400).json({ error: "URL query parameter is required" });
+    }
+
+    const feedTitle = typeof title === 'string' ? title : '';
+    const repairResult = await tryAutoRepairRSS(rawUrl, feedTitle);
+
+    if (repairResult.ok) {
+      if (repairResult.repairedUrl === rawUrl) {
+        return res.json({ status: 'healthy', url: rawUrl, message: 'Kaynak sorunsuz çalışıyor' });
+      } else {
+        return res.json({
+          status: 'repaired',
+          originalUrl: rawUrl,
+          repairedUrl: repairResult.repairedUrl,
+          message: 'Hatalı URL tespit edildi ve çalışan alternatif URL ile otomatik değiştirildi'
+        });
+      }
     } else {
-      console.warn(`[RSS Proxy] All fetches and proxies failed for ${url}. Trying direct rss-parser parseURL fallback...`);
-      try {
-        const feed = await parser.parseURL(url);
-        return res.json(feed);
-      } catch (fallbackErr: any) {
-        console.error(`[RSS Proxy] All proxy and library fallbacks failed for ${url}:`, fallbackErr);
-        return res.status(500).json({
-          error: "Failed to fetch and parse feed.",
-          details: lastError ? lastError.message : "Unknown fetch error",
-          fallbackDetails: fallbackErr.message
+      return res.json({
+        status: 'broken',
+        originalUrl: rawUrl,
+        error: repairResult.error || 'Kaynak yanıt vermiyor (HTTP 404/403)',
+        message: 'Kaynak bağlantısına erişilemiyor veya geçerli bir haber akışı değil'
+      });
+    }
+  });
+
+  // API Route: RSS Health Batch Inspector
+  app.post("/api/rss-health/batch", express.json(), async (req, res) => {
+    const { feeds } = req.body;
+    if (!Array.isArray(feeds)) {
+      return res.status(400).json({ error: "Feeds array is required" });
+    }
+
+    const results = {
+      healthy: [] as any[],
+      repaired: [] as any[],
+      broken: [] as any[]
+    };
+
+    // Run health checks sequentially or in small concurrency batches
+    for (const feed of feeds) {
+      if (!feed.url) continue;
+      const repairResult = await tryAutoRepairRSS(feed.url, feed.title);
+      if (repairResult.ok) {
+        if (repairResult.repairedUrl === feed.url) {
+          results.healthy.push({ ...feed, status: 'healthy' });
+        } else {
+          results.repaired.push({
+            ...feed,
+            status: 'repaired',
+            originalUrl: feed.url,
+            repairedUrl: repairResult.repairedUrl
+          });
+        }
+      } else {
+        results.broken.push({
+          ...feed,
+          status: 'broken',
+          error: repairResult.error || 'HTTP 404/403 veya Geçersiz XML'
         });
       }
     }
+
+    return res.json(results);
   });
 
   // API Route: AI Article Summarizer
@@ -399,95 +833,85 @@ Başlık: ${title}
     }
   });
 
-  // API Route: AI Personal Chat Assistant
-  app.post("/api/ai/chat", async (req, res) => {
-    const { message, chatHistory = [], context = "" } = req.body;
-    if (!message) {
-      return res.status(400).json({ error: "Mesaj parametresi zorunludur." });
+  // API Route: AI Daily Bulletin Digest Generator
+  app.post("/api/bulletin/digest", async (req, res) => {
+    const { articles } = req.body;
+    if (!articles || !Array.isArray(articles) || articles.length === 0) {
+      return res.status(400).json({ error: "Articles array is required" });
     }
 
     try {
-      console.log(`[AI Chat] Processing user message...`);
+      console.log(`[Bulletin AI Digest] Generating daily digest from ${articles.length} articles...`);
+      const articlesContext = articles.slice(0, 15).map((a: any, i: number) => 
+        `[${i + 1}] Kategori: ${a.category || 'Genel'} | Kaynak: ${a.feedTitle || 'Bilinmiyor'}\nBaşlık: ${a.title}\nÖzet: ${a.contentSnippet || a.content || ''}`
+      ).join("\n\n");
 
-      const historyPrompt = chatHistory.map((h: any) => `${h.sender === 'user' ? 'Kullanıcı' : 'Asistan'}: ${h.text}`).join("\n");
-      const prompt = `Kullanıcı Verileri ve Durum Bağlamı:
-${context}
+      const prompt = `Aşağıdaki güncel haber ve RSS akışlarını analiz ederek okuyucular için şık, okuması zevkli ve tamamen Türkçe bir "Günün Akıllı Bülteni" (Daily Executive Briefing) hazırla.
 
-Önceki Sohbet Geçmişi:
-${historyPrompt}
+Haber Akışı Verileri:
+${articlesContext}
 
-Yeni Kullanıcı Mesajı:
-${message}
-
-Lütfen yukarıdaki bağlamı, geçmişi ve mesajı göz önünde bulundurarak samimi, son derece zeki, finansal okuryazarlığı yüksek ve yapıcı bir Türkçe yanıt üret. En fazla 3-4 cümlede net öneriler ver, karmaşık analizleri maddeler halinde açıkla.`;
-
-      const response = await getAi().models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          systemInstruction: "Sen APEXOS işletim sisteminin yerleşik akıllı asistanı 'Apex AI'sın. Kullanıcıya bütçe analizi, harcama tasarrufları, stok seviyeleri ve işletme kararları konularında yardımcı olursun. Net, profesyonel, yapıcı ve tamamen Türkçe cevaplar verirsin.",
-        }
-      });
-
-      const responseText = response.text ? response.text.trim() : "Üzgünüm, şu an bunu işleyemiyorum.";
-      res.json({ reply: responseText });
-    } catch (err: any) {
-      console.error("[AI Chat] Error calling Gemini API:", err);
-      res.status(500).json({ error: "Yapay zeka asistanı şu an yanıt veremiyor.", details: err.message });
-    }
-  });
-
-  // API Route: AI Predictive Forecasting
-  app.post("/api/ai/forecast", async (req, res) => {
-    const { context } = req.body;
-    if (!context) {
-      return res.status(400).json({ error: "Context data is required." });
-    }
-
-    try {
-      console.log(`[AI Forecast] Running predictive engine...`);
-
-      const prompt = `Kullanıcının mevcut finansal/stok verileri:
-${context}
-
-Lütfen bu verileri analiz ederek önümüzdeki 3 döneme (aylık) ait tahminleri ve akıllı bütçe uyarılarını hesapla.
-Dönecek çıktı tam olarak şu JSON yapısında olmalıdır:
+Lütfen yanıtı tamamen saf JSON formatında şu şemada döndür:
 {
-  "futurePredictions": [
-    { "period": "Dönem adı örn: Temmuz", "income": 45000, "expense": 32000, "savings": 13000, "note": "Kısa tahmin açıklaması" }
+  "title": "Bülten Başlığı (Örn: 'Bugünün Öne Çıkan Gündem ve Teknoloji Bülteni')",
+  "greeting": "Okuyucuya samimi, enerjik 1-2 cümlelik karşılama mesajı.",
+  "highlights": [
+    {
+      "topic": "Haber Başlığı / Konu",
+      "summary": "1-2 cümlelik vurucu özet",
+      "impact": "Bu gelişmenin neden önemli olduğu",
+      "category": "Kategori"
+    }
   ],
-  "warnings": ["Harcama veya stok eşiği limit aşım uyarısı örn: Gıda giderlerinizde artış riski var."],
-  "scoreForecast": "Tahmini gelecek sağlık skoru örn: 85",
-  "confidence": "Tahmin güvenilirlik yüzdesi örn: %92",
-  "advice": "Tasarrufları optimize etmek veya stok bitmesini önlemek için 1-2 cümlelik yapıcı, akıllı tavsiye."
-}
-
-Önemli: Sadece saf JSON döndür, açıklama veya markdown kesmeleri (\`\`\`json) yazma.`;
+  "quickTakeaways": [
+    "30 saniyede bilmeniz gereken madde 1",
+    "30 saniyede bilmeniz gereken madde 2",
+    "30 saniyede bilmeniz gereken madde 3"
+  ],
+  "editorNote": "Günün genel akışına dair editörün vizyoner değerlendirme notu."
+}`;
 
       const response = await getAi().models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
-          systemInstruction: "Sen APEXOS bütçe ve stok tahminleme motorusun. Verilerden yola çıkarak mantıklı gelecek tahminleri yapar ve JSON formatında sunarsın.",
+          systemInstruction: "Sen APEXOS'un Baş Editörü ve Akıllı Yapay Zeka Bülten Yazarısın. Türkçe dilinde, son derece akıcı, profesyonel ve etkileyici bültenler hazırlarsın.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              greeting: { type: Type.STRING },
+              highlights: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    topic: { type: Type.STRING },
+                    summary: { type: Type.STRING },
+                    impact: { type: Type.STRING },
+                    category: { type: Type.STRING }
+                  },
+                  required: ["topic", "summary", "impact", "category"]
+                }
+              },
+              quickTakeaways: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              },
+              editorNote: { type: Type.STRING }
+            },
+            required: ["title", "greeting", "highlights", "quickTakeaways", "editorNote"]
+          }
         }
       });
 
       const responseText = response.text ? response.text.trim() : "";
-
-      let cleanJson = responseText;
-      if (cleanJson.startsWith("```json")) {
-        cleanJson = cleanJson.substring(7);
-      }
-      if (cleanJson.endsWith("```")) {
-        cleanJson = cleanJson.substring(0, cleanJson.length - 3);
-      }
-      cleanJson = cleanJson.trim();
-
-      const parsed = JSON.parse(cleanJson);
-      res.json(parsed);
+      const parsed = JSON.parse(responseText);
+      return res.json(parsed);
     } catch (err: any) {
-      console.error("[AI Forecast] Error calling Gemini:", err);
-      res.status(500).json({ error: "Tahmin motoru başarısız oldu.", details: err.message });
+      console.error("[Bulletin AI Digest] Error:", err);
+      return res.status(500).json({ error: "Bülten özeti oluşturulamadı.", details: err.message });
     }
   });
 
@@ -752,6 +1176,56 @@ Lütfen sitenin amacını ve içeriğini göz önünde bulundurarak en doğru ve
   app.post("/api/bookmarks/analyze", handleAnalyzeBookmark);
   app.post("/api/analyze-bookmark", handleAnalyzeBookmark);
 
+  app.post("/api/books/extract-ai", async (req, res) => {
+    try {
+      const { title, author } = req.body;
+      if (!title) return res.status(400).json({ error: "Title is required" });
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `Kullanıcı tarafından sağlanan veri (bir dosya adı, eksik veya karmaşık bir başlık olabilir): "${title}"
+Yazar (eğer belirtilmişse): "${author || 'Bilinmiyor'}"
+
+Lütfen bu veriyi analiz et. Eğer bu bir dosya adıysa (örneğin: '1984_George_Orwell_epub', 'harry-potter-1-pdf' gibi), öncelikle içindeki gerçek kitap adını ve yazarını temizleyerek ayırt et.
+Ardından bu kitap hakkında en doğru, zengin meta verileri toparla ve aşağıdaki JSON formatında, Türkçe dilinde dön:
+
+{
+  "title": "Kitabın doğru, tam ve temiz adı (Dosya uzantıları veya gereksiz karakterler olmadan)",
+  "author": "Yazarın doğru ve tam adı",
+  "category": "En uygun tek bir ana kategori (örn: Bilim Kurgu, Roman, Tarih, Felsefe)",
+  "tags": ["ilgili-etiket-1", "ilgili-etiket-2", "ilgili-etiket-3"],
+  "description": "Kitabın profesyonel, merak uyandırıcı, 2-3 cümlelik çok iyi yazılmış bir arka kapak veya tanıtım özeti.",
+  "coverUrl": "Eğer internette bilinen iyi çözünürlüklü bir kapak görseli URL'si bulabilirsen (veya tahmini bir public resim URL'si), aksi takdirde boş bırak"
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              author: { type: Type.STRING },
+              category: { type: Type.STRING },
+              tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+              description: { type: Type.STRING },
+              coverUrl: { type: Type.STRING }
+            },
+            required: ["title", "author", "category", "tags", "description"]
+          }
+        }
+      });
+
+      const responseText = response.text ? response.text.trim() : "";
+      const parsed = JSON.parse(responseText);
+      return res.json(parsed);
+    } catch (err: any) {
+      console.error("[BookAI] AI extraction failed:", err.message);
+      return res.status(500).json({ error: "AI extraction failed" });
+    }
+  });
+
   app.get("/api/google/drive", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).send("Unauthorized");
@@ -765,6 +1239,99 @@ Lütfen sitenin amacını ve içeriğini göz önünde bulundurarak en doğru ve
       const files = await drive.files.list({ pageSize: 5, fields: 'files(id, name, mimeType)' });
       res.json(files.data);
     } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/google/drive/music", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).send("Unauthorized");
+    
+    const token = authHeader.split(" ")[1];
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: token });
+    
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    try {
+      const q = "(mimeType contains 'audio/' or name contains '.mp3' or name contains '.flac' or name contains '.m4a' or name contains '.wav' or name contains '.ogg') and trashed = false";
+      const files = await drive.files.list({
+        q,
+        pageSize: 150,
+        fields: 'files(id, name, mimeType, size, iconLink, webContentLink)'
+      });
+      res.json(files.data);
+    } catch (err: any) {
+      console.error("[MusicPlayer] Drive list failed:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/google/drive/videos", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).send("Unauthorized");
+    
+    const token = authHeader.split(" ")[1];
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: token });
+    
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    try {
+      const q = "(mimeType contains 'video/' or name contains '.mp4' or name contains '.mkv' or name contains '.webm' or name contains '.avi' or name contains '.mov') and trashed = false";
+      const files = await drive.files.list({
+        q,
+        pageSize: 150,
+        fields: 'files(id, name, mimeType, size, iconLink, webContentLink)'
+      });
+      res.json(files.data);
+    } catch (err: any) {
+      console.error("[VideoPlayer] Drive list failed:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/google/drive/stream/:id", async (req, res) => {
+    const authHeader = req.headers.authorization || req.query.token;
+    if (!authHeader) return res.status(401).send("Unauthorized");
+    
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') 
+      ? authHeader.split(" ")[1] 
+      : authHeader as string;
+      
+    const fileId = req.params.id;
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: token });
+    
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    try {
+      const requestHeaders: any = {};
+      if (req.headers.range) {
+        requestHeaders.range = req.headers.range;
+      }
+
+      const fileResponse = await drive.files.get(
+        { fileId, alt: 'media' },
+        { 
+          responseType: 'stream',
+          headers: requestHeaders
+        }
+      );
+      
+      // Copy status and headers from Google Drive to support 206 Partial Content (Streaming Seek)
+      if (fileResponse.status) {
+        res.status(fileResponse.status);
+      }
+      
+      if (fileResponse.headers) {
+        Object.entries(fileResponse.headers).forEach(([key, val]) => {
+          if (val && ['content-type', 'content-length', 'content-range', 'accept-ranges'].includes(key.toLowerCase())) {
+            res.setHeader(key, val as string);
+          }
+        });
+      }
+      
+      fileResponse.data.pipe(res);
+    } catch (err: any) {
+      console.error("[MediaPlayer] Drive stream failed:", err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -856,10 +1423,9 @@ Lütfen sitenin amacını ve içeriğini göz önünde bulundurarak en doğru ve
     const tasks = google.tasks({ version: 'v1', auth: oauth2Client });
     try {
       const taskLists = await tasks.tasklists.list();
-      const items = (taskLists.data as any).items;
-      if (!items || items.length === 0) return res.json({ items: [] });
+      if (!taskLists.data.items || taskLists.data.items.length === 0) return res.json({ items: [] });
       
-      const taskItems = await tasks.tasks.list({ tasklist: items[0].id!, maxResults: 5 });
+      const taskItems = await tasks.tasks.list({ tasklist: taskLists.data.items[0].id!, maxResults: 5 });
       res.json(taskItems.data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

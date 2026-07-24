@@ -31,6 +31,85 @@ export const cleanHtmlForAI = (html: string): string => {
   return cleaned.substring(0, 15000); // Limit to 15k characters
 };
 
+// Robust price string parser handling both Turkish/European and US formats, including k/bin abbreviations
+export const parsePriceString = (text: string): number => {
+  if (!text) return 0;
+  
+  let lower = text.toLowerCase().trim();
+  
+  // Check for millions / thousands suffixes
+  let multiplier = 1;
+  if (lower.endsWith('k') || lower.includes(' k ') || lower.includes('k\'') || lower.includes('kli') || lower.includes('kli') || lower.includes('kıl') || lower.includes('kıl') || lower.includes('bin') || lower.includes('bin')) {
+    multiplier = 1000;
+  } else if (lower.includes('m') && !lower.includes('tl') && !lower.includes('try') && !lower.includes('limit')) {
+    if (/[\d.]+\s*m\b/.test(lower) || lower.includes('milyon')) {
+      multiplier = 1000000;
+    }
+  }
+
+  // Clean all characters except digits, dots and commas
+  let cleaned = lower.replace(/[^0-9,.]/g, '').trim();
+  if (!cleaned) return 0;
+  
+  // If there are both dots and commas, determine which is thousands and which is decimal
+  const firstComma = cleaned.indexOf(',');
+  const lastComma = cleaned.lastIndexOf(',');
+  const firstDot = cleaned.indexOf('.');
+  const lastDot = cleaned.lastIndexOf('.');
+  
+  if (firstComma !== -1 && firstDot !== -1) {
+    if (firstComma < firstDot) {
+      // US style: comma is thousand separator, dot is decimal separator (e.g. 11,250.50)
+      cleaned = cleaned.replace(/,/g, '');
+    } else {
+      // Turkish/European style: dot is thousand, comma is decimal (e.g. 11.250,50)
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    }
+  } else if (firstComma !== -1) {
+    // Only comma(s) present (e.g. 11,250 or 11,50)
+    const parts = cleaned.split(',');
+    if (parts.length > 2) {
+      // Multiple commas -> thousands separator (e.g. 1,000,000)
+      cleaned = cleaned.replace(/,/g, '');
+    } else if (parts[1].length === 2) {
+      // Exactly 2 digits after comma -> decimal separator (e.g. 15,50)
+      cleaned = cleaned.replace(',', '.');
+    } else if (parts[1].length === 3) {
+      // Exactly 3 digits after comma -> thousands separator (e.g. 11,250)
+      cleaned = cleaned.replace(/,/g, '');
+    } else {
+      cleaned = cleaned.replace(',', '.');
+    }
+  } else if (firstDot !== -1) {
+    // Only dot(s) present (e.g. 11.250 or 11.50)
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      // Multiple dots -> thousands separator (e.g. 1.000.000)
+      cleaned = cleaned.replace(/\./g, '');
+    } else if (parts[1].length === 3) {
+      // Exactly 3 digits after dot -> thousands separator (e.g. 11.250)
+      cleaned = cleaned.replace(/\./g, '');
+    } else if (parts[1].length === 2 || parts[1].length === 1) {
+      // If we have a single dot and 1 or 2 digits, and multiplier is 1000, e.g. "1.1k" or "11.5k"
+      // we keep the dot so parseFloat works correctly before multiplying
+    }
+  }
+  
+  let parsed = parseFloat(cleaned);
+  if (isNaN(parsed)) return 0;
+  
+  // Apply multiplier (e.g. 11k -> 11 * 1000 = 11000, 1.1k -> 1.1 * 1000 = 1100)
+  parsed = parsed * multiplier;
+  
+  // If the parsed price is still extremely small and we detected Turkish thousands dot notation confusion, 
+  // e.g. "11.00" typed instead of "11000" or scraped incorrectly as "1.100" but stored as "1.1"
+  if (parsed > 0 && parsed < 100 && (lower.includes('k') || lower.includes('bin'))) {
+    parsed = parsed * 1000;
+  }
+  
+  return parsed;
+};
+
 // Heuristic fallback scraper using client-side DOM Parser
 export const localHtmlParser = (htmlContent: string, url: string = ""): ScrapedProduct => {
   const parser = new DOMParser();
@@ -59,6 +138,24 @@ export const localHtmlParser = (htmlContent: string, url: string = ""): ScrapedP
   else if (h1Title) title = h1Title.textContent?.trim() || "";
   else title = doc.title || "Bilinmeyen Ürün";
 
+  // Dynamic additional title selectors if default ones are weak or placeholder
+  if (!title || title === "Bilinmeyen Ürün" || title.length < 3) {
+    const titleSelectors = [
+      '.product-name', '.product-title', '.pr-in-nm', '.title', 
+      '#product-title', '.product_title', '.p-title', '.sp-title'
+    ];
+    for (const sel of titleSelectors) {
+      const el = doc.querySelector(sel);
+      if (el) {
+        const text = el.textContent?.trim();
+        if (text) {
+          title = text;
+          break;
+        }
+      }
+    }
+  }
+
   // Clean title
   title = title.replace(/ fiyatı, özellikleri ve yorumları.*/gi, '')
                .replace(/ - Trendyol.*/gi, '')
@@ -71,24 +168,46 @@ export const localHtmlParser = (htmlContent: string, url: string = ""): ScrapedP
   const itemPropPrice = doc.querySelector('[itemprop="price"]') as HTMLMetaElement;
   
   if (ogPrice && ogPrice.content) {
-    price = parseFloat(ogPrice.content.replace(/[^\d.]/g, ''));
+    price = parsePriceString(ogPrice.content);
   } else if (itemPropPrice && itemPropPrice.content) {
-    price = parseFloat(itemPropPrice.content.replace(/[^\d.]/g, ''));
+    price = parsePriceString(itemPropPrice.content);
   } else {
     // Search elements commonly holding prices
     const selectors = [
       '.prc-dsc', '.price', '.product-price', '.a-price-whole', 
       '#priceblock_ourprice', '#priceblock_dealprice', '.current-price',
-      '[data-price]', '.amount'
+      '[data-price]', '.amount', '.product-price-new', '.actual-price',
+      '.featured-price', '.p-price', '.discount-price', '.pr-px',
+      '[data-product-price]', '.price-value', '.value', 'span.price',
+      'div.price', '.productPrice', '.product-price-display'
     ];
     for (const sel of selectors) {
       const el = doc.querySelector(sel);
       if (el) {
         const text = el.textContent || "";
-        const cleanText = text.replace(/[^0-9,.]/g, '').replace(',', '.');
-        const num = parseFloat(cleanText);
+        const num = parsePriceString(text);
         if (num > 0) {
           price = num;
+          break;
+        }
+      }
+    }
+  }
+
+  // Regex fallback: scan raw HTML body text for price patterns (e.g., 11.250 TL or ₺4.899)
+  if (price === 0 && htmlContent) {
+    const priceRegexes = [
+      /(\d{1,3}(?:\.\d{3})+(?:,\d{2})?)\s*(?:TL|TRY|₺)/i,
+      /(\d{1,3}(?:,\d{3})+(?:\.\d{2})?)\s*(?:TL|TRY|₺)/i,
+      /(?:₺|TL)\s*(\d{1,3}(?:\.\d{3})+(?:,\d{2})?)/i,
+      /(\d+(?:\.\d{3})+,[0-9]{2})/
+    ];
+    for (const regex of priceRegexes) {
+      const match = htmlContent.match(regex);
+      if (match && match[1]) {
+        const foundPrice = parsePriceString(match[1]);
+        if (foundPrice > 0) {
+          price = foundPrice;
           break;
         }
       }
@@ -105,15 +224,36 @@ export const localHtmlParser = (htmlContent: string, url: string = ""): ScrapedP
   } else if (twitterImage && twitterImage.content) {
     imageUrl = twitterImage.content;
   } else {
-    // Try to find first big image
-    const imgs = Array.from(doc.querySelectorAll('img'));
-    const goodImg = imgs.find(img => {
-      const src = img.getAttribute('src') || "";
-      const w = parseInt(img.getAttribute('width') || "0");
-      return (src.startsWith('http') && !src.includes('logo') && !src.includes('icon')) || w > 200;
-    });
-    if (goodImg) {
-      imageUrl = goodImg.getAttribute('src') || imageUrl;
+    // Try to find product-gallery images first
+    const imgSelectors = [
+      '.product-image img', '.main-image', '#main-img', '.p-img', 
+      '.product-gallery img', '.gallery-image', '[data-zoom-image]',
+      'img[data-src]'
+    ];
+    let foundImg = false;
+    for (const sel of imgSelectors) {
+      const el = doc.querySelector(sel);
+      if (el) {
+        const src = el.getAttribute('src') || el.getAttribute('data-src') || el.getAttribute('data-zoom-image') || "";
+        if (src && src.startsWith('http') && !src.includes('logo') && !src.includes('icon')) {
+          imageUrl = src;
+          foundImg = true;
+          break;
+        }
+      }
+    }
+
+    if (!foundImg) {
+      // Try to find first big image
+      const imgs = Array.from(doc.querySelectorAll('img'));
+      const goodImg = imgs.find(img => {
+        const src = img.getAttribute('src') || img.getAttribute('data-src') || "";
+        const w = parseInt(img.getAttribute('width') || "0");
+        return (src.startsWith('http') && !src.includes('logo') && !src.includes('icon')) || w > 200;
+      });
+      if (goodImg) {
+        imageUrl = goodImg.getAttribute('src') || goodImg.getAttribute('data-src') || imageUrl;
+      }
     }
   }
 
@@ -307,125 +447,185 @@ export const scrapeProductDetails = async (url: string, rawHtml?: string): Promi
 // the simulator feels perfectly integrated and functional.
 const generateContextualMockProduct = (url: string): ScrapedProduct => {
   const lowerUrl = url.toLowerCase();
-  let title = "Premium Akıllı Akustik Kulaklık";
-  let price = 5499;
+  
+  // 1. Try to extract a clean title from the URL path!
+  let title = "";
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter(Boolean);
+    
+    // Find the part that looks like a product slug
+    // (e.g., "samsung-galaxy-s24-ultra-p-12345" or "kindle-paperwhite")
+    let slug = "";
+    for (const part of pathParts) {
+      if (part.includes('-') && part.length > 5) {
+        slug = part;
+      }
+    }
+    if (!slug && pathParts.length > 0) {
+      slug = pathParts[pathParts.length - 1];
+    }
+    
+    if (slug) {
+      // Remove extensions or typical endings like .html, -p-12345 etc.
+      let cleanSlug = slug.replace(/\.(html|php|aspx)$/i, '')
+                          .replace(/-p-\d+$/i, '')
+                          .replace(/_p_\d+$/i, '')
+                          .replace(/-\d+$/g, '');
+      
+      // Convert hyphens to spaces and capitalize
+      const words = cleanSlug.split(/[-_]+/).filter(w => w.length > 1);
+      if (words.length > 0) {
+        title = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+    }
+  } catch (e) {
+    // invalid URL format, ignore and use fallback
+  }
+
+  // Determine store name
   let storeName = "Genel Mağaza";
-  let description = "Kristal netliğinde ses kalitesi, aktif gürültü engelleme (ANC) teknolojisi ve gün boyu konfor sunan ergonomik tasarım.";
-  let imageUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=60";
+  if (lowerUrl.includes("trendyol")) storeName = "Trendyol";
+  else if (lowerUrl.includes("amazon")) storeName = "Amazon";
+  else if (lowerUrl.includes("hepsiburada")) storeName = "Hepsiburada";
+  else if (lowerUrl.includes("apple")) storeName = "Apple";
+  else if (lowerUrl.includes("n11")) storeName = "N11";
+  else if (lowerUrl.includes("teknosa")) storeName = "Teknosa";
+  else if (lowerUrl.includes("vatan")) storeName = "Vatan Bilgisayar";
+
+  // Match keyword to select appropriate image, price range, description, and specs
+  let category = "Diğer";
+  let price = 1250;
+  let imageUrl = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=60"; // generic product
+  let description = "Ürün web sayfasından taranarak otomatik olarak eklendi.";
   let features = [
-    "40dB Aktif Gürültü Engelleme (ANC) Teknolojisi",
-    "Ultra uzun 50 Saate varan batarya ömrü",
-    "Hi-Res Audio Kablosuz ses sertifikası",
-    "Akıllı dokunmatik kontrol yüzeyi",
-    "Hızlı şarj desteği (10 dk şarj ile 5 saat kullanım)"
+    "Gelişmiş yeni nesil akıllı teknoloji mimarisi.",
+    "Yüksek dayanıklılık ve premium materyal kalitesi.",
+    "Enerji tasarruflu ve çevre dostu çalışma standardı.",
+    "2 Yıl resmi marka garantisi ve servis desteği."
   ];
   let specs = [
-    { key: "Bağlantı Tipi", value: "Bluetooth 5.3" },
-    { key: "Suya Dayanıklılık", value: "IPX4 Sertifikası" },
-    { key: "Sürücü Çapı", value: "40 mm Dinamik Sürücü" },
-    { key: "Gürültü Engelleme", value: "Mevcut (Hibrit ANC)" },
-    { key: "Mikrofon Sayısı", value: "6 Adet ENC Destekli" },
-    { key: "Garanti Süresi", value: "24 Ay Resmi Garantili" }
+    { key: "Kargo", value: "Ücretsiz Kargo & Hızlı Teslimat" },
+    { key: "Durumu", value: "Sıfır, Orijinal Ambalajında" },
+    { key: "Garanti", value: "24 Ay Resmi Distribütör" }
   ];
 
-  if (lowerUrl.includes("apple") || lowerUrl.includes("iphone")) {
-    title = "Apple iPhone 16 Pro 256GB Naturel Titanyum";
-    price = 82999;
-    storeName = "Apple Store";
-    description = "Sınıfının en iyisi kamera sistemi, olağanüstü güçlü A18 Pro çip, göz alıcı titanyum tasarım ve yeni kamera denetimi.";
-    imageUrl = "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=500&auto=format&fit=crop&q=60";
+  // Specific keyword sets for matching
+  if (lowerUrl.includes("iphone") || lowerUrl.includes("telefon") || lowerUrl.includes("phone") || lowerUrl.includes("samsung") || lowerUrl.includes("redmi") || lowerUrl.includes("xiaomi")) {
+    category = "Telefon";
+    price = lowerUrl.includes("pro") || lowerUrl.includes("ultra") ? 82999 : 32999;
+    imageUrl = "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=500&auto=format&fit=crop&q=60"; // titanyum phone
+    description = "Sınıfının en iyisi kamera sistemi, yüksek performanslı yeni nesil işlemci çipi ve göz alıcı estetik tasarım.";
     features = [
-      "Havacılık ve uzay endüstrisi standartlarında titanyum kasa",
-      "Kamerayı anında kontrol eden yenilikçi tuş",
-      "Gelişmiş A18 Pro Çip ve yapay zeka özellikleri",
-      "Profesyonel düzeyde 48 MP üçlü kamera sistemi",
-      "Super Retina XDR ekran ile ProMotion teknolojisi"
+      "Havacılık ve uzay endüstrisi standartlarında titanyum/metal kasa",
+      "Gelişmiş yapay zeka entegrasyonu ve akıllı asistan",
+      "Profesyonel düzeyde yüksek çözünürlüklü kamera sensörleri",
+      "Süper akıcı yenileme hızına sahip dinamik ekran teknolojisi"
     ];
     specs = [
-      { key: "Ekran Boyutu", value: "6.3 inç" },
-      { key: "Dahili Hafıza", value: "256 GB" },
-      { key: "İşlemci", value: "Apple A18 Pro" },
-      { key: "Kamera Çözünürlüğü", value: "48 MP + 48 MP + 12 MP" },
-      { key: "İşletim Sistemi", value: "iOS 18" },
-      { key: "Garanti", value: "2 Yıl Apple Türkiye Garantili" }
+      { key: "Kategori", value: "Akıllı Telefon" },
+      { key: "İşletim Sistemi", value: lowerUrl.includes("iphone") || lowerUrl.includes("apple") ? "iOS 18" : "Android 14 (OneUI/MIUI)" },
+      { key: "Bağlantı", value: "5G Mobil Şebeke" },
+      { key: "Garanti", value: "2 Yıl Türkiye Garantili" }
     ];
-  } else if (lowerUrl.includes("macbook") || lowerUrl.includes("laptop")) {
-    title = "MacBook Pro 14 inç M3 Max Çip 36GB - 1TB SSD";
-    price = 114999;
-    storeName = "Apple Store";
-    description = "Zorlu profesyonel iş akışları için canavarca performans. Muhteşem Liquid Retina XDR ekran ve olağanüstü pil süresi.";
-    imageUrl = "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=500&auto=format&fit=crop&q=60";
+  } else if (lowerUrl.includes("macbook") || lowerUrl.includes("laptop") || lowerUrl.includes("bilgisayar") || lowerUrl.includes("notebook") || lowerUrl.includes("asus") || lowerUrl.includes("hp") || lowerUrl.includes("lenovo") || lowerUrl.includes("dell")) {
+    category = "Bilgisayar";
+    price = lowerUrl.includes("pro") || lowerUrl.includes("gaming") ? 58999 : 24999;
+    imageUrl = "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=500&auto=format&fit=crop&q=60"; // laptop
+    description = "Zorlu profesyonel iş akışları, yazılım geliştirme ve oyun için yüksek performans sunan canavar mimari.";
     features = [
-      "En zorlu 3D modelleme ve yazılım derlemeleri için M3 Max çip",
-      "120Hz ProMotion Liquid Retina XDR ekran",
-      "22 Saate varan olağanüstü verimli pil ömrü",
-      "Stüdyo kalitesinde 3 mikrofonlu akustik sistem",
-      "Alüminyum yekpare gövde ve Uzay Siyahı renk seçeneği"
+      "Ultra hızlı çok çekirdekli işlemci mimarisi",
+      "Yüksek yenileme hızlı canlı ekran renk doğruluğu",
+      "Gelişmiş soğutma sistemi ile sessiz ve serin çalışma",
+      "Hafif ve ince alüminyum tasarım ile kolay taşınabilirlik"
     ];
     specs = [
-      { key: "Ekran Boyutu", value: "14.2 inç" },
-      { key: "İşlemci", value: "Apple M3 Max (14 Çekirdekli)" },
-      { key: "Bellek (RAM)", value: "36 GB Birleşik Bellek" },
-      { key: "Depolama", value: "1 TB NVMe SSD" },
-      { key: "Ağırlık", value: "1.62 kg" },
-      { key: "Garanti", value: "2 Yıl Marka Türkiye Garantili" }
+      { key: "Kategori", value: "Dizüstü Bilgisayar" },
+      { key: "Bellek (RAM)", value: lowerUrl.includes("pro") ? "16 GB" : "8 GB" },
+      { key: "Depolama", value: "512 GB SSD" },
+      { key: "Ekran Boyutu", value: "15.6 inç" }
     ];
-  } else if (lowerUrl.includes("nike") || lowerUrl.includes("shoe") || lowerUrl.includes("ayakkabi")) {
-    title = "Nike Air Max Pulse Erkek Spor Ayakkabı";
-    price = 4899;
-    storeName = "Nike Store";
-    description = "Sınırları zorlayan tasarımı ve ikonik Air yastıklaması ile hem sokak stilinde hem de sporda maksimum konfor.";
-    imageUrl = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=60";
+  } else if (lowerUrl.includes("watch") || lowerUrl.includes("saat") || lowerUrl.includes("apple-watch") || lowerUrl.includes("garmin")) {
+    category = "Saat";
+    price = 8999;
+    imageUrl = "https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?w=500&auto=format&fit=crop&q=60"; // watch
+    description = "Sağlık parametrelerinizi saniye saniye takip eden, şık ve fonksiyonel akıllı yaşam asistanı.";
     features = [
-      "Nefes alabilen file üst saya tasarımı",
-      "Topuk bölgesinde ekstra Air sönümleme bölmesi",
-      "Yüksek yer tutuşu sağlayan kauçuk dış taban",
-      "Gün boyu esneklik sunan köpük orta taban"
+      "7/24 Kesintisiz nabız ve oksijen (SpO2) takibi",
+      "Dahili GPS ile rotanızı telefonsuz kaydetme",
+      "Onlarca profesyonel spor modu ve antrenman analizi",
+      "10 Güne varan şarj ömrü ile kesintisiz deneyim"
     ];
     specs = [
-      { key: "Kullanım Alanı", value: "Koşu & Günlük Stil" },
-      { key: "Malzeme", value: "Tekstil ve Sentetik Deri" },
-      { key: "Teknoloji", value: "Nike Air Max Max-Comfort" },
-      { key: "Renk", value: "Siyah / Metalik Gümüş" }
+      { key: "Ekran", value: "AMOLED Sürekli Açık Ekran" },
+      { key: "Suya Dayanıklılık", value: "5 ATM (50 Metre)" },
+      { key: "Uyumlu Sistemler", value: "iOS & Android" }
     ];
-  } else if (lowerUrl.includes("trendyol")) {
-    title = "Xiaomi Robot Süpürge X20+ Islak ve Kuru Temizlik";
-    price = 18999;
-    storeName = "Trendyol";
-    description = "Kendi kendini temizleyen akıllı istasyon, 6000Pa yüksek emiş gücü ve yapay zeka engelden kaçma sensörleri.";
-    imageUrl = "https://images.unsplash.com/photo-1589156280159-27698a70f29e?w=500&auto=format&fit=crop&q=60";
+  } else if (lowerUrl.includes("ayakkabi") || lowerUrl.includes("shoe") || lowerUrl.includes("nike") || lowerUrl.includes("adidas") || lowerUrl.includes("puma") || lowerUrl.includes("sneaker")) {
+    category = "Ayakkabı";
+    price = 3999;
+    imageUrl = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=60"; // red sneaker
+    description = "Sınırları zorlayan özel taban teknolojisi ile hem spor aktivitelerinizde hem günlük kullanımda maksimum konfor.";
     features = [
-      "Tam otomatik paspas yıkama, kurulama ve toz boşaltma ünitesi",
-      "LDS Lazer Navigasyon ile milimetrik ev haritalama",
-      "Halı tespiti ile paspasları otomatik 10mm yukarı kaldırma",
-      "Yapay zeka engelden kaçma 3D göz kamerası"
+      "Nefes alabilen özel dokuma file dış yüzey",
+      "Darbe emici ergonomik orta taban teknolojisi",
+      "Yüksek zemin tutuşuna sahip kauçuk alt taban",
+      "Hafif yapısıyla ayak yorgunluğunu minimize eden tasarım"
     ];
     specs = [
-      { key: "Emiş Gücü", value: "6000 Pa" },
-      { key: "Çalışma Süresi", value: "180 Dakika" },
-      { key: "Haritalama Sistemi", value: "LDS Lazer ve 3D AI Kamera" },
-      { key: "Su Haznesi Kapasitesi", value: "4 Litre" },
-      { key: "Toz Haznesi Kapasitesi", value: "2.5 Litre (İstasyonda)" }
+      { key: "Kullanım Alanı", value: "Koşu & Antrenman & Günlük" },
+      { key: "Taban Malzemesi", value: "Kauçuk & EVA Köpük" }
     ];
-  } else if (lowerUrl.includes("amazon")) {
-    title = "Kindle Paperwhite (16 GB) 6.8 inç Ekran ve Ayarlanabilir Işık";
-    price = 6250;
-    storeName = "Amazon TR";
-    description = "Göz yormayan e-mürekkep ekran, haftalarca süren pil ömrü ve tamamen su geçirmez gövde ile kütüphaneniz her an yanınızda.";
-    imageUrl = "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=500&auto=format&fit=crop&q=60";
+  } else if (lowerUrl.includes("süpürge") || lowerUrl.includes("vacuum") || lowerUrl.includes("dyson") || lowerUrl.includes("supurge") || lowerUrl.includes("robot")) {
+    category = "Süpürge";
+    price = 14999;
+    imageUrl = "https://images.unsplash.com/photo-1589156280159-27698a70f29e?w=500&auto=format&fit=crop&q=60"; // robot vacuum
+    description = "Evinizi sizin yerinize zahmetsizce temizleyen akıllı sensörlü süpürge teknolojisi.";
     features = [
-      "Yansımasız gerçek kağıt hissi veren 300 ppi e-ink ekran",
-      "Sıcaklığı ayarlanabilir ekran ışığı (Sarı/Beyaz tonlar)",
-      "IPX8 sertifikası ile havuzda veya banyoda güvenli okuma",
-      "Tek bir şarj ile 10 haftaya kadar süren pil ömrü"
+      "Yüksek emiş gücü ile mikroskobik tozları bile hapsetme",
+      "Lazer navigasyon sistemi ile akıllı haritalama ve engellerden kaçma",
+      "Mobil uygulama üzerinden oda oda temizlik planlama",
+      "Otomatik şarj ünitesine geri dönme ve kaldığı yerden devam etme"
     ];
     specs = [
-      { key: "Ekran Boyutu", value: "6.8 inç" },
-      { key: "Dahili Bellek", value: "16 GB (Binlerce Kitap)" },
-      { key: "Su Geçirmezlik", value: "IPX8 (2 metreye kadar)" },
-      { key: "Ağırlık", value: "205 gram" },
-      { key: "Bağlantı", value: "Wi-Fi, USB Type-C" }
+      { key: "Emiş Gücü", value: "4000 Pa - 6000 Pa" },
+      { key: "Pil Kapasitesi", value: "5200 mAh" }
     ];
+  } else if (lowerUrl.includes("kahve") || lowerUrl.includes("coffee") || lowerUrl.includes("nespresso") || lowerUrl.includes("delonghi") || lowerUrl.includes("makinesi")) {
+    category = "Kahve Makinesi";
+    price = 6499;
+    imageUrl = "https://images.unsplash.com/photo-1570968915860-54d5c301fc9f?w=500&auto=format&fit=crop&q=60"; // coffee machine
+    description = "Güne harika bir başlangıç için her bardakta ideal sıcaklıkta ve mükemmel aromada kahve demleme sanatı.";
+    features = [
+      "Yüksek basınçlı pompa sistemi ile ideal krema ve aroma",
+      "Çoklu içecek hazırlama seçeneği (Espresso, Latte, Cappuccino)",
+      "Kolay temizlenebilir ayrılabilir su haznesi ve süt köpürtücü",
+      "Hızlı ısınma sistemi ile saniyeler içinde kahveniz hazır"
+    ];
+    specs = [
+      { key: "Basınç Gücü", value: "15 Bar - 19 Bar" },
+      { key: "Su Kapasitesi", value: "1.2 Litre" }
+    ];
+  } else if (lowerUrl.includes("kitap") || lowerUrl.includes("book") || lowerUrl.includes("kindle")) {
+    category = "Kitap / Hobi";
+    price = lowerUrl.includes("kindle") ? 6250 : 250;
+    imageUrl = "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=500&auto=format&fit=crop&q=60"; // books
+    description = "Zihninizi besleyecek, kütüphanenizin baş köşesinde yer alacak sürükleyici bir başyapıt veya okuma deneyimi.";
+    features = [
+      "Yüksek kaliteli baskı ve dayanıklı cilt yapısı",
+      "Sürükleyici kurgu ve bilgilendirici akıcı anlatım dili",
+      "Ödüllü yazar kadrosu ve zenginleştirici içerik",
+      "Her yaş grubuna hitap eden evrensel değerler"
+    ];
+    specs = [
+      { key: "Tür", value: "Roman / Kişisel Gelişim / Eğitim" },
+      { key: "Yayıncı", value: "Prestij Yayın Grubu" }
+    ];
+  }
+
+  // If no title was parsed from URL, use a sensible capitalized slug
+  if (!title) {
+    title = `Premium Akıllı ${category !== 'Diğer' ? category : 'Ürün'}`;
   }
 
   return {

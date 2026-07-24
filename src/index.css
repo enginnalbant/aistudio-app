@@ -242,8 +242,8 @@
     scroll-behavior: smooth;
     overflow-y: auto;
     background-image: 
-      radial-gradient(circle at 50% -20%, var(--focus-void-val) 0%, transparent 60%),
-      radial-gradient(circle at 0% 100%, var(--ai-void-val) 0%, transparent 40%);
+      radial-gradient(circle at 50% -20%, var(--focus-void) 0%, transparent 60%),
+      radial-gradient(circle at 0% 100%, var(--ai-void) 0%, transparent 40%);
     background-attachment: fixed;
     line-height: 1.6;
     letter-spacing: -0.01em;
@@ -262,18 +262,19 @@
 }
 
 @utility bento-card {
-  @apply bg-bg-card backdrop-blur-[40px] border border-border rounded-[1.5rem] transition-all duration-700;
-  box-shadow: var(--card-shadow);
+  @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10 rounded-[1.5rem] transition-all duration-700 shadow-[0_10px_40px_rgba(0,0,0,0.2)];
+  box-shadow: 
+    0 10px 40px rgba(0,0,0,0.2),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 @utility bento-card-hover {
-  @apply border-border-strong bg-bg-card/90 shadow-2xl;
-  box-shadow: var(--card-shadow-hover);
+  @apply border-white/20 bg-white/[0.06] shadow-[0_20px_60px_rgba(0,0,0,0.3)];
   transform: translateY(-4px) scale(1.01);
 }
 
 @utility glass-panel {
-  @apply bg-bg-card backdrop-blur-3xl border border-border;
+  @apply bg-void-white/5 backdrop-blur-3xl border border-void-white/10;
 }
 
 @utility os-btn {

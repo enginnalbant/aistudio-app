@@ -545,6 +545,20 @@ export const FinancePurchasing = () => {
     }));
   };
 
+  const handleMarkAsBought = (id: string) => {
+    setPurchases(prev => prev.map(p => {
+      if (p.id === id) {
+        return {
+          ...p,
+          status: 'Satın Alındı',
+          savedAmount: p.price
+        };
+      }
+      return p;
+    }));
+    setToast({ message: 'Ürün başarıyla "Satın Alındı" olarak işaretlendi ve geçmişe aktarıldı!', type: 'success' });
+  };
+
   return (
     <div className="p-4 md:p-8 w-full max-w-7xl mx-auto space-y-8">
       {/* Header */}
@@ -1864,10 +1878,24 @@ export const FinancePurchasing = () => {
                         </div>
 
                         {/* Budget Status Advice */}
-                        <div className="pt-2 flex items-center gap-3">
+                        <div className="pt-2 flex flex-col md:flex-row items-stretch md:items-center gap-3">
                           {activeProduct.savedAmount >= activeProduct.price ? (
-                            <div className="flex items-center gap-2 text-nrg-sun bg-nrg-sun/10 px-3 py-2 rounded-lg text-xs font-bold w-full">
-                              <CheckCircle2 size={16} /> Satınalma İçin Bütçe Hazır! Bu ürünü hemen satın alabilirsiniz.
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-nrg-sun/10 border border-nrg-sun/20 p-3.5 rounded-xl text-xs font-bold w-full">
+                              <div className="flex items-center gap-2 text-nrg-sun">
+                                <CheckCircle2 size={16} className="shrink-0" />
+                                <span>Satınalma İçin Bütçe Hazır! Bu ürünü hemen satın alabilirsiniz.</span>
+                              </div>
+                              {activeProduct.status !== 'Satın Alındı' && (
+                                <button
+                                  onClick={() => {
+                                    handleMarkAsBought(activeProduct.id);
+                                    setSelectedProduct(null);
+                                  }}
+                                  className="px-4 py-2 bg-nrg-sun text-black rounded-lg text-[11px] font-extrabold hover:bg-white transition-colors cursor-pointer shrink-0 uppercase tracking-wider shadow-lg shadow-nrg-sun/20"
+                                >
+                                  Satın Alındı Olarak İşaretle
+                                </button>
+                              )}
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 text-ai-bright bg-ai-bright/10 px-3 py-2 rounded-lg text-xs font-bold w-full">

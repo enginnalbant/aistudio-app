@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, Bookmark, ExternalLink, Sparkles, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Bookmark, ExternalLink, Sparkles, AlertCircle, Tag, FileText } from 'lucide-react';
 import { ArticleItem } from './types';
 import { ensureString } from './utils';
 
@@ -12,6 +12,9 @@ interface ReadingPanelProps {
   summaryStatus: 'idle' | 'loading' | 'success' | 'error';
   currentSummary: string | null;
   generateAIContext: (article: ArticleItem) => void;
+  currentSubModule?: string;
+  onUpdateNotes?: (id: string, notes: string) => void;
+  onUpdateTags?: (id: string, tags: string[]) => void;
 }
 
 export function ReadingPanel({
@@ -23,7 +26,50 @@ export function ReadingPanel({
   summaryStatus,
   currentSummary,
   generateAIContext,
+  currentSubModule = 'news',
+  onUpdateNotes,
+  onUpdateTags,
 }: ReadingPanelProps) {
+  const [isDrafting, setIsDrafting] = React.useState(false);
+  const isArticleSaved = selectedArticle ? savedArticleIds.has(selectedArticle.id) : false;
+
+  const handleAIDraft = async () => {
+    if (!selectedArticle || !onUpdateNotes) return;
+    setIsDrafting(true);
+    try {
+      const res = await fetch('/api/bulletin/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: selectedArticle.title,
+          content: selectedArticle.content || selectedArticle.contentSnippet || ''
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Strip HTML tags for clean Markdown study notes
+        const cleanText = data.summary
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<p>/gi, '')
+          .replace(/<\/p>/gi, '\n\n')
+          .replace(/<li>/gi, '- ')
+          .replace(/<\/li>/gi, '\n')
+          .replace(/<ul>/gi, '')
+          .replace(/<\/ul>/gi, '\n')
+          .replace(/<strong>/gi, '**')
+          .replace(/<\/strong>/gi, '**')
+          .replace(/<[^>]*>/g, ''); // strip remaining tags
+        onUpdateNotes(selectedArticle.id, cleanText);
+      } else {
+        alert("Not taslağı oluşturulamadı.");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsDrafting(false);
+    }
+  };
+
   return (
     <div
       className={`col-span-1 lg:col-span-5 bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden h-full flex flex-col ${
@@ -78,6 +124,22 @@ export function ReadingPanel({
               <header className="mb-8 space-y-4">
                 <div className="flex flex-wrap gap-2 items-center text-xs font-mono text-text-secondary">
                   <span className="bg-white/5 px-2.5 py-1 rounded-lg font-bold">{ensureString(selectedArticle.category)}</span>
+                  {selectedArticle.platform && (
+                    <>
+                      <span>•</span>
+                      <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2.5 py-1 rounded-lg font-bold">
+                        {selectedArticle.platform}
+                      </span>
+                    </>
+                  )}
+                  {selectedArticle.subCategory && selectedArticle.subCategory !== selectedArticle.platform && (
+                    <>
+                      <span>•</span>
+                      <span className="bg-white/5 text-text-primary px-2.5 py-1 rounded-lg font-bold">
+                        {selectedArticle.subCategory}
+                      </span>
+                    </>
+                  )}
                   <span>•</span>
                   <span className="opacity-70">
                     {(() => {
@@ -103,6 +165,110 @@ export function ReadingPanel({
                   {ensureString(selectedArticle.title)}
                 </h1>
               </header>
+
+              {/* Study Workspace Panel (Only shown if article is saved or prompted to save) */}
+              {isArticleSaved ? (
+                <div className="mb-8 bg-rose-500/[0.01] border border-rose-500/15 rounded-2xl p-4 space-y-4 shadow-inner">
+                  <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1.5 bg-rose-500/10 rounded-lg text-rose-400">
+                        <Bookmark size={14} className="fill-current" />
+                      </span>
+                      <h4 className="text-xs font-black uppercase tracking-wider text-rose-300">
+                        Haber Araştırma & Not Defteri
+                      </h4>
+                    </div>
+                    <span className="text-[10px] text-text-secondary/50 font-mono">
+                      Otomatik Kaydedilir
+                    </span>
+                  </div>
+
+                  {/* Tags Editor */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-text-secondary/70 flex items-center gap-1">
+                      <Tag size={10} />
+                      Kişisel Etiketler
+                    </label>
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {(selectedArticle.tags || []).map(tag => (
+                        <span key={tag} className="inline-flex items-center gap-1 bg-white/5 text-text-primary px-2.5 py-0.5 rounded-full text-[10px] border border-white/5">
+                          {tag}
+                          <button
+                            onClick={() => {
+                              const updated = (selectedArticle.tags || []).filter(t => t !== tag);
+                              onUpdateTags?.(selectedArticle.id, updated);
+                            }}
+                            className="text-text-secondary hover:text-rose-400 font-bold ml-0.5 text-[11px]"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        placeholder="Yeni etiket... (Enter)"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = e.currentTarget.value.trim();
+                            if (val) {
+                              const existing = selectedArticle.tags || [];
+                              if (!existing.includes(val)) {
+                                onUpdateTags?.(selectedArticle.id, [...existing, val]);
+                              }
+                              e.currentTarget.value = '';
+                            }
+                          }
+                        }}
+                        className="bg-black/30 border border-white/10 rounded-lg px-2.5 py-0.5 text-[10px] text-text-primary outline-none focus:border-rose-500/30 w-24"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Notes Editor */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-text-secondary/70 flex items-center gap-1">
+                        <FileText size={10} />
+                        Kişisel Notlarım & Özetlerim
+                      </label>
+                      <button
+                        disabled={isDrafting}
+                        onClick={handleAIDraft}
+                        className="text-[9px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/5 hover:bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/15 cursor-pointer"
+                        title="Haber içeriğini analiz edip buraya akıllı bir not taslağı doldurur."
+                      >
+                        <Sparkles size={10} className={isDrafting ? "animate-spin" : ""} />
+                        {isDrafting ? "Taslak Oluşturuluyor..." : "AI ile Çalışma Notu Çıkar"}
+                      </button>
+                    </div>
+                    <textarea
+                      placeholder="Bu haber hakkında analizlerinizi, öğrenimlerinizi ve notlarınızı buraya yazın..."
+                      value={selectedArticle.userNotes || ''}
+                      onChange={(e) => onUpdateNotes?.(selectedArticle.id, e.target.value)}
+                      rows={4}
+                      className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-text-primary outline-none focus:border-rose-500/30 transition-all font-sans resize-y custom-scrollbar"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-8 bg-white/[0.01] border border-white/5 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-text-primary flex items-center gap-1.5 justify-center sm:justify-start">
+                      <Bookmark size={12} className="text-text-secondary" />
+                      Araştırma Alanını Aktif Edin
+                    </h4>
+                    <p className="text-[10px] text-text-secondary/70 max-w-sm">
+                      Bu haberi kaydederek üzerine kendi kişisel analiz notlarınızı yazabilir ve özel etiketler ekleyebilirsiniz.
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => handleToggleSave(e, selectedArticle)}
+                    className="shrink-0 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Haberi Kaydet
+                  </button>
+                </div>
+              )}
 
               {/* AI Summary Widget */}
               <div className="mb-8">
@@ -148,6 +314,42 @@ export function ReadingPanel({
                   </div>
                 )}
               </div>
+
+              {/* YouTube Embed Player or Cover Image */}
+              {(() => {
+                const linkStr = ensureString(selectedArticle.link);
+                const ytMatch = linkStr.match(/(?:watch\?v=|shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+                const ytVideoId = ytMatch ? ytMatch[1] : null;
+
+                if (ytVideoId) {
+                  return (
+                    <div className="my-6 aspect-video rounded-2xl overflow-hidden border border-white/10 bg-black shadow-2xl relative">
+                      <iframe
+                        src={`https://www.youtube-nocookie.com/embed/${ytVideoId}`}
+                        title={ensureString(selectedArticle.title)}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  );
+                }
+
+                if (selectedArticle.image) {
+                  return (
+                    <div className="my-6 rounded-2xl overflow-hidden border border-white/10 max-h-96">
+                      <img
+                        src={ensureString(selectedArticle.image)}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  );
+                }
+
+                return null;
+              })()}
 
               {/* Content Body */}
               <div className="prose prose-invert prose-rose max-w-none prose-p:text-text-secondary/90 prose-p:leading-loose prose-a:text-rose-400 prose-img:rounded-2xl prose-headings:font-display prose-headings:font-bold prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-code:text-rose-300">

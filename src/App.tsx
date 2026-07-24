@@ -1,10 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { Sidebar, Header, MobileNav, SpatialBackground, LoginPage } from './components/layout';
+import { Sidebar } from './components/Sidebar';
+import { Header } from './components/Header';
+import { MobileNav } from './components/MobileNav';
+import { SpatialBackground } from './components/SpatialBackground';
 import { SettingsModal } from './components/ui/SettingsModal';
 import { NotificationPage } from './components/NotificationPage';
 import { NotificationSettings } from './components/NotificationSettings';
 import { CalendarPage } from './components/CalendarPage';
+import { 
+  PurchasingDashboard,
+  PurchasingRequests,
+  PurchasingLists,
+  PurchasingQuotes,
+  PurchasingPendingOrders,
+  PurchasingSentOrders,
+  PurchasingAllOrders,
+  PurchasingReports,
+  PurchasingAnalytics
+} from './components/PurchasingModules';
 import {
   FinanceDashboard,
   FinanceIncomes,
@@ -15,12 +29,29 @@ import {
   FinanceAnalytics,
   FinanceReports
 } from './components/finance';
+import {
+  FasonDashboard,
+  FasonOutgoing,
+  FasonAll,
+  FasonReports,
+  FasonAnalytics,
+  StocksDashboard,
+  StocksList,
+  StocksReports,
+  StocksAnalytics,
+  ContactsDashboard,
+  ContactsList,
+  ContactsReports,
+  ContactsAnalytics,
+  ReconDashboard,
+  ReconContacts,
+  ReconReports,
+  ReconAnalytics
+} from './components/ModulePages';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
 import { BulletinNews } from './components/bulletin/BulletinNews';
-import { NotesQuick } from './components/notes/NotesQuick';
-import { NotesNotebook } from './components/notes/NotesNotebook';
 import { NotesTodo } from './components/notes/NotesTodo';
 import { NotesBookmarks } from './components/notes/NotesBookmarks';
 import { NotesPasswords } from './components/notes/NotesPasswords';
@@ -29,7 +60,6 @@ import { NotesBooks } from './components/notes/NotesBooks';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { useDevice } from './hooks/useDevice';
-import { AIFinanceAssistant } from './components/finance/AIFinanceAssistant';
 
 function AppLayout() {
   const { settings } = useSettings();
@@ -169,6 +199,58 @@ function AppLayout() {
                   <FinanceAnalytics />
                 ) : activeModule === 'finance-reports' ? (
                   <FinanceReports />
+                ) : activeModule === 'purchasing-dashboard' ? (
+                  <PurchasingDashboard />
+                ) : activeModule === 'purchasing-requests' ? (
+                  <PurchasingRequests />
+                ) : activeModule === 'purchasing-lists' ? (
+                  <PurchasingLists />
+                ) : activeModule === 'purchasing-quotes' ? (
+                  <PurchasingQuotes />
+                ) : activeModule === 'purchasing-pending-orders' ? (
+                  <PurchasingPendingOrders />
+                ) : activeModule === 'purchasing-sent-orders' ? (
+                  <PurchasingSentOrders />
+                ) : activeModule === 'purchasing-all-orders' ? (
+                  <PurchasingAllOrders />
+                ) : activeModule === 'purchasing-reports' ? (
+                  <PurchasingReports />
+                ) : activeModule === 'purchasing-analytics' ? (
+                  <PurchasingAnalytics />
+                ) : activeModule === 'fason-dashboard' ? (
+                  <FasonDashboard />
+                ) : activeModule === 'fason-outgoing' ? (
+                  <FasonOutgoing />
+                ) : activeModule === 'fason-all' ? (
+                  <FasonAll />
+                ) : activeModule === 'fason-reports' ? (
+                  <FasonReports />
+                ) : activeModule === 'fason-analytics' ? (
+                  <FasonAnalytics />
+                ) : activeModule === 'stocks-dashboard' ? (
+                  <StocksDashboard />
+                ) : activeModule === 'stocks-list' ? (
+                  <StocksList />
+                ) : activeModule === 'stocks-reports' ? (
+                  <StocksReports />
+                ) : activeModule === 'stocks-analytics' ? (
+                  <StocksAnalytics />
+                ) : activeModule === 'contacts-dashboard' ? (
+                  <ContactsDashboard />
+                ) : activeModule === 'contacts-list' ? (
+                  <ContactsList />
+                ) : activeModule === 'contacts-reports' ? (
+                  <ContactsReports />
+                ) : activeModule === 'contacts-analytics' ? (
+                  <ContactsAnalytics />
+                ) : activeModule === 'recon-dashboard' ? (
+                  <ReconDashboard />
+                ) : activeModule === 'recon-contacts' ? (
+                  <ReconContacts />
+                ) : activeModule === 'recon-reports' ? (
+                  <ReconReports />
+                ) : activeModule === 'recon-analytics' ? (
+                  <ReconAnalytics />
                 ) : activeModule === 'library-ebooks' ? (
                   <NotesBooks />
                 ) : activeModule.startsWith('library-') ? (
@@ -177,9 +259,15 @@ function AppLayout() {
                     brandName="APEXOS KÜTÜPHANE" 
                   />
                 ) : activeModule === 'notes-quick' ? (
-                  <NotesQuick />
+                  <ComingSoon 
+                    title="Hızlı Notlar" 
+                    brandName="APEXOS" 
+                  />
                 ) : activeModule === 'notes-notebook' ? (
-                  <NotesNotebook />
+                  <ComingSoon 
+                    title="Not Defteri" 
+                    brandName="APEXOS" 
+                  />
                 ) : activeModule === 'notes-todo' ? (
                   <NotesTodo />
                 ) : activeModule === 'notes-bookmarks' ? (
@@ -210,14 +298,19 @@ function AppLayout() {
         setActiveModule={handleSetActiveModule} 
         toggleSidebar={toggleSidebar} 
       />
-
-      <AIFinanceAssistant />
     </div>
   );
 }
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, signInWithGoogle } = useAuth();
+
+  const handleGoogleSignIn = async () => {
+    const { error } = await signInWithGoogle();
+    if (error) {
+      alert(`Giriş hatası: ${error.message}\n\nİpucu: Vercel kullanıyorsanız, alan adınızı Firebase konsolunda whiteliste eklediğinizden emin olun.`);
+    }
+  };
 
   return (
     <div className="h-screen w-full bg-transparent text-skel-glass flex flex-col overflow-hidden relative">
@@ -238,7 +331,27 @@ function AppContent() {
         ) : user ? (
           <AppLayout />
         ) : (
-          <LoginPage />
+          <div className="h-full w-full flex items-center justify-center">
+             <div className="bg-neutral-900/80 backdrop-blur-xl border border-white/10 p-8 rounded-3xl max-w-sm w-full mx-4 text-center">
+                 <div className="mx-auto w-16 h-16 bg-white/5 flex items-center justify-center rounded-2xl mb-6">
+                    <Zap size={32} className="text-focus-neon" />
+                 </div>
+                 <h1 className="text-2xl font-display font-bold text-white mb-2">APEXOS FİNANS</h1>
+                 <p className="text-text-secondary mb-8 text-sm">Tüm cihazlarda senkronize çalışmak için giriş yapın.</p>
+                 <button 
+                    onClick={handleGoogleSignIn}
+                    className="w-full bg-white text-black font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-3 hover:bg-white/90 transition-colors"
+                 >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    Google ile Giriş Yap
+                 </button>
+             </div>
+          </div>
         )}
       </div>
     </div>

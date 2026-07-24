@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { runFinanceHealthEngine, UserProfile } from '../../lib/financeHealthEngine';
 import { motion, AnimatePresence } from 'motion/react';
-import { AIForecastWidget } from './AIForecastWidget';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -121,6 +120,20 @@ interface FinanceReport {
   netSavings: number;
 }
 
+const DEFAULT_RATES: Record<string, number> = {
+  TRY: 1.0,
+  USD: 34.25,
+  EUR: 36.85,
+  GBP: 43.60,
+};
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  TRY: '₺',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+};
+
 export const FinanceDashboard = () => {
   // Pull data from local storages
   const [incomes, setIncomes] = useLocalStorage<Income[]>('finance_incomes', []);
@@ -143,6 +156,53 @@ export const FinanceDashboard = () => {
   const [activeQuickAction, setActiveQuickAction] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [showHealthScoreDetails, setShowHealthScoreDetails] = useState(false);
+
+  // Quick Currency Converter Widget state
+  const [calcAmount, setCalcAmount] = useState<string>('100');
+  const [calcFrom, setCalcFrom] = useState<'USD' | 'EUR' | 'GBP'>('USD');
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>(DEFAULT_RATES);
+  const [isFetchingRates, setIsFetchingRates] = useState(false);
+  const [rateFetchTime, setRateFetchTime] = useState<string | null>(null);
+
+  // Fetch live exchange rates from public API
+  const fetchRates = async () => {
+    setIsFetchingRates(true);
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (!res.ok) throw new Error('API hatası');
+      const data = await res.json();
+      if (data && data.rates && data.rates.TRY) {
+        const tryRate = data.rates.TRY;
+        const eurRateInUsd = data.rates.EUR || 0.93;
+        const gbpRateInUsd = data.rates.GBP || 0.79;
+        
+        const newRates = {
+          TRY: 1.0,
+          USD: Number(tryRate.toFixed(2)),
+          EUR: Number((tryRate / eurRateInUsd).toFixed(2)),
+          GBP: Number((tryRate / gbpRateInUsd).toFixed(2)),
+        };
+        setExchangeRates(newRates);
+        
+        const now = new Date();
+        setRateFetchTime(now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+      }
+    } catch (error) {
+      console.warn('Canlı kurlar çekilemedi, varsayılan kurlar kullanılıyor:', error);
+    } finally {
+      setIsFetchingRates(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRates();
+  }, []);
+
+  const calculatedConvertResult = useMemo(() => {
+    const amountNum = parseFloat(calcAmount) || 0;
+    const rate = exchangeRates[calcFrom] || DEFAULT_RATES[calcFrom];
+    return (amountNum * rate).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }, [calcAmount, calcFrom, exchangeRates]);
 
   // Interactive Stress-Test Simulator state
   const [simJobLoss, setSimJobLoss] = useState(false);
@@ -1171,12 +1231,9 @@ export const FinanceDashboard = () => {
         </div>
       </div>
 
-      {/* AI Forecasting & Prediction Widget */}
-      <AIForecastWidget />
 
 
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Trend Area Chart - Compact */}
         <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
@@ -1250,6 +1307,63 @@ export const FinanceDashboard = () => {
             })}
           </div>
         </div>
+
+        {/* Quick Currency Converter */}
+        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Coins size={14} className="text-focus-neon" /> Hızlı Kur Çevirici
+              </h3>
+              {rateFetchTime && (
+                <span className="text-[8px] text-text-secondary font-mono bg-white/5 px-1.5 py-0.5 rounded">
+                  {rateFetchTime} Güncel
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="relative">
+                <input 
+                  type="number"
+                  min="0"
+                  value={calcAmount}
+                  onChange={(e) => setCalcAmount(e.target.value)}
+                  className="w-full bg-white/[0.02] border border-white/5 rounded-xl pl-4 pr-16 py-3 font-mono font-bold text-sm text-white focus:outline-none focus:border-focus-neon/30"
+                />
+                
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+                  {(['USD', 'EUR', 'GBP'] as const).map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setCalcFrom(c)}
+                      className={`px-2 py-1 text-[10px] font-bold transition-colors ${
+                        calcFrom === c ? 'bg-focus-neon text-pure-black' : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Conversion Result Block */}
+              <div className="bg-black/20 border border-white/5 p-4 rounded-xl flex justify-between items-center">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-text-secondary font-semibold uppercase tracking-wider block">Türk Lirası Karşılığı</span>
+                  <span className="text-[9px] text-text-secondary font-mono">1 {calcFrom} = {exchangeRates[calcFrom] || DEFAULT_RATES[calcFrom]} ₺</span>
+                </div>
+                <span className="text-base font-mono font-black text-focus-neon">
+                  ₺{calculatedConvertResult}
+                </span>
+              </div>
+            </div>
+          </div>
+          <p className="text-[8px] text-text-secondary text-center italic mt-auto">
+            Canlı kurlar open.er-api.com üzerinden otomatik güncellenmektedir.
+          </p>
+        </div>
+
       </div>
 
       {/* Grid: Alerts (LHS) & Upcoming Bills (RHS) */}

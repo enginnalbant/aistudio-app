@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import { getRollovers } from './financeUtils';
@@ -22,7 +22,14 @@ import {
   Edit3,
   Trash2,
   ShoppingBag,
-  BarChart3
+  BarChart3,
+  Globe,
+  RefreshCw,
+  Info,
+  Target,
+  ArrowDownRight,
+  ArrowUpRight,
+  Wallet
 } from 'lucide-react';
 import { 
   BarChart,
@@ -35,7 +42,9 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend
+  Legend,
+  AreaChart,
+  Area
 } from 'recharts';
 
 interface Expense {
@@ -50,7 +59,24 @@ interface Expense {
   recipient: string;
   notes?: string;
   isDynamic?: boolean;
+  currency?: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  originalAmount?: number;
+  exchangeRate?: number;
 }
+
+const DEFAULT_RATES: Record<string, number> = {
+  TRY: 1.0,
+  USD: 34.25,
+  EUR: 36.85,
+  GBP: 43.60,
+};
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  TRY: '₺',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+};
 
 const CATEGORIES = ['Barınma', 'Gıda', 'Fatura', 'Seyahat', 'Eğlence', 'Sağlık', 'Ulaşım', 'Diğer'];
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#3b82f6', '#64748b'];
@@ -60,6 +86,117 @@ export const FinanceExpenses = () => {
   const [incomes] = useLocalStorage<any[]>('finance_incomes', []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Tümü');
+  const [displayCurrency, setDisplayCurrency] = useLocalStorage<'TRY' | 'USD' | 'EUR' | 'GBP'>('finance_display_currency', 'TRY');
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>(DEFAULT_RATES);
+  const [isFetchingRates, setIsFetchingRates] = useState(false);
+  const [rateFetchTime, setRateFetchTime] = useState<string | null>(null);
+
+  // Smart Monthly Expense Goal & Limit Tracker state
+  const [expenseLimit, setExpenseLimit] = useLocalStorage<number>('finance_expense_monthly_limit', 30000);
+  const [showLimitEdit, setShowLimitEdit] = useState(false);
+  const [tempLimitInput, setTempLimitInput] = useState<string>('30000');
+
+  // Wizard States
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [isEditingWizard, setIsEditingWizard] = useState(false);
+  
+  // View/Edit Modal States
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [summaryModal, setSummaryModal] = useState<{title: string; value: string; type: string} | null>(null);
+
+  // New Interactive Chart States
+  const [donutHovered, setDonutHovered] = useState<{ name: string; value: number } | null>(null);
+  const [donutTab, setDonutTab] = useState<'kategori' | 'aylik'>('kategori');
+  const [activeChartTab, setActiveChartTab] = useState<'donut' | 'trend' | 'sources' | 'cumulative'>('donut');
+
+  // Form States
+  const defaultFormState: Partial<Expense> = {
+    title: '', 
+    amount: 0, 
+    category: 'Gıda', 
+    tags: [], 
+    date: '2026-07-03', 
+    status: 'Gerçekleşti', 
+    recipient: '', 
+    notes: '', 
+    recurrence: 'Tek Seferlik',
+    currency: 'TRY',
+    originalAmount: 0,
+    exchangeRate: 1.0
+  };
+  const [formData, setFormData] = useState<Partial<Expense>>(defaultFormState);
+  const [newTag, setNewTag] = useState('');
+
+  // Fetch live exchange rates from public API
+  const fetchRates = async () => {
+    setIsFetchingRates(true);
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (!res.ok) throw new Error('API hatası');
+      const data = await res.json();
+      if (data && data.rates && data.rates.TRY) {
+        const tryRate = data.rates.TRY;
+        const eurRateInUsd = data.rates.EUR || 0.93;
+        const gbpRateInUsd = data.rates.GBP || 0.79;
+        
+        const newRates = {
+          TRY: 1.0,
+          USD: Number(tryRate.toFixed(2)),
+          EUR: Number((tryRate / eurRateInUsd).toFixed(2)),
+          GBP: Number((tryRate / gbpRateInUsd).toFixed(2)),
+        };
+        setExchangeRates(newRates);
+        
+        const now = new Date();
+        setRateFetchTime(now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+      }
+    } catch (error) {
+      console.warn('Canlı kurlar çekilemedi, varsayılan kurlar kullanılıyor:', error);
+    } finally {
+      setIsFetchingRates(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRates();
+  }, []);
+
+  // Sync exchange rate in Wizard form when currency changes
+  useEffect(() => {
+    if (formData.currency && formData.currency !== 'TRY') {
+      const rate = exchangeRates[formData.currency] || DEFAULT_RATES[formData.currency];
+      setFormData(prev => ({
+        ...prev,
+        exchangeRate: rate,
+        amount: Number(((prev.originalAmount || 0) * rate).toFixed(2))
+      }));
+    } else if (formData.currency === 'TRY') {
+      setFormData(prev => ({
+        ...prev,
+        exchangeRate: 1.0,
+        amount: prev.originalAmount || 0
+      }));
+    }
+  }, [formData.currency, exchangeRates]);
+
+  // Recalculate TRY amount when original amount or rate changes in Wizard
+  const handleOriginalAmountChange = (val: number) => {
+    const rate = formData.exchangeRate || 1.0;
+    setFormData(prev => ({
+      ...prev,
+      originalAmount: val,
+      amount: Number((val * rate).toFixed(2))
+    }));
+  };
+
+  const handleExchangeRateChange = (rate: number) => {
+    setFormData(prev => ({
+      ...prev,
+      exchangeRate: rate,
+      amount: Number(((prev.originalAmount || 0) * rate).toFixed(2))
+    }));
+  };
 
   // Compute dynamic rollovers
   const { rolloverExpenses } = useMemo(() => {
@@ -71,37 +208,32 @@ export const FinanceExpenses = () => {
     const activeRollovers = (rolloverExpenses || []).filter(r => r && !r.isFuture);
     return [...expenses, ...activeRollovers];
   }, [expenses, rolloverExpenses]);
-  
-  // Wizard States
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [wizardStep, setWizardStep] = useState(1);
-  const [isEditingWizard, setIsEditingWizard] = useState(false);
-  
-  // View/Edit Modal States
-  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
-  const [summaryModal, setSummaryModal] = useState<{title: string; value: string; type: string} | null>(null);
 
-  // Form States
-  const defaultFormState: Partial<Expense> = {
-    title: '', amount: 0, category: 'Gıda', tags: [], date: '2026-07-03', status: 'Gerçekleşti', recipient: '', notes: '', recurrence: 'Tek Seferlik'
+  // Global Currency Formatting helper
+  const formatValue = (valueInTry: number) => {
+    if (displayCurrency === 'TRY') {
+      return `₺${valueInTry.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    }
+    const rate = exchangeRates[displayCurrency] || DEFAULT_RATES[displayCurrency];
+    const converted = valueInTry / rate;
+    return `${CURRENCY_SYMBOLS[displayCurrency]}${converted.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   };
-  const [formData, setFormData] = useState<Partial<Expense>>(defaultFormState);
-  const [newTag, setNewTag] = useState('');
 
   // --- DERIVED DATA ---
   const filteredExpenses = useMemo(() => {
     return allExpenses.filter(exp => {
       const matchesSearch = (exp.title || '').toLowerCase().includes((searchTerm || '').toLowerCase()) || 
                             (exp.recipient || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+                            (exp.notes || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
                             (exp.tags || []).some(t => t.toLowerCase().includes((searchTerm || '').toLowerCase()));
       const matchesCategory = selectedCategory === 'Tümü' || exp.category === selectedCategory;
       return matchesSearch && matchesCategory;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [allExpenses, searchTerm, selectedCategory]);
 
-  const { totalExpense, plannedExpense, currentMonthExpense, lastMonthExpense } = useMemo(() => {
+  const stats = useMemo(() => {
     let total = 0, planned = 0, currMonth = 0, lastMonth = 0;
-    const now = new Date(2026, 6, 3); // Today is 3 July 2026 (based on 1 July 2026 start time)
+    const now = new Date(2026, 6, 3); // Today is 3 July 2026 (based on system context)
     const currentMonthNum = now.getMonth();
     const currentYearNum = now.getFullYear();
     const lastMonthNum = currentMonthNum === 0 ? 11 : currentMonthNum - 1;
@@ -109,7 +241,6 @@ export const FinanceExpenses = () => {
 
     allExpenses.forEach(e => {
       const d = new Date(e.date);
-      // Scheduled/periodic transactions with a future date are held as planned until their actual date arrives.
       const isFuture = d > now;
 
       if (e.status === 'Gerçekleşti' && !isFuture) {
@@ -120,27 +251,48 @@ export const FinanceExpenses = () => {
         planned += e.amount;
       }
     });
-    return { totalExpense: total, plannedExpense: planned, currentMonthExpense: currMonth, lastMonthExpense: lastMonth };
-  }, [allExpenses]);
 
-  const monthlyChange = useMemo(() => {
-    if (lastMonthExpense === 0) return currentMonthExpense > 0 ? 100 : 0;
-    return (((currentMonthExpense - lastMonthExpense) / lastMonthExpense) * 100).toFixed(1);
-  }, [currentMonthExpense, lastMonthExpense]);
-  
-  const changeLabel = `${Number(monthlyChange) >= 0 ? '+' : ''}%${monthlyChange}`;
+    const growth = lastMonth === 0 ? (currMonth > 0 ? 100 : 0) : (((currMonth - lastMonth) / lastMonth) * 100);
+    return { 
+      totalExpense: total, 
+      plannedExpense: planned, 
+      currentMonthExpense: currMonth, 
+      lastMonthExpense: lastMonth,
+      growth: growth.toFixed(1)
+    };
+  }, [allExpenses]);
 
   const categoryData = useMemo(() => {
+    const rate = exchangeRates[displayCurrency] || DEFAULT_RATES[displayCurrency];
     return CATEGORIES.map(cat => ({
       name: cat,
-      value: allExpenses.filter(e => e.category === cat && e.status === 'Gerçekleşti').reduce((sum, e) => sum + e.amount, 0)
+      value: Number((allExpenses.filter(e => e.category === cat && e.status === 'Gerçekleşti').reduce((sum, e) => sum + e.amount, 0) / rate).toFixed(2))
     })).filter(c => c.value > 0);
-  }, [allExpenses]);
+  }, [allExpenses, displayCurrency, exchangeRates]);
 
-  // Generate 6 months data for charts
+  // Monthly distribution of completed/realized expenses for Donut Chart
+  const monthlyData = useMemo(() => {
+    const rate = exchangeRates[displayCurrency] || DEFAULT_RATES[displayCurrency];
+    const monthsMap: Record<string, number> = {};
+    
+    allExpenses.filter(e => e.status === 'Gerçekleşti').forEach(e => {
+      const d = new Date(e.date);
+      const monthName = d.toLocaleDateString('tr-TR', { month: 'long' });
+      monthsMap[monthName] = (monthsMap[monthName] || 0) + e.amount;
+    });
+
+    return Object.entries(monthsMap).map(([name, value]) => ({
+      name,
+      value: Number((value / rate).toFixed(2))
+    })).sort((a, b) => b.value - a.value);
+  }, [allExpenses, displayCurrency, exchangeRates]);
+
+  // Generate 6 months data for charts (converted to selected display currency)
   const monthlyTrendData = useMemo(() => {
     const data = [];
     const now = new Date(2026, 6, 3);
+    const rate = exchangeRates[displayCurrency] || DEFAULT_RATES[displayCurrency];
+
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthStr = d.toLocaleDateString('tr-TR', { month: 'short' });
@@ -157,12 +309,12 @@ export const FinanceExpenses = () => {
 
       data.push({
         name: `${monthStr} '${yearStr}`,
-        Gerçekleşen: monthExpenses.reduce((acc, curr) => acc + curr.amount, 0),
-        Planlı: monthPlanned.reduce((acc, curr) => acc + curr.amount, 0)
+        Gerçekleşen: Number((monthExpenses.reduce((acc, curr) => acc + curr.amount, 0) / rate).toFixed(0)),
+        Planlı: Number((monthPlanned.reduce((acc, curr) => acc + curr.amount, 0) / rate).toFixed(0))
       });
     }
     return data;
-  }, [allExpenses]);
+  }, [allExpenses, displayCurrency, exchangeRates]);
 
   const topRecipient = useMemo(() => {
     const recipientMap: Record<string, number> = {};
@@ -177,10 +329,65 @@ export const FinanceExpenses = () => {
     return entries[0][0];
   }, [allExpenses]);
 
+  // Top recipients/institutions for horizontal bar chart
+  const recipientsChartData = useMemo(() => {
+    const rate = exchangeRates[displayCurrency] || DEFAULT_RATES[displayCurrency];
+    const recipientMap: Record<string, number> = {};
+    
+    allExpenses.filter(e => e.status === 'Gerçekleşti').forEach(e => {
+      const rc = e.recipient || 'Diğer/Belirtilmemiş';
+      recipientMap[rc] = (recipientMap[rc] || 0) + e.amount;
+    });
+
+    return Object.entries(recipientMap)
+      .map(([name, value]) => ({
+        name,
+        Tutar: Number((value / rate).toFixed(2))
+      }))
+      .sort((a, b) => b.Tutar - a.Tutar)
+      .slice(0, 5);
+  }, [allExpenses, displayCurrency, exchangeRates]);
+
+  // Cumulative Trajectory Area Chart Data
+  const cumulativeExpensesData = useMemo(() => {
+    const rate = exchangeRates[displayCurrency] || DEFAULT_RATES[displayCurrency];
+    const sortedExpenses = [...allExpenses]
+      .filter(e => e.status === 'Gerçekleşti')
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    let totalCumulative = 0;
+    const data = sortedExpenses.map(exp => {
+      totalCumulative += exp.amount;
+      return {
+        date: new Date(exp.date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }),
+        "Birikimli Gider": Number((totalCumulative / rate).toFixed(2)),
+        "Tekil Gider": Number((exp.amount / rate).toFixed(2)),
+        title: exp.title
+      };
+    });
+
+    return data.slice(-12); // Limit to last 12 points
+  }, [allExpenses, displayCurrency, exchangeRates]);
+
+  // Combined Donut Chart data helper
+  const activeDonutData = useMemo(() => {
+    return donutTab === 'kategori' ? categoryData : monthlyData;
+  }, [donutTab, categoryData, monthlyData]);
+
+  // Sum of donut values for calculating percentage
+  const totalDonutValue = useMemo(() => {
+    return activeDonutData.reduce((acc, curr) => acc + curr.value, 0);
+  }, [activeDonutData]);
+
   // --- ACTIONS ---
   const handleOpenWizard = (expenseToEdit?: Expense) => {
     if (expenseToEdit) {
-      setFormData(expenseToEdit);
+      setFormData({
+        ...expenseToEdit,
+        currency: expenseToEdit.currency || 'TRY',
+        originalAmount: expenseToEdit.originalAmount || expenseToEdit.amount,
+        exchangeRate: expenseToEdit.exchangeRate || 1.0
+      });
       setIsEditingWizard(true);
     } else {
       setFormData(defaultFormState);
@@ -206,6 +413,9 @@ export const FinanceExpenses = () => {
         status: formData.status as 'Gerçekleşti' | 'Planlı',
         recurrence: formData.recurrence as 'Tek Seferlik' | 'Haftalık' | 'Aylık' | 'Yıllık',
         recipient: formData.recipient || '',
+        currency: formData.currency || 'TRY',
+        originalAmount: formData.originalAmount || formData.amount,
+        exchangeRate: formData.exchangeRate || 1.0
       };
       setExpenses([newExpense, ...expenses]);
     }
@@ -241,294 +451,703 @@ export const FinanceExpenses = () => {
       animate={{ opacity: 1, y: 0 }}
       className="p-6 space-y-6"
     >
-      {/* Header & Actions */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* Header & Controls */}
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-white/5 pb-5">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-display font-black tracking-tight text-text-primary">
-            Gider Merkezi
+          <h1 className="text-xl lg:text-2xl font-display font-black tracking-tight text-text-primary flex items-center gap-2">
+            <span className="p-1.5 bg-crit-vivid/10 text-crit-vivid rounded-lg">
+              <TrendingDown size={20} />
+            </span>
+            Gider Merkezi & Bütçe
           </h1>
-          <p className="text-sm text-text-secondary mt-1">
-            Gelişmiş harcama analizi, alıcı takibi ve bütçe yönetimi.
+          <p className="text-xs text-text-secondary mt-1">
+            Canlı döviz kurları ile entegre bütçe denetimi, gider izleme ve görsel analiz paneli.
           </p>
         </div>
-        <button 
-          onClick={() => handleOpenWizard()}
-          className="flex items-center gap-2 bg-crit-vivid text-pure-white font-bold px-4 py-2.5 rounded-xl hover:bg-crit-vivid/90 transition-all shadow-lg shadow-crit-vivid/20 active:scale-95"
-        >
-          <Plus size={18} />
-          <span>Yeni Gider Ekle</span>
-        </button>
+
+        {/* Currency Selectors & Wizard Trigger */}
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+          {/* Currency Selector Buttons */}
+          <div className="flex bg-white/[0.02] border border-white/5 rounded-xl p-1 shrink-0">
+            {(['TRY', 'USD', 'EUR', 'GBP'] as const).map((curr) => (
+              <button
+                key={curr}
+                type="button"
+                onClick={() => setDisplayCurrency(curr)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  displayCurrency === curr 
+                    ? 'bg-crit-vivid/10 text-crit-vivid border border-crit-vivid/20 shadow-sm' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {curr}
+              </button>
+            ))}
+          </div>
+
+          {/* Live Rate Indicator */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.01] border border-white/5 rounded-xl text-[10px] text-text-secondary">
+            <Globe size={11} className={isFetchingRates ? 'animate-spin text-crit-vivid' : 'text-crit-vivid'} />
+            <span className="font-mono">
+              {isFetchingRates ? 'Kurlar güncelleniyor...' : `Canlı Kur (USD: ₺${exchangeRates.USD})`}
+            </span>
+            <button 
+              onClick={fetchRates} 
+              type="button"
+              className="p-1 hover:bg-white/5 rounded-md transition-all text-text-secondary hover:text-text-primary"
+              title="Kurları Yenile"
+            >
+              <RefreshCw size={10} />
+            </button>
+          </div>
+
+          <button 
+            onClick={() => handleOpenWizard()}
+            className="flex items-center gap-2 bg-crit-vivid text-pure-white font-bold px-4 py-2.5 rounded-xl hover:bg-crit-vivid/90 transition-all shadow-lg shadow-crit-vivid/20 active:scale-95 text-xs ml-auto xl:ml-0"
+          >
+            <Plus size={15} />
+            <span>Gider Ekle</span>
+          </button>
+        </div>
       </div>
 
-      {/* Info Cards Row 1 */}
+      {/* Modern Compact Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metric 1 */}
         <div 
-          onClick={() => setSummaryModal({ title: 'Gerçekleşen Gider', value: `₺${totalExpense.toLocaleString('tr-TR')}`, type: 'completed' })}
-          className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl cursor-pointer hover:bg-white/[0.04] hover:border-crit-vivid/30 transition-all group"
+          onClick={() => setSummaryModal({ title: 'Toplam Gerçekleşen', value: formatValue(stats.totalExpense), type: 'completed' })}
+          className="bg-white/[0.01] border border-white/5 p-5 rounded-xl cursor-pointer hover:bg-white/[0.03] hover:border-crit-vivid/30 transition-all group relative overflow-hidden"
         >
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2.5 bg-crit-vivid/10 rounded-xl text-crit-vivid group-hover:scale-110 transition-transform">
-              <Receipt size={20} />
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">Toplam Gider</span>
+            <div className="p-2 bg-crit-vivid/10 rounded-lg text-crit-vivid group-hover:scale-105 transition-transform">
+              <Wallet size={16} />
             </div>
           </div>
-          <h3 className="text-sm font-bold text-text-secondary mb-1">Toplam Gerçekleşen</h3>
           <p className="text-2xl font-display font-black text-text-primary">
-            ₺{totalExpense.toLocaleString('tr-TR')}
+            {formatValue(stats.totalExpense)}
           </p>
+          <div className="mt-2 flex items-center gap-1.5">
+            <span className="text-[10px] text-text-secondary">Gerçekleşen Toplam Harcama</span>
+          </div>
         </div>
 
+        {/* Metric 2 */}
         <div 
-          onClick={() => setSummaryModal({ title: 'Planlı Gider', value: `₺${plannedExpense.toLocaleString('tr-TR')}`, type: 'planned' })}
-          className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl cursor-pointer hover:bg-white/[0.04] hover:border-nrg-sun/30 transition-all group"
+          onClick={() => setSummaryModal({ title: 'Planlı Ödemeler', value: formatValue(stats.plannedExpense), type: 'planned' })}
+          className="bg-white/[0.01] border border-white/5 p-5 rounded-xl cursor-pointer hover:bg-white/[0.03] hover:border-nrg-sun/30 transition-all group relative overflow-hidden"
         >
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2.5 bg-nrg-sun/10 rounded-xl text-nrg-sun group-hover:scale-110 transition-transform">
-              <Clock size={20} />
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">Planlı Ödemeler</span>
+            <div className="p-2 bg-nrg-sun/10 rounded-lg text-nrg-sun group-hover:scale-105 transition-transform">
+              <Clock size={16} />
             </div>
           </div>
-          <h3 className="text-sm font-bold text-text-secondary mb-1">Planlı Ödemeler</h3>
           <p className="text-2xl font-display font-black text-text-primary">
-            ₺{plannedExpense.toLocaleString('tr-TR')}
+            {formatValue(stats.plannedExpense)}
           </p>
+          <div className="mt-2 flex items-center gap-1.5">
+            <span className="text-[10px] text-text-secondary">Gelecek Dönem Giderleri</span>
+          </div>
         </div>
 
+        {/* Metric 3 */}
         <div 
-          onClick={() => setSummaryModal({ title: 'Aylık Değişim', value: changeLabel, type: 'trend' })}
-          className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl cursor-pointer hover:bg-white/[0.04] hover:border-ai-bright/30 transition-all group"
+          onClick={() => setSummaryModal({ title: 'Aylık Değişim', value: `${Number(stats.growth) >= 0 ? '+' : ''}${stats.growth}%`, type: 'trend' })}
+          className="bg-white/[0.01] border border-white/5 p-5 rounded-xl cursor-pointer hover:bg-white/[0.03] hover:border-ai-bright/30 transition-all group relative overflow-hidden"
         >
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2.5 bg-ai-bright/10 rounded-xl text-ai-bright group-hover:scale-110 transition-transform">
-              <TrendingDown size={20} />
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">Aylık Değişim</span>
+            <div className={`p-2 rounded-lg group-hover:scale-105 transition-transform ${Number(stats.growth) <= 0 ? 'bg-focus-main/10 text-focus-main' : 'bg-crit-vivid/10 text-crit-vivid'}`}>
+              <TrendingDown size={16} />
             </div>
           </div>
-          <h3 className="text-sm font-bold text-text-secondary mb-1">Aylık Değişim</h3>
-          <p className="text-2xl font-display font-black text-text-primary flex items-baseline gap-2">
-            {changeLabel}
+          <p className="text-2xl font-display font-black text-text-primary">
+            {Number(stats.growth) >= 0 ? '+' : ''}{stats.growth}%
           </p>
+          <div className="mt-2 flex items-center gap-1">
+            {Number(stats.growth) >= 0 ? (
+              <ArrowUpRight size={12} className="text-crit-vivid" />
+            ) : (
+              <ArrowDownRight size={12} className="text-focus-main" />
+            )}
+            <span className="text-[10px] text-text-secondary">Geçen aya kıyasla</span>
+          </div>
         </div>
 
+        {/* Metric 4 */}
         <div 
           onClick={() => setSummaryModal({ title: 'En Fazla Ödenen', value: topRecipient, type: 'recipient' })}
-          className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl cursor-pointer hover:bg-white/[0.04] hover:border-focus-main/30 transition-all group"
+          className="bg-white/[0.01] border border-white/5 p-5 rounded-xl cursor-pointer hover:bg-white/[0.03] hover:border-focus-main/30 transition-all group relative overflow-hidden"
         >
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2.5 bg-focus-main/10 rounded-xl text-focus-main group-hover:scale-110 transition-transform">
-              <ShoppingBag size={20} />
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">En Fazla Ödenen</span>
+            <div className="p-2 bg-focus-main/10 rounded-lg text-focus-main group-hover:scale-105 transition-transform">
+              <ShoppingBag size={16} />
             </div>
           </div>
-          <h3 className="text-sm font-bold text-text-secondary mb-1">En Fazla Ödenen</h3>
-          <p className="text-xl font-display font-black text-text-primary truncate">
+          <p className="text-lg font-display font-black text-text-primary truncate">
             {topRecipient}
           </p>
+          <div className="mt-2.5 flex items-center gap-1.5">
+            <span className="text-[10px] text-text-secondary">En büyük harcama muhatabı</span>
+          </div>
         </div>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {/* Main Trend Bar Chart */}
-        <div className="xl:col-span-2 bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-          <h3 className="text-sm font-bold text-text-primary mb-6 flex items-center gap-2">
-            <BarChart3 size={16} className="text-crit-vivid" />
-            Harcama Performansı (Son 6 Ay)
-          </h3>
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                <XAxis dataKey="name" stroke="#ffffff50" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#ffffff50" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `₺${v/1000}k`} />
-                <Tooltip 
-                  cursor={{ fill: '#ffffff05' }}
-                  contentStyle={{ backgroundColor: '#171717', borderColor: '#ffffff20', borderRadius: '12px' }}
-                  itemStyle={{ color: '#fff' }}
-                  formatter={(value: number) => `₺${value.toLocaleString('tr-TR')}`}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                <Bar dataKey="Gerçekleşen" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Planlı" fill="#f59e0b" radius={[4, 4, 0, 0]} opacity={0.7} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      {/* Main Split Interface Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Left 2/3 Area: Filter & Compact Smart List */}
+        <div className="lg:col-span-2 bg-white/[0.01] border border-white/5 rounded-2xl p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
+            <div className="flex items-center gap-2">
+              <Activity size={15} className="text-crit-vivid" />
+              <h2 className="text-sm font-bold text-text-primary">Gider Akışı & Hareketleri</h2>
+            </div>
 
-        {/* Category Pie Chart */}
-        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 flex flex-col">
-          <h3 className="text-sm font-bold text-text-primary mb-2 flex items-center gap-2">
-            <PieChartIcon size={16} className="text-crit-vivid" />
-            Kategori Dağılımı
-          </h3>
-          <div className="flex-1 min-h-[280px] w-full flex items-center justify-center">
-            {categoryData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="45%"
-                    innerRadius={70}
-                    outerRadius={90}
-                    paddingAngle={5}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#171717', borderColor: '#ffffff20', borderRadius: '12px' }}
-                    itemStyle={{ color: '#fff' }}
-                    formatter={(value: number) => `₺${value.toLocaleString('tr-TR')}`}
-                  />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '20px' }}/>
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="text-sm text-text-secondary flex flex-col items-center gap-2 opacity-50">
-                <PieChartIcon size={32} />
-                <span>Yeterli veri yok</span>
+            {/* Quick compact category filter tabs */}
+            <div className="flex gap-1.5 overflow-x-auto max-w-full pb-1 no-scrollbar">
+              {['Tümü', ...CATEGORIES.slice(0, 3), 'Diğer'].map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${
+                    selectedCategory === cat 
+                      ? 'bg-white/10 text-text-primary border border-white/15' 
+                      : 'text-text-secondary hover:text-text-primary hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="relative">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" />
+            <input 
+              type="text"
+              placeholder="Hızlı Arama: Başlık, Alıcı, Not veya Etiket..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white/[0.02] border border-white/5 rounded-xl pl-10 pr-4 py-3 text-xs text-text-primary focus:outline-none focus:border-crit-vivid/40 transition-colors"
+            />
+          </div>
+
+          {/* Interactive Compact List Container */}
+          <div className="space-y-2.5 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+            {filteredExpenses.length === 0 ? (
+              <div className="py-16 text-center bg-white/[0.005] rounded-xl border border-dashed border-white/5">
+                <Search size={28} className="mx-auto opacity-20 mb-2" />
+                <p className="text-xs text-text-secondary">Filtrelerle eşleşen bir gider hareketi bulunamadı.</p>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Dynamic Table Section */}
-      <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 flex flex-col h-full">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
-            <Activity size={16} className="text-crit-vivid" />
-            Gider Hareketleri ve Detaylar
-          </h3>
-          
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            {/* Search */}
-            <div className="relative w-full sm:w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-              <input 
-                type="text"
-                placeholder="Ara: Başlık, Alıcı, Etiket..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-white/[0.03] border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-text-primary focus:outline-none focus:border-crit-vivid/50 transition-colors"
-              />
-            </div>
-            
-            {/* Category Filter */}
-            <div className="relative shrink-0">
-              <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full sm:w-auto bg-white/[0.03] border border-white/10 rounded-xl pl-9 pr-8 py-2 text-xs text-text-primary appearance-none focus:outline-none focus:border-crit-vivid/50 transition-colors"
-              >
-                <option value="Tümü" className="bg-neutral-900">Tüm Kategoriler</option>
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat} className="bg-neutral-900">{cat}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
-            <thead>
-              <tr className="border-b border-white/5 bg-white/[0.01]">
-                <th className="py-3 px-4 text-xs font-bold text-text-secondary">Başlık / Alıcı</th>
-                <th className="py-3 px-4 text-xs font-bold text-text-secondary">Kategori & Etiketler</th>
-                <th className="py-3 px-4 text-xs font-bold text-text-secondary">Tutar</th>
-                <th className="py-3 px-4 text-xs font-bold text-text-secondary">Tarih</th>
-                <th className="py-3 px-4 text-xs font-bold text-text-secondary">Durum</th>
-                <th className="py-3 px-4 text-xs font-bold text-text-secondary text-right">İşlem</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredExpenses.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-sm text-text-secondary">
-                    <div className="flex flex-col items-center gap-3">
-                      <Search size={32} className="opacity-20" />
-                      Eşleşen gider kaydı bulunamadı.
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredExpenses.map((expense) => (
-                  <tr 
+            ) : (
+              filteredExpenses.map((expense) => {
+                const isForeign = expense.currency && expense.currency !== 'TRY';
+                return (
+                  <div 
                     key={expense.id} 
                     onClick={() => setSelectedExpense(expense)}
-                    className="border-b border-white/5 hover:bg-white/[0.03] transition-colors cursor-pointer group"
+                    className="flex items-center justify-between p-3.5 bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-xl transition-all cursor-pointer group"
                   >
-                    <td className="py-4 px-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-text-primary group-hover:text-crit-vivid transition-colors flex items-center gap-2">
-                          {expense.title}
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Category specific color dot */}
+                      <span className="w-1.5 h-8 rounded-full shrink-0" 
+                        style={{ backgroundColor: COLORS[CATEGORIES.indexOf(expense.category) % COLORS.length] || '#ccc' }} 
+                      />
+                      
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-text-primary group-hover:text-crit-vivid transition-colors truncate">
+                            {expense.title}
+                          </span>
+                          
+                          {/* Currency badge if foreign */}
+                          {isForeign && (
+                            <span className="text-[9px] font-bold text-crit-vivid bg-crit-vivid/15 border border-crit-vivid/20 px-1.5 py-0.5 rounded-md leading-none uppercase">
+                              {expense.originalAmount} {expense.currency}
+                            </span>
+                          )}
+
                           {expense.isDynamic && (
-                            <span className="text-[9px] font-bold text-crit-vivid bg-crit-vivid/10 border border-crit-vivid/20 px-1.5 py-0.5 rounded-md leading-none uppercase">
+                            <span className="text-[9px] font-bold text-crit-vivid bg-crit-vivid/15 border border-crit-vivid/25 px-1.5 py-0.5 rounded-md leading-none uppercase">
                               Sistem Devri
                             </span>
                           )}
-                          {expense.recurrence && expense.recurrence !== 'Tek Seferlik' && (
-                            <span className="text-[9px] font-bold text-focus-main bg-focus-main/10 border border-focus-main/20 px-1.5 py-0.5 rounded-md leading-none uppercase">
-                              {expense.recurrence}
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-xs text-text-secondary mt-0.5">{expense.isDynamic ? 'Önceki Dönem Ödenmemiş Bakiye' : (expense.recipient || 'Alıcı belirtilmedi')}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-[10px] text-text-secondary">
+                          <span>{expense.recipient || 'Bilinmeyen Alıcı'}</span>
+                          <span>•</span>
+                          <span>{expense.category}</span>
+                        </div>
                       </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex flex-col gap-1.5 items-start">
-                        <span className="inline-block px-2.5 py-0.5 bg-white/5 border border-white/10 rounded-md text-[11px] font-semibold text-text-secondary">
-                          {expense.category}
-                        </span>
-                        {expense.tags && expense.tags.length > 0 && (
-                          <div className="flex gap-1 flex-wrap">
-                            {expense.tags.slice(0, 2).map(t => (
-                              <span key={t} className="text-[10px] text-text-secondary/70 flex items-center gap-0.5">
-                                <Tag size={8} />{t}
-                              </span>
-                            ))}
-                            {expense.tags.length > 2 && <span className="text-[10px] text-text-secondary/70">+{expense.tags.length - 2}</span>}
-                          </div>
-                        )}
+                    </div>
+
+                    <div className="flex items-center gap-4 shrink-0 text-right">
+                      <div>
+                        {/* Final formatted display value */}
+                        <div className="text-xs font-mono font-bold text-text-primary group-hover:text-crit-vivid transition-colors">
+                          {formatValue(expense.amount)}
+                        </div>
+                        {/* Date */}
+                        <div className="text-[10px] font-mono text-text-secondary">
+                          {new Date(expense.date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}
+                        </div>
                       </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-sm font-mono font-black text-text-primary group-hover:text-crit-vivid transition-colors">
-                        ₺{expense.amount.toLocaleString('tr-TR')}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1.5 text-xs text-text-secondary font-mono">
-                        <Calendar size={12} />
-                        {new Date(expense.date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider ${
+
+                      {/* Simple visual status checkmark */}
+                      <span className={`p-1.5 rounded-lg border ${
                         expense.status === 'Gerçekleşti' 
-                          ? 'bg-crit-vivid/10 text-crit-vivid border border-crit-vivid/20' 
-                          : 'bg-nrg-sun/10 text-nrg-sun border border-nrg-sun/20'
+                          ? 'bg-crit-vivid/10 text-crit-vivid border-crit-vivid/20' 
+                          : 'bg-nrg-sun/10 text-nrg-sun border-nrg-sun/20'
                       }`}>
                         {expense.status === 'Gerçekleşti' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                        {expense.status}
                       </span>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); setSelectedExpense(expense); }}
-                        className="p-2 text-text-secondary group-hover:text-white group-hover:bg-white/10 rounded-xl transition-all"
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Chart & Smart Budget Tracker */}
+        <div className="space-y-6">
+          
+          {/* Chart Card */}
+          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-5">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
+                <PieChartIcon size={14} className="text-crit-vivid" />
+                Grafik & Analiz Paneli
+              </h3>
+            </div>
+
+            {/* Chart Tabs Bar */}
+            <div className="flex bg-white/[0.02] border border-white/5 rounded-xl p-1 mb-4">
+              <button
+                key="donut"
+                type="button"
+                onClick={() => setActiveChartTab('donut')}
+                className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold transition-all ${
+                  activeChartTab === 'donut' 
+                    ? 'bg-crit-vivid/15 text-crit-vivid border border-crit-vivid/10 shadow-sm' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <PieChartIcon size={12} />
+                <span className="hidden sm:inline">Dairesel</span>
+              </button>
+              <button
+                key="trend"
+                type="button"
+                onClick={() => setActiveChartTab('trend')}
+                className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold transition-all ${
+                  activeChartTab === 'trend' 
+                    ? 'bg-crit-vivid/15 text-crit-vivid border border-crit-vivid/10 shadow-sm' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <TrendingDown size={12} />
+                <span className="hidden sm:inline">Trend</span>
+              </button>
+              <button
+                key="sources"
+                type="button"
+                onClick={() => setActiveChartTab('sources')}
+                className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold transition-all ${
+                  activeChartTab === 'sources' 
+                    ? 'bg-crit-vivid/15 text-crit-vivid border border-crit-vivid/10 shadow-sm' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <ShoppingBag size={12} />
+                <span className="hidden sm:inline">Alıcılar</span>
+              </button>
+              <button
+                key="cumulative"
+                type="button"
+                onClick={() => setActiveChartTab('cumulative')}
+                className={`flex-1 flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold transition-all ${
+                  activeChartTab === 'cumulative' 
+                    ? 'bg-crit-vivid/15 text-crit-vivid border border-crit-vivid/10 shadow-sm' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <Activity size={12} />
+                <span className="hidden sm:inline">Kümülatif</span>
+              </button>
+            </div>
+
+            {/* CHART VIEWPORTS */}
+            
+            {/* Tab 1: Donut Chart (Category & Month distribution) */}
+            {activeChartTab === 'donut' && (
+              <div className="space-y-4">
+                {/* Sub-tabs for Donut content */}
+                <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 p-1 rounded-xl">
+                  <button 
+                    type="button"
+                    onClick={() => { setDonutTab('kategori'); setDonutHovered(null); }}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      donutTab === 'kategori' ? 'bg-white/10 text-text-primary' : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    Kategorik Kırılım
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => { setDonutTab('aylik'); setDonutHovered(null); }}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      donutTab === 'aylik' ? 'bg-white/10 text-text-primary' : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    Aylık Dağılım
+                  </button>
+                </div>
+
+                <div className="relative h-[180px] w-full flex items-center justify-center">
+                  {activeDonutData.length > 0 ? (
+                    <>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={activeDonutData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={75}
+                            paddingAngle={3}
+                            dataKey="value"
+                            stroke="none"
+                            onMouseEnter={(e) => {
+                              if (e && e.payload) {
+                                setDonutHovered({ name: e.name, value: Number(e.value) });
+                              }
+                            }}
+                            onMouseLeave={() => {
+                              setDonutHovered(null);
+                            }}
+                          >
+                            {activeDonutData.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={COLORS[index % COLORS.length]} 
+                                className="transition-all duration-300 hover:opacity-80 outline-none cursor-pointer"
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#121212', borderColor: '#ffffff10', borderRadius: '8px' }}
+                            itemStyle={{ color: '#fff', fontSize: '11px' }}
+                            formatter={(value: number) => `${CURRENCY_SYMBOLS[displayCurrency]}${value.toLocaleString('tr-TR')}`}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      
+                      {/* Centered details block */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+                        <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest text-center max-w-[80px] truncate">
+                          {donutHovered ? donutHovered.name : (donutTab === 'kategori' ? 'Kategoriler' : 'Tüm Aylar')}
+                        </span>
+                        <span className="text-sm font-mono font-black text-text-primary mt-1">
+                          {CURRENCY_SYMBOLS[displayCurrency]}{(donutHovered ? donutHovered.value : totalDonutValue).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                        </span>
+                        <span className="text-[9px] font-mono font-bold text-crit-vivid bg-crit-vivid/10 border border-crit-vivid/20 px-2 py-0.5 rounded-full mt-2">
+                          {donutHovered 
+                            ? `${((donutHovered.value / (totalDonutValue || 1)) * 100).toFixed(1)}%` 
+                            : '100%'}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center text-[11px] text-text-secondary opacity-50 space-y-1">
+                      <PieChartIcon size={24} className="mx-auto" />
+                      <span>Kayıtlı veri bulunamadı</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Scrollable Legend list */}
+                <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/5 max-h-[120px] overflow-y-auto custom-scrollbar">
+                  {activeDonutData.map((d, idx) => {
+                    const percent = ((d.value / (totalDonutValue || 1)) * 100).toFixed(0);
+                    return (
+                      <div 
+                        key={d.name} 
+                        className="flex items-center gap-2 text-[10px] text-text-secondary hover:text-text-primary transition-colors p-1 rounded-lg"
+                        onMouseEnter={() => setDonutHovered({ name: d.name, value: d.value })}
+                        onMouseLeave={() => setDonutHovered(null)}
                       >
-                        <ArrowRight size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                        <span className="truncate flex-1">{d.name}</span>
+                        <span className="font-mono text-text-primary font-bold">
+                          {percent}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Tab 2: Monthly Trend */}
+            {activeChartTab === 'trend' && (
+              <div className="space-y-4 animate-fadeIn">
+                <div className="h-[210px] w-full">
+                  {monthlyTrendData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={monthlyTrendData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" />
+                        <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} />
+                        <YAxis stroke="#64748b" fontSize={9} tickLine={false} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#121212', borderColor: '#ffffff10', borderRadius: '10px' }}
+                          itemStyle={{ fontSize: '11px' }}
+                          formatter={(value: number) => `${CURRENCY_SYMBOLS[displayCurrency]}${value.toLocaleString('tr-TR')}`}
+                        />
+                        <Bar dataKey="Gerçekleşen" fill="#ef4444" radius={[4, 4, 0, 0]} name="Gerçekleşen" />
+                        <Bar dataKey="Planlı" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Planlı" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-text-secondary italic">
+                      Trend verisi bulunmuyor
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex justify-center gap-4 text-[10px] border-t border-white/5 pt-3">
+                  <div className="flex items-center gap-1.5 text-text-secondary">
+                    <span className="w-2.5 h-1 rounded-full bg-[#ef4444]" />
+                    <span>Gerçekleşen</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-text-secondary">
+                    <span className="w-2.5 h-1 rounded-full bg-[#f59e0b]" />
+                    <span>Planlı</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 3: Top Recipients (Horizontal Bar Chart) */}
+            {activeChartTab === 'sources' && (
+              <div className="space-y-4 animate-fadeIn">
+                <div className="h-[210px] w-full">
+                  {recipientsChartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart 
+                        data={recipientsChartData} 
+                        layout="vertical"
+                        margin={{ top: 5, right: 10, left: -15, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff03" horizontal={false} />
+                        <XAxis type="number" stroke="#64748b" fontSize={9} tickLine={false} />
+                        <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={9} width={75} tickLine={false} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#121212', borderColor: '#ffffff10', borderRadius: '10px' }}
+                          itemStyle={{ fontSize: '11px' }}
+                          formatter={(value: number) => `${CURRENCY_SYMBOLS[displayCurrency]}${value.toLocaleString('tr-TR')}`}
+                        />
+                        <Bar dataKey="Tutar" fill="#ec4899" radius={[0, 4, 4, 0]} barSize={12} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-text-secondary italic">
+                      Alıcı verisi bulunmuyor
+                    </div>
+                  )}
+                </div>
+                
+                <p className="text-[9px] text-text-secondary text-center italic border-t border-white/5 pt-3">
+                  İşlem hacmine göre en yüksek ödeme yapılan ilk 5 alıcı / kurum.
+                </p>
+              </div>
+            )}
+
+            {/* Tab 4: Cumulative Trajectory Area Chart */}
+            {activeChartTab === 'cumulative' && (
+              <div className="space-y-4 animate-fadeIn">
+                <div className="h-[210px] w-full">
+                  {cumulativeExpensesData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={cumulativeExpensesData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25}/>
+                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" />
+                        <XAxis dataKey="date" stroke="#64748b" fontSize={9} tickLine={false} />
+                        <YAxis stroke="#64748b" fontSize={9} tickLine={false} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#121212', borderColor: '#ffffff10', borderRadius: '10px' }}
+                          itemStyle={{ fontSize: '11px' }}
+                          formatter={(value: number) => `${CURRENCY_SYMBOLS[displayCurrency]}${value.toLocaleString('tr-TR')}`}
+                        />
+                        <Area type="monotone" dataKey="Birikimli Gider" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorCumulative)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-text-secondary italic">
+                      Gider birikim verisi bulunmuyor
+                    </div>
+                  )}
+                </div>
+                
+                <p className="text-[9px] text-text-secondary text-center italic border-t border-white/5 pt-3">
+                  Gerçekleşen tüm harcamaların zaman içindeki birikimli gidişat eğrisi.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Smart Expense Budget & Milestone Tracker Widget */}
+          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-5 space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Target size={15} className="text-crit-vivid animate-pulse" />
+                <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">Aylık Harcama Limiti</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (showLimitEdit) {
+                    const parsed = parseFloat(tempLimitInput);
+                    if (!isNaN(parsed) && parsed > 0) {
+                      setExpenseLimit(parsed);
+                    }
+                  } else {
+                    setTempLimitInput(expenseLimit.toString());
+                  }
+                  setShowLimitEdit(!showLimitEdit);
+                }}
+                className="text-[10px] text-crit-vivid hover:underline font-bold transition-all"
+              >
+                {showLimitEdit ? 'Kaydet' : 'Düzenle'}
+              </button>
+            </div>
+
+            {showLimitEdit ? (
+              <div className="flex gap-2 animate-fadeIn">
+                <input
+                  type="number"
+                  min="1"
+                  value={tempLimitInput}
+                  onChange={(e) => setTempLimitInput(e.target.value)}
+                  className="flex-1 bg-white/[0.02] border border-white/10 rounded-xl px-3 py-1.5 font-mono text-xs text-text-primary focus:outline-none focus:border-crit-vivid/30"
+                  placeholder="Limit Tutar (₺)"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLimitEdit(false)}
+                  className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-text-secondary transition-colors"
+                >
+                  İptal
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Metrics */}
+                <div className="flex justify-between items-end">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] text-text-secondary block">BU AYKİ TOPLAM GİDER</span>
+                    <span className="text-base font-mono font-black text-white">
+                      ₺{stats.currentMonthExpense.toLocaleString('tr-TR')}
+                    </span>
+                  </div>
+                  <div className="text-right space-y-0.5">
+                    <span className="text-[10px] text-text-secondary block">LİMİT (₺)</span>
+                    <span className="text-sm font-mono font-bold text-text-primary">
+                      ₺{expenseLimit.toLocaleString('tr-TR')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-[10px] text-text-secondary">
+                    <span>Aylık Bütçe Tüketimi</span>
+                    <span className={`font-mono font-bold ${
+                      (stats.currentMonthExpense / expenseLimit) >= 1.0 ? 'text-crit-vivid' : 
+                      (stats.currentMonthExpense / expenseLimit) >= 0.8 ? 'text-nrg-sun' : 'text-focus-main'
+                    }`}>
+                      %{Math.round((stats.currentMonthExpense / expenseLimit) * 100) || 0}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-1000 ${
+                        (stats.currentMonthExpense / expenseLimit) >= 1.0 ? 'bg-gradient-to-r from-crit-vivid to-[#f43f5e]' :
+                        (stats.currentMonthExpense / expenseLimit) >= 0.8 ? 'bg-gradient-to-r from-nrg-sun to-crit-vivid' : 'bg-gradient-to-r from-focus-main to-nrg-sun'
+                      }`}
+                      style={{ width: `${Math.min(100, Math.round((stats.currentMonthExpense / expenseLimit) * 100)) || 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Milestones status */}
+                <div className="bg-white/[0.02] border border-white/5 p-3 rounded-xl space-y-2">
+                  <span className="text-[9px] text-text-secondary font-black uppercase tracking-wider block">Bütçe Koruma Durumu</span>
+                  
+                  <div className="space-y-2">
+                    {/* Badge 1: Under 100% */}
+                    <div className="flex items-center justify-between text-[10px]">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-base ${stats.currentMonthExpense <= expenseLimit ? 'grayscale-0 opacity-100' : 'grayscale opacity-30'}`}>🥉</span>
+                        <span className={`font-bold ${stats.currentMonthExpense <= expenseLimit ? 'text-white/90' : 'text-text-secondary'}`}>
+                          Bronz (Güvenli Sınır)
+                        </span>
+                      </div>
+                      <span className="font-mono text-[9px] text-text-secondary">₺{expenseLimit.toLocaleString('tr-TR')}</span>
+                    </div>
+
+                    {/* Badge 2: Under 80% */}
+                    <div className="flex items-center justify-between text-[10px]">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-base ${stats.currentMonthExpense <= expenseLimit * 0.80 ? 'grayscale-0 opacity-100' : 'grayscale opacity-30'}`}>🥈</span>
+                        <span className={`font-bold ${stats.currentMonthExpense <= expenseLimit * 0.80 ? 'text-white/90' : 'text-text-secondary'}`}>
+                          Gümüş (Dengeli Tüketim)
+                        </span>
+                      </div>
+                      <span className="font-mono text-[9px] text-text-secondary">₺{(expenseLimit * 0.8).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</span>
+                    </div>
+
+                    {/* Badge 3: Under 60% */}
+                    <div className="flex items-center justify-between text-[10px]">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-base ${stats.currentMonthExpense <= expenseLimit * 0.60 ? 'grayscale-0 opacity-100' : 'grayscale opacity-30'}`}>🥇</span>
+                        <span className={`font-bold ${stats.currentMonthExpense <= expenseLimit * 0.60 ? 'text-white/90' : 'text-text-secondary'}`}>
+                          Altın (Bütçe Koruyucu)
+                        </span>
+                      </div>
+                      <span className="font-mono text-[9px] text-text-secondary">₺{(expenseLimit * 0.6).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Projections Tip */}
+                <div className={`text-[9px] flex items-start gap-1.5 p-2.5 rounded-lg border ${
+                  stats.currentMonthExpense > expenseLimit 
+                    ? 'bg-crit-vivid/5 border-crit-vivid/10 text-crit-vivid' 
+                    : 'bg-focus-main/5 border-focus-main/10 text-focus-main'
+                }`}>
+                  <Info size={11} className="shrink-0 mt-0.5" />
+                  <span>
+                    {stats.currentMonthExpense > expenseLimit 
+                      ? `Bütçe aşımı gerçekleşti! Limitinizden ₺${(stats.currentMonthExpense - expenseLimit).toLocaleString('tr-TR')} daha fazla harcadınız. Harcamalarınızı acilen kısın.`
+                      : `Mevcut bütçe limitinizden geriye kalan miktar: ₺${(expenseLimit - stats.currentMonthExpense).toLocaleString('tr-TR')}. Güvenli bölgedesiniz!`}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 

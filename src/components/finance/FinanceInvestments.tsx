@@ -13,7 +13,12 @@ import {
   MoreVertical,
   X,
   AlertCircle,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  Sparkles,
+  Info,
+  Calendar,
+  ArrowUpRight,
+  CheckCircle
 } from 'lucide-react';
 
 interface Investment {
@@ -42,7 +47,7 @@ const MOCK_INVESTMENTS: Investment[] = [];
 const MOCK_SAVINGS: SavingGoal[] = [];
 
 export const FinanceInvestments = () => {
-  const [activeTab, setActiveTab] = useState<'investments' | 'savings'>('investments');
+  const [activeTab, setActiveTab] = useState<'investments' | 'savings' | 'smart-analysis'>('investments');
   
   // Investments State
   const [investments, setInvestments] = useLocalStorage<Investment[]>('finance_investments', MOCK_INVESTMENTS);
@@ -61,6 +66,10 @@ export const FinanceInvestments = () => {
     status: 'Devam Ediyor',
     category: 'Genel'
   });
+
+  const [monthlyIncome, setMonthlyIncome] = useLocalStorage<number>('finance_monthly_income', 50000);
+  const [monthlySavingPower, setMonthlySavingPower] = useLocalStorage<number>('finance_monthly_saving_power', 10000);
+  const [activeFaqId, setActiveFaqId] = useState<string | null>('saving_progress');
 
   // Modals
   const [summaryModal, setSummaryModal] = useState<{title: string; value: string; type: string} | null>(null);
@@ -100,6 +109,131 @@ export const FinanceInvestments = () => {
   const progressPercent = totalTarget > 0 ? (activeSaved / totalTarget) * 100 : 0;
   const completedSavingsCount = savings.filter(s => s.status === 'Tamamlandı').length;
 
+  const totalPortfolioValue = useMemo(() => {
+    return totalCurrent + totalSaved;
+  }, [totalCurrent, totalSaved]);
+
+  const savingRateRatio = useMemo(() => {
+    if (!monthlyIncome || monthlyIncome <= 0) return 0;
+    return Math.min(100, Math.round((monthlySavingPower / monthlyIncome) * 100));
+  }, [monthlySavingPower, monthlyIncome]);
+
+  const savingAdvice = useMemo(() => {
+    const ratio = savingRateRatio;
+    if (ratio === 0) {
+      return {
+        level: 'Tasarruf Yapılmıyor 🔴',
+        color: 'text-crit-vivid border-crit-vivid/20 bg-crit-vivid/5',
+        desc: 'Henüz aylık birikim veya yatırım gücü tanımlamadınız. Finansal geleceğinizi güvence altına almak için gelirinizin en az %20\'sini biriktirmeye çalışmalısınız.'
+      };
+    }
+    if (ratio < 10) {
+      return {
+        level: 'Tasarruf Oranı Düşük 🟠',
+        color: 'text-amber-500 border-amber-500/20 bg-amber-500/5',
+        desc: 'Tasarruf oranınız %10\'un altında. 50/30/20 bütçe kuralına göre birikim ve yatırımlarınızı artırmak için lüks veya gereksiz abonelik harcamalarını kısmayı deneyin.'
+      };
+    }
+    if (ratio < 20) {
+      return {
+        level: 'Yönetilebilir Dengeli Bölge 🟡',
+        color: 'text-nrg-sun border-nrg-sun/20 bg-nrg-sun/5',
+        desc: 'Fena olmayan bir tasarruf oranına sahipsiniz. Gelirinizin %20\'sini biriktirmeyi hedefleyerek finansal dayanıklılığınızı daha da artırabilirsiniz.'
+      };
+    }
+    if (ratio < 40) {
+      return {
+        level: 'Mükemmel Biriktirici 🟢',
+        color: 'text-focus-neon border-focus-neon/20 bg-focus-neon/5',
+        desc: 'Harika! Gelirinizin kayda değer bir kısmını geleceğinize ve yatırımlarınıza ayırıyorsunuz. Finansal olarak güvendesiniz.'
+      };
+    }
+    return {
+      level: 'Finansal Özgürlük Yolcusu 🔥',
+      color: 'text-focus-neon border-focus-neon/20 bg-focus-neon/5',
+      desc: 'Sıra dışı bir birikim oranı! Gelirinizin %40\'ından fazlasını yatırıma dönüştürüyorsunuz. Bu tempoyla çok erken yaşta finansal bağımsızlığa ulaşabilirsiniz.'
+    };
+  }, [savingRateRatio]);
+
+  // Chronological 12-Month savings goal projection
+  const savingsProjections = useMemo(() => {
+    const projections = [];
+    const today = new Date();
+    const currentMonthIndex = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    const turkishMonths = [
+      "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+      "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+    ];
+
+    // Create a deep copy of active savings to simulate month by month
+    const simulatedGoals = activeSavings.map(s => ({
+      ...s,
+      simulatedCurrent: s.currentAmount
+    }));
+
+    let accumulatedTotalSaved = totalSaved;
+    let accumulatedTotalPortfolio = totalPortfolioValue;
+
+    for (let m = 0; m < 12; m++) {
+      const simMonthIndex = (currentMonthIndex + m) % 12;
+      const simYear = currentYear + Math.floor((currentMonthIndex + m) / 12);
+      const monthLabel = `${turkishMonths[simMonthIndex]} ${simYear}`;
+
+      const goalsCompletedThisMonth: string[] = [];
+      const monthlyAllocations: { title: string; amount: number; completed: boolean }[] = [];
+
+      // Calculate total remaining target among incomplete goals to distribute monthlySavingPower proportionally
+      const incompleteGoals = simulatedGoals.filter(g => g.simulatedCurrent < g.targetAmount);
+      const totalRemainingNeeded = incompleteGoals.reduce((sum, g) => sum + (g.targetAmount - g.simulatedCurrent), 0);
+
+      if (totalRemainingNeeded > 0 && monthlySavingPower > 0) {
+        // Distribute saving power proportionally based on remaining amount
+        incompleteGoals.forEach(g => {
+          const remainingForThis = g.targetAmount - g.simulatedCurrent;
+          const proportion = remainingForThis / totalRemainingNeeded;
+          const allocated = Math.min(remainingForThis, monthlySavingPower * proportion);
+          
+          g.simulatedCurrent += allocated;
+          accumulatedTotalSaved += allocated;
+          accumulatedTotalPortfolio += allocated;
+
+          const isNowCompleted = g.simulatedCurrent >= g.targetAmount;
+          if (isNowCompleted) {
+            goalsCompletedThisMonth.push(g.title);
+          }
+
+          monthlyAllocations.push({
+            title: g.title,
+            amount: allocated,
+            completed: isNowCompleted
+          });
+        });
+      } else if (monthlySavingPower > 0) {
+        // No active incomplete goals, saving power just accumulates to general net worth
+        accumulatedTotalSaved += monthlySavingPower;
+        accumulatedTotalPortfolio += monthlySavingPower;
+      }
+
+      // Calculate total target of all simulated active goals
+      const currentActiveTarget = simulatedGoals.reduce((sum, g) => sum + g.targetAmount, 0);
+      const currentActiveSaved = simulatedGoals.reduce((sum, g) => sum + g.simulatedCurrent, 0);
+      const simulatedProgress = currentActiveTarget > 0 ? Math.min(100, (currentActiveSaved / currentActiveTarget) * 100) : 100;
+
+      projections.push({
+        monthLabel,
+        accumulatedTotalSaved,
+        accumulatedTotalPortfolio,
+        goalsCompletedThisMonth,
+        monthlyAllocations,
+        simulatedProgress
+      });
+    }
+
+    return projections;
+  }, [activeSavings, totalSaved, totalPortfolioValue, monthlySavingPower]);
+
   return (
     <div className="p-4 md:p-8 w-full max-w-7xl mx-auto space-y-8">
       {/* Header */}
@@ -120,6 +254,13 @@ export const FinanceInvestments = () => {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'savings' ? 'bg-ai-bright/10 text-ai-bright' : 'text-text-secondary hover:text-text-primary'}`}
           >
             Birikim Hedefleri
+          </button>
+          <button
+            onClick={() => setActiveTab('smart-analysis')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${activeTab === 'smart-analysis' ? 'bg-focus-neon/15 text-focus-neon border border-focus-neon/20' : 'text-text-secondary hover:text-text-primary'}`}
+          >
+            <Sparkles size={13} className={activeTab === 'smart-analysis' ? 'text-focus-neon' : 'text-text-secondary'} />
+            Akıllı Analiz
           </button>
         </div>
       </div>
@@ -475,6 +616,339 @@ export const FinanceInvestments = () => {
                       </div>
                     )}
                 </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'smart-analysis' && (
+            <>
+              {/* SMART ANALYSIS & FUTURE CHRONOLOGICAL PROJECTOR */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="smart-analysis-grid">
+                
+                {/* LEFT COLUMN (lg:col-span-5): Q&A and Adjustable Budget Saving power Tester */}
+                <div className="lg:col-span-5 space-y-5" id="smart-analysis-left">
+                  <div className="bg-gradient-to-br from-neutral-900 to-black border border-white/10 rounded-2xl p-5 space-y-4 shadow-xl" id="smart-analysis-budget-card">
+                    <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+                      <Sparkles size={18} className="text-focus-neon animate-pulse" />
+                      <div>
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Tasarruf & Yatırım Planlama Asistanı</h3>
+                        <p className="text-[10px] text-text-secondary">Akıllı simülasyonlarla finansal gücünüzü analiz edin.</p>
+                      </div>
+                    </div>
+
+                    {/* Gelir Slider / Input Control */}
+                    <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-3" id="smart-analysis-income-control">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-text-secondary flex items-center gap-1.5">
+                          <Wallet size={13} className="text-focus-neon" />
+                          Aylık Net Geliriniz
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-text-secondary">₺</span>
+                          <input 
+                            type="number" 
+                            value={monthlyIncome} 
+                            onChange={(e) => setMonthlyIncome(Math.max(0, Number(e.target.value)))}
+                            className="w-24 bg-black/40 border border-white/10 rounded-md px-2 py-0.5 text-xs text-white font-mono text-right focus:outline-none focus:border-focus-neon/50"
+                          />
+                        </div>
+                      </div>
+                      
+                      <input 
+                        type="range" 
+                        min="10000" 
+                        max="250000" 
+                        step="5000"
+                        value={monthlyIncome} 
+                        onChange={(e) => setMonthlyIncome(Number(e.target.value))}
+                        className="w-full accent-focus-neon cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[9px] text-text-secondary font-mono">
+                        <span>₺10k</span>
+                        <span>₺100k</span>
+                        <span>₺250k+</span>
+                      </div>
+                    </div>
+
+                    {/* Tasarruf Gücü Slider / Input Control */}
+                    <div className="bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-3" id="smart-analysis-saving-control">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-text-secondary flex items-center gap-1.5">
+                          <PiggyBank size={13} className="text-ai-bright" />
+                          Aylık Birikim & Yatırım Gücünüz
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-text-secondary">₺</span>
+                          <input 
+                            type="number" 
+                            value={monthlySavingPower} 
+                            onChange={(e) => setMonthlySavingPower(Math.max(0, Number(e.target.value)))}
+                            className="w-24 bg-black/40 border border-white/10 rounded-md px-2 py-0.5 text-xs text-white font-mono text-right focus:outline-none focus:border-ai-bright/50"
+                          />
+                        </div>
+                      </div>
+                      
+                      <input 
+                        type="range" 
+                        min="1000" 
+                        max="100000" 
+                        step="1000"
+                        value={monthlySavingPower} 
+                        onChange={(e) => setMonthlySavingPower(Number(e.target.value))}
+                        className="w-full accent-ai-bright cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[9px] text-text-secondary font-mono">
+                        <span>₺1k</span>
+                        <span>₺50k</span>
+                        <span>₺100k+</span>
+                      </div>
+                    </div>
+
+                    {/* Saving gauge */}
+                    <div className="bg-white/[0.01] border border-white/5 p-4 rounded-xl space-y-2.5" id="smart-analysis-gauge-panel">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-text-secondary font-bold">Gelirinize Oranla Tasarruf Hızınız</span>
+                        <span className="font-mono font-black text-text-primary">{savingRateRatio}%</span>
+                      </div>
+                      
+                      {/* Interactive Bar */}
+                      <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/5 flex">
+                        <div 
+                          className={`h-full transition-all duration-500 ${
+                            savingRateRatio < 10 ? 'bg-crit-vivid' : savingRateRatio < 20 ? 'bg-amber-500' : savingRateRatio < 40 ? 'bg-nrg-sun' : 'bg-focus-neon'
+                          }`}
+                          style={{ width: `${savingRateRatio}%` }}
+                        />
+                      </div>
+
+                      <div className={`p-3 border rounded-xl text-xs leading-relaxed ${savingAdvice.color}`}>
+                        <div className="font-bold mb-1 flex items-center gap-1">
+                          <Info size={12} />
+                          {savingAdvice.level}
+                        </div>
+                        {savingAdvice.desc}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Interactive Accordion QA */}
+                  <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-5 space-y-3" id="smart-analysis-faq-panel">
+                    <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider">Aklınızdaki Soruları Yanıtlayalım:</h4>
+                    
+                    {/* Q1: Ne kadar yatırımım ve birikimim var */}
+                    <div className="border border-white/5 rounded-xl overflow-hidden" id="faq-total-assets">
+                      <button 
+                        onClick={() => setActiveFaqId(activeFaqId === 'assets_amount' ? null : 'assets_amount')}
+                        className={`w-full p-3.5 text-left text-xs font-bold transition-all flex justify-between items-center hover:bg-white/[0.02] ${activeFaqId === 'assets_amount' ? 'bg-white/[0.02] text-white' : 'text-text-secondary'}`}
+                      >
+                        <span>Soru 1: Toplam ne kadar yatırım ve birikimim var?</span>
+                        <span className={`text-xs transition-transform ${activeFaqId === 'assets_amount' ? 'rotate-90 text-focus-neon' : ''}`}>➔</span>
+                      </button>
+                      {activeFaqId === 'assets_amount' && (
+                        <div className="p-4 bg-black/20 border-t border-white/5 text-xs space-y-3">
+                          <p className="text-text-secondary leading-relaxed">
+                            Mevcut yatırımlarınızın güncel değerleri ve birikim hedeflerinizde biriken toplam bakiyeleriniz şu şekildedir:
+                          </p>
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div className="p-2.5 bg-white/[0.01] border border-white/5 rounded-lg">
+                              <span className="text-[10px] text-text-secondary block">Güncel Yatırımlar</span>
+                              <span className="font-mono font-bold text-sm text-white">₺{totalCurrent.toLocaleString('tr-TR')}</span>
+                            </div>
+                            <div className="p-2.5 bg-white/[0.01] border border-white/5 rounded-lg">
+                              <span className="text-[10px] text-text-secondary block">Biriken Mevduat/Tasarruf</span>
+                              <span className="font-mono font-bold text-sm text-ai-bright">₺{totalSaved.toLocaleString('tr-TR')}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="p-2.5 bg-focus-neon/5 border border-focus-neon/10 rounded-lg text-xs">
+                            <p className="text-text-secondary font-bold flex justify-between">
+                              <span>Toplam Varlık Gücünüz:</span>
+                              <span className="text-focus-neon font-black">₺{totalPortfolioValue.toLocaleString('tr-TR')}</span>
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Q2: Hedeflerime ne kadar sürede ulaşırım */}
+                    <div className="border border-white/5 rounded-xl overflow-hidden" id="faq-savings-reach">
+                      <button 
+                        onClick={() => setActiveFaqId(activeFaqId === 'saving_progress' ? null : 'saving_progress')}
+                        className={`w-full p-3.5 text-left text-xs font-bold transition-all flex justify-between items-center hover:bg-white/[0.02] ${activeFaqId === 'saving_progress' ? 'bg-white/[0.02] text-white' : 'text-text-secondary'}`}
+                      >
+                        <span>Soru 2: Birikim hedeflerime ne kadar sürede ulaşırım?</span>
+                        <span className={`text-xs transition-transform ${activeFaqId === 'saving_progress' ? 'rotate-90 text-focus-neon' : ''}`}>➔</span>
+                      </button>
+                      {activeFaqId === 'saving_progress' && (
+                        <div className="p-4 bg-black/20 border-t border-white/5 text-xs space-y-3">
+                          {activeSavings.length > 0 ? (
+                            <>
+                              <p className="text-text-secondary leading-relaxed">
+                                Aylık tanımladığınız <strong>₺{monthlySavingPower.toLocaleString('tr-TR')}</strong> birikim gücü ile aktif hedeflerinizin tamamlanma süreleri:
+                              </p>
+                              <div className="space-y-2">
+                                {activeSavings.map(s => {
+                                  const remaining = Math.max(0, s.targetAmount - s.currentAmount);
+                                  const monthsToReach = monthlySavingPower > 0 ? Math.ceil(remaining / (monthlySavingPower / activeSavings.length)) : Infinity;
+                                  return (
+                                    <div key={s.id} className="flex justify-between items-center py-1.5 border-b border-white/5">
+                                      <div>
+                                        <span className="text-text-primary font-bold">{s.title}</span>
+                                        <span className="block text-[10px] text-text-secondary">Kalan: ₺{remaining.toLocaleString('tr-TR')}</span>
+                                      </div>
+                                      <span className="font-mono font-bold text-ai-bright text-xs">
+                                        {monthsToReach === Infinity ? 'Hesaplanamıyor' : monthsToReach <= 0 ? 'Tamamlandı! 🎉' : `~${monthsToReach} Ay`}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-text-secondary italic">Aktif birikim hedefiniz bulunmuyor. Yeni bir hedef ekleyerek süreyi hesaplayabilirsiniz.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Q3: Yatırımlarım beni koruyor mu */}
+                    <div className="border border-white/5 rounded-xl overflow-hidden" id="faq-investment-yield">
+                      <button 
+                        onClick={() => setActiveFaqId(activeFaqId === 'investment_yield' ? null : 'investment_yield')}
+                        className={`w-full p-3.5 text-left text-xs font-bold transition-all flex justify-between items-center hover:bg-white/[0.02] ${activeFaqId === 'investment_yield' ? 'bg-white/[0.02] text-white' : 'text-text-secondary'}`}
+                      >
+                        <span>Soru 3: Yatırımlarımın getirisi beni nasıl koruyor?</span>
+                        <span className={`text-xs transition-transform ${activeFaqId === 'investment_yield' ? 'rotate-90 text-focus-neon' : ''}`}>➔</span>
+                      </button>
+                      {activeFaqId === 'investment_yield' && (
+                        <div className="p-4 bg-black/20 border-t border-white/5 text-xs space-y-3">
+                          <p className="text-text-secondary leading-relaxed">
+                            Mevcut yatırımlarınızın kümülatif kâr/zarar ve performans rasyosu:
+                          </p>
+                          <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-text-secondary">Toplam Yatırım Kâr/Zarar:</span>
+                              <span className={`font-bold font-mono ${totalProfitLoss >= 0 ? 'text-focus-neon' : 'text-crit-vivid'}`}>
+                                {totalProfitLoss >= 0 ? '+' : ''}₺{totalProfitLoss.toLocaleString('tr-TR')}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-text-secondary">Toplam Getiri Oranı (ROI):</span>
+                              <span className={`font-bold font-mono ${totalProfitLoss >= 0 ? 'text-focus-neon' : 'text-crit-vivid'}`}>
+                                {totalProfitLoss >= 0 ? '+' : ''}%{profitLossPercent.toFixed(1)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="p-2.5 bg-focus-neon/5 border border-focus-neon/10 rounded-lg text-[11px] text-text-secondary">
+                            <strong className="text-text-primary block mb-1">💡 Portföy Çeşitlendirme Tavsiyesi:</strong>
+                            {invCategoryData.length < 3 ? (
+                              'Portföyünüzde az sayıda farklı varlık türü bulunuyor. Enflasyona karşı korunmak ve risk dengesini sağlamak için hisse senedi, altın ve yatırım fonu gibi farklı enstrümanlara sepet yapmayı düşünebilirsiniz.'
+                            ) : (
+                              'Güzel bir portföy çeşitliliğine sahipsiniz. Farklı varlık sınıfları (Hisse, Altın, Fon vb.) piyasa dalgalanmalarında risklerinizi azaltacaktır.'
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN (lg:col-span-7): Chronological 12-Month Timeline Projections */}
+                <div className="lg:col-span-7 space-y-4" id="smart-analysis-right">
+                  <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-text-primary uppercase tracking-wide flex items-center gap-2">
+                          <Calendar size={16} className="text-focus-neon" />
+                          12 Aylık Kronolojik Birikim Simülasyonu & Hedef Yol Haritası
+                        </h3>
+                        <p className="text-[10px] text-text-secondary mt-1">
+                          Aylık birikim gücünüzün hedeflerinize dağıtılmasıyla oluşan ileri tarihli projeksiyon tablosu.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Timeline List */}
+                    <div className="space-y-3.5 max-h-[580px] overflow-y-auto pr-1 custom-scrollbar">
+                      {savingsProjections.map((proj, idx) => {
+                        const hasCompletedGoals = proj.goalsCompletedThisMonth.length > 0;
+                        const progress = proj.simulatedProgress;
+
+                        return (
+                          <div 
+                            key={idx} 
+                            className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                              hasCompletedGoals 
+                                ? 'bg-focus-neon/5 border-focus-neon/20 shadow-[0_0_15px_rgba(16,185,129,0.04)]' 
+                                : progress >= 100
+                                ? 'bg-emerald-950/10 border-emerald-500/20'
+                                : 'bg-white/[0.01] border-white/5 hover:border-white/10'
+                            }`}
+                          >
+                            <div className="space-y-1.5 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-white">{proj.monthLabel}</span>
+                                {idx === 0 && <span className="px-1.5 py-0.5 rounded bg-white/10 text-[8px] font-bold text-text-primary">İçinde Bulunulan Ay</span>}
+                                {progress >= 100 && (
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[8px] font-bold">
+                                    Tüm Hedefler Tamam! 🎯
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-text-secondary">
+                                <span className="flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-ai-bright" />
+                                  Kümülatif Birikim: ₺{Math.round(proj.accumulatedTotalSaved).toLocaleString('tr-TR')}
+                                </span>
+                                <span className="flex items-center gap-1 font-bold text-text-primary">
+                                  Varlık Değeri: ₺{Math.round(proj.accumulatedTotalPortfolio).toLocaleString('tr-TR')}
+                                </span>
+                              </div>
+
+                              {/* Progress load bar for this simulated month */}
+                              <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-1 max-w-xs">
+                                <div 
+                                  className={`h-full bg-ai-bright transition-all duration-300`} 
+                                  style={{ width: `${progress}%` }} 
+                                />
+                              </div>
+                            </div>
+
+                            {/* Achievements & Goals completed indicators */}
+                            <div className="flex flex-col items-start md:items-end justify-center gap-2 shrink-0">
+                              
+                              {/* Finished Goals notification badge */}
+                              {hasCompletedGoals && (
+                                <div className="space-y-1 w-full md:text-right">
+                                  {proj.goalsCompletedThisMonth.map((title, gIdx) => (
+                                    <span 
+                                      key={gIdx} 
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-focus-neon text-black font-black text-[10px] shadow-sm animate-pulse"
+                                    >
+                                      🎉 {title} Tamamlandı!
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Simulated month status text */}
+                              {!hasCompletedGoals && (
+                                <span className="text-[10px] text-text-secondary/60 italic block text-right">
+                                  Birikimler istikrarlı büyüyor
+                                </span>
+                              )}
+
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </>
           )}

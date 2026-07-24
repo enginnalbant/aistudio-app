@@ -1,207 +1,82 @@
-import React, { useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Float, MeshDistortMaterial, Sphere, Points, PointMaterial, MeshWobbleMaterial } from '@react-three/drei';
-import * as THREE from 'three';
+import React, { useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { useWeather } from '../hooks/useWeather';
-import { useDevice } from '../hooks/useDevice';
-
-function AnimatedSphere({ color, distort = 0.4, speed = 2, scale = 2 }: { color: string, distort?: number, speed?: number, scale?: number }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  
-  useFrame(() => {
-    if (meshRef.current) {
-      const time = performance.now() * 0.001;
-      meshRef.current.rotation.x = time * 0.2;
-      meshRef.current.rotation.y = time * 0.3;
-    }
-  });
-
-  return (
-    <Float speed={speed} rotationIntensity={1} floatIntensity={1}>
-      <Sphere ref={meshRef} args={[1, 32, 32]} scale={scale}>
-        <MeshDistortMaterial
-          color={color}
-          speed={speed}
-          distort={distort}
-          radius={1}
-          opacity={0.1}
-          transparent
-        />
-      </Sphere>
-    </Float>
-  );
-}
-
-function Advanced3D() {
-  return (
-    <>
-      <AnimatedSphere color="#0066FF" distort={0.6} speed={3} scale={2.5} />
-      <group position={[3, 2, -2]}>
-        <AnimatedSphere color="#FF0066" distort={0.4} speed={1.5} scale={1} />
-      </group>
-      <group position={[-3, -2, -1]}>
-        <AnimatedSphere color="#00FF66" distort={0.5} speed={2} scale={1.2} />
-      </group>
-    </>
-  );
-}
-
-function Rain({ count = 1000 }) {
-  const pointsRef = useRef<THREE.Points>(null);
-  const { isMobile } = useDevice();
-  const rainCount = isMobile ? Math.floor(count / 3) : count;
-  
-  const positions = useMemo(() => {
-    const pos = new Float32Array(rainCount * 3);
-    for (let i = 0; i < rainCount; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 1] = Math.random() * 20;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 10;
-    }
-    return pos;
-  }, [rainCount]);
-
-  useFrame((state, delta) => {
-    if (pointsRef.current) {
-      const positions = pointsRef.current.geometry.attributes.position.array as Float32Array;
-      for (let i = 0; i < rainCount; i++) {
-        positions[i * 3 + 1] -= delta * 15;
-        if (positions[i * 3 + 1] < -10) {
-          positions[i * 3 + 1] = 10;
-        }
-      }
-      pointsRef.current.geometry.attributes.position.needsUpdate = true;
-    }
-  });
-
-  return (
-    <Points ref={pointsRef} positions={positions} stride={3}>
-      <PointMaterial
-        transparent
-        color="#82B1FF"
-        size={0.08}
-        sizeAttenuation={true}
-        depthWrite={false}
-        opacity={0.4}
-      />
-    </Points>
-  );
-}
-
-function WeatherBackground() {
-  const weather = useWeather();
-  const { isMobile } = useDevice();
-  
-  const bgColors = {
-    dawn: ['#FF9E80', '#FFD180'],
-    day: ['#82B1FF', '#E3F2FD'],
-    dusk: ['#311B92', '#FF4081'],
-    night: ['#0D47A1', '#000000'],
-  };
-
-  const colors = bgColors[weather.timeOfDay];
-
-  return (
-    <>
-      <color attach="background" args={[colors[0]]} />
-      <fog attach="fog" args={[colors[0], 5, 15]} />
-      
-      {/* Sun or Moon */}
-      <Float speed={1} rotationIntensity={0.5} floatIntensity={0.5}>
-        <Sphere args={[1, 16, 16]} position={[5, 5, -5]}>
-          <meshBasicMaterial color={weather.isDay ? '#FFF176' : '#ECEFF1'} />
-        </Sphere>
-      </Float>
-
-      {weather.condition === 'rain' && <Rain />}
-      {weather.condition === 'storm' && <Rain count={isMobile ? 800 : 2000} />}
-      
-      <AnimatedSphere 
-        color={weather.isDay ? '#FFFFFF' : '#424242'} 
-        distort={0.2} 
-        speed={1} 
-        scale={3} 
-      />
-    </>
-  );
-}
-
-function ParticleField({ color = "#82B1FF" }) {
-  const pointsRef = useRef<THREE.Points>(null);
-  const { isMobile } = useDevice();
-  const count = isMobile ? 300 : 1000;
-  
-  const positions = React.useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 20;
-    }
-    return pos;
-  }, [count]);
-
-  useFrame(() => {
-    if (pointsRef.current) {
-      pointsRef.current.rotation.y = performance.now() * 0.001 * 0.05;
-    }
-  });
-
-  return (
-    <Points ref={pointsRef} positions={positions} stride={3}>
-      <PointMaterial
-        transparent
-        color={color}
-        size={0.05}
-        sizeAttenuation={true}
-        depthWrite={false}
-        opacity={0.2}
-      />
-    </Points>
-  );
-}
 
 export const SpatialBackground = React.memo(function SpatialBackground() {
   const { settings } = useSettings();
-  const { isMobile } = useDevice();
+  const weather = useWeather();
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!settings.spatialBackground) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Create particles
+    const particleCount = Math.min(40, Math.floor(width / 35));
+    const particles = Array.from({ length: particleCount }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      radius: Math.random() * 2 + 1,
+      alpha: Math.random() * 0.3 + 0.1,
+    }));
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw subtle animated particles
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(225, 29, 72, ${p.alpha})`;
+        ctx.fill();
+      });
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [settings.spatialBackground]);
+
+  if (!settings.spatialBackground) return null;
 
   return (
-    <div className="fixed inset-0 z-0 pointer-events-none transition-opacity duration-1000">
-      <Canvas 
-        camera={{ position: [0, 0, 5], fov: 75 }}
-        dpr={isMobile ? [1, 1.5] : [1, 2]} // Lower resolution on mobile for FPS
-        gl={{ antialias: !isMobile, powerPreference: "high-performance" }}
-      >
-        <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} intensity={1} />
-        
-        {settings['background_type']?.value === 'default' && (
-          <>
-            <AnimatedSphere color="#0066FF" />
-            <ParticleField />
-          </>
-        )}
-
-        {settings['background_type']?.value === '3d-advanced' && (
-          <>
-            <Advanced3D />
-            <ParticleField color="#FF0066" />
-          </>
-        )}
-
-        {settings['background_type']?.value === 'accent-synced' && (
-          <>
-            <AnimatedSphere color={settings['accent_color']?.value} />
-            <ParticleField color={settings['accent_color']?.value} />
-          </>
-        )}
-
-        {settings['background_type']?.value === 'live-weather' && (
-          <WeatherBackground />
-        )}
-      </Canvas>
+    <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden">
+      {/* Dynamic Gradient Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-rose-500/10 blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-indigo-500/10 blur-[120px] animate-pulse" />
+      <div className="absolute top-[40%] right-[20%] w-[35vw] h-[35vw] rounded-full bg-purple-500/05 blur-[100px]" />
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-40" />
     </div>
   );
 });
-
