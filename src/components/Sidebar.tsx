@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useSettings } from '../context/SettingsContext';
 import { TwoLevelSidebar } from './ui/sidebar-component';
 import { useDevice } from '../hooks/useDevice';
@@ -29,24 +29,45 @@ export const Sidebar = React.memo(function Sidebar({ isOpen, activeModule, setAc
         opacity: 1
       }
     : {
-        width: 260,
-        height: 'calc(100% - 11rem)',
+        width: 280,
+        height: 'calc(100% - 6.5rem)',
         bottom: 'auto',
         left: 12,
         right: 'auto',
-        x: isOpen ? 0 : -320,
+        x: isOpen ? 0 : -340,
         opacity: isOpen ? 1 : 0
       };
 
   return (
-    <motion.aside 
-      initial={false}
-      animate={animateConfig}
-      transition={{ type: "spring", damping: 28, stiffness: 170 }}
-      className={`flex flex-col shrink-0 z-[101] h-full ${isDesktop ? 'relative' : 'fixed top-[4.5rem] shadow-2xl rounded-2xl overflow-hidden border border-white/10 bg-neutral-900/95 backdrop-blur-2xl'}`}
-    >
-      <TwoLevelSidebar setActiveModule={setActiveModule} isOpen={isOpen || !isDesktop} activeModule={activeModule} setSidebarOpen={setSidebarOpen} />
-    </motion.aside>
+    <>
+      {/* Mobile/Tablet Backdrop Overlay */}
+      {!isDesktop && (
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              key="sidebar-mobile-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (closeSidebar) closeSidebar();
+                else if (setSidebarOpen) setSidebarOpen(false);
+              }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
+            />
+          )}
+        </AnimatePresence>
+      )}
+
+      <motion.aside 
+        initial={false}
+        animate={animateConfig}
+        transition={{ type: "spring", damping: 28, stiffness: 170 }}
+        className={`flex flex-col shrink-0 z-[101] h-full ${isDesktop ? 'relative' : 'fixed top-[4.25rem] shadow-2xl rounded-2xl overflow-hidden border border-white/10 bg-neutral-950/98 backdrop-blur-3xl'}`}
+      >
+        <TwoLevelSidebar setActiveModule={setActiveModule} isOpen={isOpen || !isDesktop} activeModule={activeModule} setSidebarOpen={setSidebarOpen} />
+      </motion.aside>
+    </>
   );
 });
 

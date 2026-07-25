@@ -22,19 +22,21 @@ export const SidebarSettingsModal = ({ isOpen, onClose }: SidebarSettingsModalPr
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <motion.div
+          key="sidebar-settings-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="fixed inset-0 bg-pure-black/40 backdrop-blur-sm z-[1000] flex items-center justify-center p-4"
+        >
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-pure-black/40 backdrop-blur-sm z-[1000]"
-          />
-          <motion.div
+            key="sidebar-settings-card"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bento-card p-6 z-[1001] space-y-6"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bento-card p-6 z-[1001] space-y-6"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-display font-black text-text-primary uppercase">Sidebar Ayarları</h2>
@@ -61,7 +63,7 @@ export const SidebarSettingsModal = ({ isOpen, onClose }: SidebarSettingsModalPr
               ))}
             </div>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   );

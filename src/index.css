@@ -377,6 +377,48 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Pürüzsüz Dokunmatik Kalibrasyon ve Mobil Dokunma Performansı */
+  .touch-optimized {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Mobil Yoğun ve Orantılı Kart Düzenleri */
+  .mobile-compact-padding {
+    padding: clamp(0.5rem, 2vw, 1rem);
+  }
+
+  .mobile-compact-gap {
+    gap: clamp(0.375rem, 1.5vw, 0.75rem);
+  }
+}
+
+/* 120 FPS / 90 FPS / 60 FPS Performans Modları */
+html.fps-120 * {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html.fps-90 * {
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html.fps-60 * {
+  transition-timing-function: ease-out;
+}
+
+/* Dokunmatik Donanım İvmelendirme */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobil Cihaz Tam Yükseklik Fixi */
+body, #root {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  -webkit-overflow-scrolling: touch;
 }
 
 @theme inline {

@@ -193,6 +193,44 @@ export function SettingsPanel({ isOpen, onClose }: { isOpen: boolean; onClose: (
                       <div className="space-y-4">
                         {renderToggle('theme.mode', 'Karanlık Mod', <Moon size={20} />)}
                         {renderInput('theme.accent_color', 'Vurgu Rengi')}
+
+                        {/* FPS & Performans Ayarları */}
+                        <div className="p-4 bento-card space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-focus-neon/10 text-focus-neon flex items-center justify-center">
+                                <Zap size={20} />
+                              </div>
+                              <div>
+                                <div className="font-display font-bold text-sm text-text-primary">Mobil Ekran Yenileme Hızı (FPS)</div>
+                                <div className="text-[11px] text-text-secondary">Dokunmatik akıcılık ve pil performans kalibrasyonu</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 pt-1">
+                            {[120, 90, 60].map(fpsVal => {
+                              const isSelected = (settings['performance.fps']?.value || 120) === fpsVal;
+                              return (
+                                <button
+                                  key={`fps-opt-${fpsVal}`}
+                                  onClick={() => updateSetting('performance.fps', fpsVal)}
+                                  className={clsx(
+                                    "py-2.5 px-3 rounded-xl border text-xs font-mono font-black transition-all flex flex-col items-center justify-center gap-0.5",
+                                    isSelected 
+                                      ? "bg-focus-neon text-white border-focus-neon shadow-lg shadow-focus-neon/20" 
+                                      : "bg-skel-matte/10 border-skel-metal/20 text-text-secondary hover:text-text-primary"
+                                  )}
+                                >
+                                  <span>{fpsVal} FPS</span>
+                                  <span className="text-[9px] opacity-75 font-sans font-normal">
+                                    {fpsVal === 120 ? 'Ultra Akıcı' : fpsVal === 90 ? 'Dengeli' : 'Tasarruf'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
                     )}
 

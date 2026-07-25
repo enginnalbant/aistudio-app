@@ -7,6 +7,7 @@ export interface RSSFeed {
   subCategory?: string;
   isDefault?: boolean;
   isActive?: boolean;
+  isFavorite?: boolean;
   icon?: string;
   lastFetched?: string;
   itemCount?: number;

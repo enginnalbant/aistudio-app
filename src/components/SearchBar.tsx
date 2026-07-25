@@ -146,26 +146,26 @@ export function SearchBar({ onNavigate }: SearchBarProps) {
   };
 
   return (
-    <div ref={containerRef} className="relative flex-1 max-w-2xl mx-4">
+    <div ref={containerRef} className="relative flex-1 max-w-[160px] xs:max-w-[200px] sm:max-w-xl md:max-w-2xl mx-1 sm:mx-3">
       <form onSubmit={handleSearch} className="relative">
         <div className={`
           relative flex items-center bg-skel-matte/5 border rounded-xl transition-all duration-500 group
           ${isFocused ? 'border-focus-neon/50 bg-skel-matte/10 ring-4 ring-focus-neon/5' : 'border-skel-metal/10'}
         `}>
-          <div className="absolute left-4 flex items-center gap-2">
-            {query.startsWith('/') ? <Command size={16} className="text-focus-neon" /> :
-             query.startsWith('?') ? <Sparkles size={16} className="text-ai-bright" /> :
-             query.startsWith('!') ? <Globe size={16} className="text-grow-phosphor" /> :
-             <Search size={16} className="text-text-secondary group-focus-within:text-focus-neon transition-colors" />}
+          <div className="absolute left-2.5 sm:left-4 flex items-center gap-2">
+            {query.startsWith('/') ? <Command size={15} className="text-focus-neon" /> :
+             query.startsWith('?') ? <Sparkles size={15} className="text-ai-bright" /> :
+             query.startsWith('!') ? <Globe size={15} className="text-grow-phosphor" /> :
+             <Search size={15} className="text-text-secondary group-focus-within:text-focus-neon transition-colors" />}
           </div>
           
           <input
             type="text"
-            placeholder="Sistemde ara, AI'a sor (?) veya komut gir (/)..."
+            placeholder="Arama..."
             value={query}
             onFocus={() => setIsFocused(true)}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-transparent py-3 pl-12 pr-12 text-sm text-text-primary outline-none placeholder:text-text-secondary/30 font-display"
+            className="w-full bg-transparent py-2 sm:py-3 pl-8 sm:pl-12 pr-8 sm:pr-12 text-xs sm:text-sm text-text-primary outline-none placeholder:text-text-secondary/40 font-display"
           />
 
           <div className="absolute right-4 flex items-center gap-2">

@@ -2,7 +2,7 @@ import React from 'react';
 import { StockList } from './StockList';
 
 const PageContainer = ({ title, subtitle }: { title: string; subtitle: string }) => (
-  <div className="p-8 bento-card border-skel-metal/10 bg-skel-space/30 backdrop-blur-xl h-full min-h-[400px]">
+  <div className="p-3 sm:p-6 md:p-8 bento-card border-skel-metal/10 bg-skel-space/30 backdrop-blur-xl h-full min-h-[300px]">
     <h1 className="text-2xl font-display font-black text-text-primary uppercase tracking-tight">{title}</h1>
     <p className="text-text-secondary opacity-60 mt-4 font-mono text-sm uppercase tracking-widest">{subtitle}</p>
     <div className="mt-12 border-2 border-dashed border-skel-metal/10 rounded-3xl h-64 flex items-center justify-center">
@@ -10,6 +10,13 @@ const PageContainer = ({ title, subtitle }: { title: string; subtitle: string })
     </div>
   </div>
 );
+
+// FASON İŞLER
+export const FasonDashboard = () => <PageContainer title="Fason İşler - Dashboard" subtitle="Fason süreçleri genel özeti" />;
+export const FasonOutgoing = () => <PageContainer title="Giden İşler" subtitle="Fasona gönderilen işlerin listesi" />;
+export const FasonAll = () => <PageContainer title="Tüm İşler" subtitle="Tüm fason operasyonları arşivi" />;
+export const FasonReports = () => <PageContainer title="Fason Raporlar" subtitle="Operasyonel raporlama ekranı" />;
+export const FasonAnalytics = () => <PageContainer title="Fason Analizler" subtitle="Verimlilik ve maliyet analizleri" />;
 
 // STOKLAR
 import { StockDashboard } from './StockDashboard';
@@ -32,4 +39,10 @@ export const ContactsDashboard = () => <ContactDashboard />;
 export const ContactsList = () => <ContactList />;
 export const ContactsReports = () => <ContactReports />;
 export const ContactsAnalytics = () => <ContactAnalytics />;
+
+// MUTABAKAT
+export const ReconDashboard = () => <PageContainer title="Mutabakat - Dashboard" subtitle="Mutabakat süreçleri takibi" />;
+export const ReconContacts = () => <PageContainer title="Cari Mutabakat" subtitle="Firmalar arası mutabakat işlemleri" />;
+export const ReconReports = () => <PageContainer title="Mutabakat Raporlar" subtitle="Onaylanan ve bekleyen mutabakatlar" />;
+export const ReconAnalytics = () => <PageContainer title="Mutabakat Analizler" subtitle="Süreç performans verileri" />;
 

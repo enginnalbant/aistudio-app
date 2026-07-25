@@ -776,7 +776,7 @@ export const FinanceDashboard = () => {
   ];
 
   return (
-    <div className="p-4 md:p-6 w-full max-w-7xl mx-auto space-y-6 pb-24 text-text-primary">
+    <div className="p-2.5 sm:p-4 md:p-6 w-full max-w-7xl mx-auto space-y-3.5 sm:space-y-6 pb-20 text-text-primary touch-optimized">
       {/* Toast alert */}
       <AnimatePresence>
         {successToast && (

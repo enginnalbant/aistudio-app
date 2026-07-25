@@ -290,7 +290,7 @@ export const EnvironmentalWidget = () => {
       {/* Unified Environmental Panel */}
       <div 
         className={`
-          flex items-center gap-2 lg:gap-4 px-4 py-2 rounded-2xl border transition-all duration-700 cursor-pointer relative
+          flex items-center gap-1.5 sm:gap-2 lg:gap-4 px-2 sm:px-4 py-1 sm:py-2 rounded-xl sm:rounded-2xl border transition-all duration-700 cursor-pointer relative
           ${isHovered ? 'bg-skel-matte/15 border-focus-neon/40 shadow-[0_20px_50px_-12px_rgba(37,99,235,0.25)]' : 'bg-skel-matte/5 border-skel-metal/10 shadow-none'}
         `}
         onClick={() => !isSearching && fetchWeather()}
@@ -303,24 +303,24 @@ export const EnvironmentalWidget = () => {
         </div>
 
         {/* Time & Date Section */}
-        <div className="flex flex-col items-start min-w-[70px] relative z-10">
+        <div className="flex flex-col items-start min-w-[45px] sm:min-w-[70px] relative z-10">
           <motion.div 
             key={format(time, 'HH:mm')}
-            className="text-xl lg:text-2xl font-display font-black tracking-tighter text-text-primary leading-none flex items-baseline gap-1"
+            className="text-xs xs:text-sm sm:text-lg lg:text-2xl font-display font-black tracking-tighter text-text-primary leading-none flex items-baseline gap-0.5 sm:gap-1"
           >
             {format(time, 'HH:mm')}
-            <span className="text-[10px] font-mono opacity-30 animate-pulse">{format(time, 'ss')}</span>
+            <span className="hidden xs:inline-block text-[8px] font-mono opacity-30 animate-pulse">{format(time, 'ss')}</span>
           </motion.div>
-          <div className="flex items-center gap-1.5 mt-1">
+          <div className="hidden xs:flex items-center gap-1 mt-0.5">
             <div className="w-1 h-1 rounded-full bg-focus-neon animate-pulse" />
-            <span className="text-[9px] font-display font-bold text-text-primary tracking-tight uppercase opacity-80">
+            <span className="text-[8px] sm:text-[9px] font-display font-bold text-text-primary tracking-tight uppercase opacity-80">
               {format(time, 'd MMM', { locale: tr })}
             </span>
           </div>
         </div>
 
         {/* Vertical Divider */}
-        <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-skel-metal/20 to-transparent relative z-10" />
+        <div className="w-[1px] h-5 sm:h-8 bg-gradient-to-b from-transparent via-skel-metal/20 to-transparent relative z-10" />
 
         {/* Weather Section */}
         <div className="relative z-[1000]" ref={searchRef}>
@@ -465,11 +465,11 @@ export const EnvironmentalWidget = () => {
                 initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
-                className="flex items-center gap-3"
+                className="flex items-center gap-1.5 sm:gap-3"
               >
                 <div className="relative group/icon">
                   <div className="absolute inset-0 bg-focus-neon/20 blur-xl rounded-full opacity-0 group-hover/icon:opacity-100 transition-opacity" />
-                  {getWeatherIcon(weather.icon, 24)}
+                  {getWeatherIcon(weather.icon, 18)}
                   <motion.div 
                     className="absolute -top-1 -right-1"
                     animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.7, 0.3] }}
@@ -480,21 +480,21 @@ export const EnvironmentalWidget = () => {
                 </div>
                 
                 <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xl font-display font-black text-text-primary leading-none">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <span className="text-xs sm:text-xl font-display font-black text-text-primary leading-none">
                       {weather.temp}°
                     </span>
                     <div 
                       onClick={(e) => { e.stopPropagation(); setIsSearching(true); }}
-                      className="flex items-center gap-1 text-[9px] text-text-secondary bg-skel-matte/10 px-1.5 py-0.5 rounded-full border border-skel-metal/5 hover:bg-focus-neon/10 hover:border-focus-neon/30 transition-all group/loc"
+                      className="flex items-center gap-0.5 sm:gap-1 text-[8px] sm:text-[9px] text-text-secondary bg-skel-matte/10 px-1 sm:px-1.5 py-0.5 rounded-full border border-skel-metal/5 hover:bg-focus-neon/10 hover:border-focus-neon/30 transition-all group/loc"
                     >
-                      <MapPin size={8} className="text-focus-neon" />
-                      <span className="truncate max-w-[60px] font-bold">{weather.location}</span>
-                      <Search size={8} className="opacity-0 group-hover/loc:opacity-100 transition-opacity" />
+                      <MapPin size={8} className="text-focus-neon shrink-0" />
+                      <span className="truncate max-w-[42px] sm:max-w-[60px] font-bold">{weather.location}</span>
+                      <Search size={8} className="opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[9px] text-text-secondary font-bold uppercase tracking-widest opacity-60">
+                  <div className="hidden xs:flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[8px] sm:text-[9px] text-text-secondary font-bold uppercase tracking-widest opacity-60">
                       {weather.condition}
                     </span>
                     {weather.temp > 25 && <Sun size={8} className="text-nrg-sun" />}

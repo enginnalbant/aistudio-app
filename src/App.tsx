@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
-import { MobileNav } from './components/MobileNav';
+import { AndroidDockBar } from './components/AndroidDockBar';
 import { SpatialBackground } from './components/SpatialBackground';
 import { SettingsModal } from './components/ui/SettingsModal';
 import { NotificationPage } from './components/NotificationPage';
@@ -30,6 +30,11 @@ import {
   FinanceReports
 } from './components/finance';
 import {
+  FasonDashboard,
+  FasonOutgoing,
+  FasonAll,
+  FasonReports,
+  FasonAnalytics,
   StocksDashboard,
   StocksList,
   StocksReports,
@@ -37,7 +42,11 @@ import {
   ContactsDashboard,
   ContactsList,
   ContactsReports,
-  ContactsAnalytics
+  ContactsAnalytics,
+  ReconDashboard,
+  ReconContacts,
+  ReconReports,
+  ReconAnalytics
 } from './components/ModulePages';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap } from 'lucide-react';
@@ -47,9 +56,13 @@ import { NotesTodo } from './components/notes/NotesTodo';
 import { NotesBookmarks } from './components/notes/NotesBookmarks';
 import { NotesPasswords } from './components/notes/NotesPasswords';
 import { NotesBooks } from './components/notes/NotesBooks';
+import { NotesDashboard } from './components/notes/NotesDashboard';
+import { NotesQuickMemos } from './components/notes/NotesQuickMemos';
+import { NotesNotebook } from './components/notes/NotesNotebook';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { useDevice } from './hooks/useDevice';
 
 function AppLayout() {
@@ -140,7 +153,7 @@ function AppLayout() {
         
         <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
         
-        <div className="flex-1 flex overflow-hidden p-3 lg:p-4 gap-3 lg:gap-4 relative pb-24 lg:pb-4">
+        <div className="flex-1 flex overflow-hidden p-1 sm:p-3 lg:p-4 gap-2 sm:gap-3 lg:gap-4 relative pb-20 lg:pb-4 touch-optimized">
           {/* Backdrop Overlay for Mobiles & Tablets */}
           {!isDesktop && isSidebarOpen && (
             <div 
@@ -157,7 +170,7 @@ function AppLayout() {
             setSidebarOpen={setIsSidebarOpen}
           />
           
-          <div className="flex-1 flex flex-col gap-4 min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[40px] rounded-2xl border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.4)] p-3 lg:p-6 transition-all duration-700">
+          <div className="flex-1 flex flex-col gap-2 sm:gap-4 min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[30px] rounded-xl sm:rounded-2xl border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.4)] p-1.5 sm:p-4 lg:p-6 pb-20 sm:pb-28 lg:pb-6 transition-all duration-500">
             <main className="flex-1 overflow-x-hidden">
             <AnimatePresence mode="wait">
               <motion.div
@@ -208,6 +221,16 @@ function AppLayout() {
                   <PurchasingReports />
                 ) : activeModule === 'purchasing-analytics' ? (
                   <PurchasingAnalytics />
+                ) : activeModule === 'fason-dashboard' ? (
+                  <FasonDashboard />
+                ) : activeModule === 'fason-outgoing' ? (
+                  <FasonOutgoing />
+                ) : activeModule === 'fason-all' ? (
+                  <FasonAll />
+                ) : activeModule === 'fason-reports' ? (
+                  <FasonReports />
+                ) : activeModule === 'fason-analytics' ? (
+                  <FasonAnalytics />
                 ) : activeModule === 'stocks-dashboard' ? (
                   <StocksDashboard />
                 ) : activeModule === 'stocks-list' ? (
@@ -224,6 +247,14 @@ function AppLayout() {
                   <ContactsReports />
                 ) : activeModule === 'contacts-analytics' ? (
                   <ContactsAnalytics />
+                ) : activeModule === 'recon-dashboard' ? (
+                  <ReconDashboard />
+                ) : activeModule === 'recon-contacts' ? (
+                  <ReconContacts />
+                ) : activeModule === 'recon-reports' ? (
+                  <ReconReports />
+                ) : activeModule === 'recon-analytics' ? (
+                  <ReconAnalytics />
                 ) : activeModule === 'library-ebooks' ? (
                   <NotesBooks />
                 ) : activeModule.startsWith('library-') ? (
@@ -231,16 +262,12 @@ function AppLayout() {
                     title={activeModule.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
                     brandName="APEXOS KÜTÜPHANE" 
                   />
+                ) : activeModule === 'notes-dashboard' ? (
+                  <NotesDashboard />
                 ) : activeModule === 'notes-quick' ? (
-                  <ComingSoon 
-                    title="Hızlı Notlar" 
-                    brandName="APEXOS" 
-                  />
+                  <NotesQuickMemos />
                 ) : activeModule === 'notes-notebook' ? (
-                  <ComingSoon 
-                    title="Not Defteri" 
-                    brandName="APEXOS" 
-                  />
+                  <NotesNotebook />
                 ) : activeModule === 'notes-todo' ? (
                   <NotesTodo />
                 ) : activeModule === 'notes-bookmarks' ? (
@@ -266,7 +293,7 @@ function AppLayout() {
       </div>
       </div>
 
-      <MobileNav 
+      <AndroidDockBar 
         activeModule={activeModule} 
         setActiveModule={handleSetActiveModule} 
         toggleSidebar={toggleSidebar} 
@@ -335,9 +362,11 @@ export default function App() {
   return (
     <AuthProvider>
       <SettingsProvider>
-        <NotificationProvider>
-          <AppContent />
-        </NotificationProvider>
+        <LanguageProvider>
+          <NotificationProvider>
+            <AppContent />
+          </NotificationProvider>
+        </LanguageProvider>
       </SettingsProvider>
     </AuthProvider>
   );

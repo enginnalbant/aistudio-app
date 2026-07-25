@@ -5,7 +5,7 @@ import {
   Share2, MessageSquare, Youtube, Code, Hash, Heart
 } from 'lucide-react';
 import { RSSFeed } from './types';
-import { exportToOPML, parseOPML, detectFeedPlatformInfo, getFeedHomepageUrl } from './utils';
+import { exportToOPML, parseOPML, detectFeedPlatformInfo, getFeedHomepageUrl, fetchRssFeedXml } from './utils';
 
 interface FeedManagerProps {
   feeds: RSSFeed[];
@@ -217,11 +217,23 @@ export function FeedManager({
         setCurrentCheckingTitle(feed.title);
         try {
           const res = await fetch(`/api/rss-health/check?url=${encodeURIComponent(feed.url)}&title=${encodeURIComponent(feed.title)}`);
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const data = await res.json();
-          return { feed, data };
+          if (res.ok) {
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+              const data = await res.json();
+              return { feed, data };
+            }
+          }
+          // Server returned non-JSON or error, try client fallback
+          await fetchRssFeedXml(feed.url);
+          return { feed, data: { status: 'healthy', url: feed.url } };
         } catch (err: any) {
-          return { feed, data: { status: 'broken', error: err.message || 'Bağlantı Zaman Aşımı' } };
+          try {
+            await fetchRssFeedXml(feed.url);
+            return { feed, data: { status: 'healthy', url: feed.url } };
+          } catch (fallbackErr: any) {
+            return { feed, data: { status: 'broken', error: err.message || 'Bağlantı Zaman Aşımı' } };
+          }
         }
       });
 

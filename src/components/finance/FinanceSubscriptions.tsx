@@ -809,7 +809,7 @@ export const FinanceSubscriptions = () => {
                     </div>
                     <div className="flex items-center gap-3 font-mono font-bold">
                       <span className={item.itemType === 'subscription' ? 'text-focus-neon' : 'text-crit-vivid'}>
-                        {formatValue(convertAmount(item.amount || (item as any).paymentAmount, item.currency || 'TRY', displayCurrency))}
+                        {formatValue(convertAmount((item as any).amount || (item as any).paymentAmount || 0, item.currency || 'TRY', displayCurrency))}
                       </span>
                     </div>
                   </div>

@@ -395,4 +395,84 @@ export const getFeedHomepageUrl = (feedUrl: string, feedTitle?: string): { homep
   }
 };
 
+/**
+ * Robust RSS Feed Fetcher with Multi-Proxy Fallback
+ * Tries server proxy first, then client-side CORS proxies, ensuring workability on Vercel and elsewhere.
+ */
+export const fetchRssFeedXml = async (feedUrl: string, isForce = false): Promise<string> => {
+  if (!feedUrl) throw new Error('Empty feed URL');
+  let url = feedUrl.trim();
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+
+  const isXml = (text: string) => {
+    if (!text || text.length < 50) return false;
+    const trimmed = text.trim().toLowerCase();
+    if (trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html')) return false;
+    return (
+      trimmed.includes('<rss') ||
+      trimmed.includes('<feed') ||
+      trimmed.includes('<channel') ||
+      trimmed.includes('<?xml') ||
+      trimmed.includes('<item') ||
+      trimmed.includes('<entry')
+    );
+  };
+
+  // 1. Try primary server proxy endpoint (/api/rss-proxy)
+  try {
+    const forceParam = isForce ? '&force=true' : '';
+    const res = await fetch(`/api/rss-proxy?url=${encodeURIComponent(url)}${forceParam}`, {
+      headers: { 'Accept': 'application/rss+xml, application/xml, text/xml, */*' }
+    });
+    if (res.ok) {
+      const text = await res.text();
+      if (isXml(text)) {
+        return text;
+      }
+    }
+  } catch (err) {
+    console.warn(`[/api/rss-proxy failed for ${url}, trying fallbacks]:`, err);
+  }
+
+  // Handle YouTube links for fallback proxies
+  let fallbackUrl = url;
+  if (fallbackUrl.includes('youtube.com')) {
+    const chMatch = fallbackUrl.match(/channel_id=(UC[a-zA-Z0-9_-]{22})/i);
+    if (chMatch && chMatch[1]) {
+      fallbackUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${chMatch[1]}`;
+    }
+  }
+
+  // 2. Client Fallback A: AllOrigins Proxy
+  try {
+    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(fallbackUrl)}`);
+    if (res.ok) {
+      const text = await res.text();
+      if (isXml(text)) return text;
+    }
+  } catch (err) {}
+
+  // 3. Client Fallback B: CorsProxy.io
+  try {
+    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(fallbackUrl)}`);
+    if (res.ok) {
+      const text = await res.text();
+      if (isXml(text)) return text;
+    }
+  } catch (err) {}
+
+  // 4. Client Fallback C: Direct fetch
+  try {
+    const res = await fetch(fallbackUrl, { redirect: 'follow' });
+    if (res.ok) {
+      const text = await res.text();
+      if (isXml(text)) return text;
+    }
+  } catch (err) {}
+
+  throw new Error(`RSS akışı çekilemedi: ${feedUrl}`);
+};
+
 

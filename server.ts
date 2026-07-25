@@ -173,11 +173,23 @@ function localAnalyze(url: string, title: string, htmlContent: string = ""): { t
   };
 }
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+export const app = express();
 
-  app.use(express.json());
+// Add CORS headers middleware to support Vercel and cross-origin clients
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, content-type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+app.use(express.json());
+
+async function startServer() {
+  const PORT = 3000;
 
   // Helper function to sanitize and correct common XML errors in RSS feeds
   const sanitizeXml = (xml: string): string => {
@@ -1226,6 +1238,106 @@ Ardından bu kitap hakkında en doğru, zengin meta verileri toparla ve aşağı
     }
   });
 
+  // --- NOTES SYSTEM AI ENDPOINTS ---
+  app.post("/api/notes/ai-chat", async (req, res) => {
+    try {
+      const { query, contextNotes, notebookTitle } = req.body;
+      if (!query) return res.status(400).json({ error: "Query is required" });
+
+      const ai = getAi();
+      const prompt = `Kullanıcının Not Kütüphanesi / Defteri: "${notebookTitle || 'Tüm Notlarım'}"
+Bağlam Olarak Sağlanan Notlar / Sayfalar:
+${JSON.stringify(contextNotes || [], null, 2)}
+
+Kullanıcının Sorusu: "${query}"
+
+Lütfen yukarıdaki notları ve kaynakları titizlikle inceleyerek kullanıcının sorusunu yanıtla.
+Yanıt İlkeleri:
+- Sadece bağlamdaki bilgilere dayan veya genel bilgiyle harmanlayıp nereden öğrendiğini net bir şekilde belirt.
+- Markdown formatı (kalın yazılar, liste maddeleri, kod blokları, alıntılar) kullan.
+- Konuyla ilgili ek öneriler ve eylem maddeleri sun.
+- Yanıt dilini tamamen Türkçe yap.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "Sen APEX OS Notlarım ve Open Notebooks sisteminin zeki yapay zeka asistansın. Kullanıcının notlarını analiz eder, sorularını bağlama uygun yanıtlar, özetler ve zihin haritası bağlantıları sunarsın."
+        }
+      });
+
+      return res.json({ answer: response.text || "Yanıt üretilemedi." });
+    } catch (err: any) {
+      console.error("[NotesAI Chat Error]:", err.message);
+      return res.status(500).json({ error: "Yapay zeka yanıtı üretilemedi: " + err.message });
+    }
+  });
+
+  app.post("/api/notes/synthesize", async (req, res) => {
+    try {
+      const { type, notebookTitle, pages, sources } = req.body;
+      const ai = getAi();
+
+      const prompt = `Defter Başlığı: "${notebookTitle}"
+Sayfalar & Notlar:
+${JSON.stringify(pages || [], null, 2)}
+Kaynaklar:
+${JSON.stringify(sources || [], null, 2)}
+
+Sentez Tipi: "${type}" (Seçenekler: 'summary', 'study_guide', 'podcast', 'faq', 'action_plan')
+
+Lütfen bu verilerden yola çıkarak belirtilen tipte profesyonel bir zihinsel sentez üret.
+- 'summary': Detaylı Yönetici Özeti (Key takeaways, bulgular, stratejik çıkarımlar).
+- 'study_guide': Sınav / Çalışma Rehberi (Soru-cevaplar, kritik terimler, çalışma adımları).
+- 'podcast': Iki sunucu arasındaki dinamik, öğretici Sesli Genel Bakış (Podcast) Diyalog Senaryosu.
+- 'faq': Sıkça Sorulan Sorular ve Cevapları.
+- 'action_plan': Adım adım uygulanabilir Eylem Planı ve Yapılacaklar Listesi.
+
+Dil tamamen Türkçe ve Markdown formatında olmalıdır.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "Sen NotebookLM & Open Notebooks mimarisine sahip üst düzey bir bilgi sentezleme asistanısın."
+        }
+      });
+
+      return res.json({ synthesis: response.text || "Sentez oluşturulamadı." });
+    } catch (err: any) {
+      console.error("[NotesAI Synthesize Error]:", err.message);
+      return res.status(500).json({ error: "Sentez oluşturulamadı: " + err.message });
+    }
+  });
+
+  app.post("/api/notes/enhance", async (req, res) => {
+    try {
+      const { content, action } = req.body;
+      if (!content) return res.status(400).json({ error: "Content is required" });
+
+      const ai = getAi();
+      let prompt = "";
+
+      if (action === "tags") {
+        prompt = `Aşağıdaki not içeriğini incele ve en uygun 3-5 adet küçük harfle yazılmış Türkçe hashtag etiket önerisi ver:\n"${content}"`;
+      } else if (action === "action_items") {
+        prompt = `Aşağıdaki nottan çıkarılabilecek yapılacak işleri (action items / todo list) Markdown onay kutuları formatında çıkar:\n"${content}"`;
+      } else {
+        prompt = `Aşağıdaki notu daha anlaşılır, profesyonel, imla hataları düzeltilmiş ve güzel formatlanmış Markdown metnine dönüştür:\n"${content}"`;
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt
+      });
+
+      return res.json({ result: response.text || content });
+    } catch (err: any) {
+      console.error("[NotesAI Enhance Error]:", err.message);
+      return res.status(500).json({ error: "Not işlenemedi: " + err.message });
+    }
+  });
+
   app.get("/api/google/drive", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).send("Unauthorized");
@@ -1454,4 +1566,8 @@ Ardından bu kitap hakkında en doğru, zengin meta verileri toparla ve aşağı
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;

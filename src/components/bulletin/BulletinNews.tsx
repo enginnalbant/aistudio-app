@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { RSSFeed, ArticleItem, AIDigest } from './types';
 import { DEFAULT_FEEDS, CURATED_ARTICLES, CURATED_CATEGORIES } from './constants';
-import { parseRSSXml, detectFeedPlatformInfo } from './utils';
+import { parseRSSXml, detectFeedPlatformInfo, fetchRssFeedXml } from './utils';
 import { ArticlesList } from './ArticlesList';
 import { ReadingPanel } from './ReadingPanel';
 import { SidebarCatalog } from './SidebarCatalog';
@@ -178,10 +178,7 @@ export function BulletinNews({ subModule, activeSubModule }: BulletinNewsProps) 
 
         await Promise.allSettled(chunk.map(async (feed) => {
           try {
-            const forceParam = isForce ? '&force=true' : '';
-            const res = await fetch(`/api/rss-proxy?url=${encodeURIComponent(feed.url)}${forceParam}`);
-            if (!res.ok) return;
-            const xmlText = await res.text();
+            const xmlText = await fetchRssFeedXml(feed.url, isForce);
             const items = parseRSSXml(xmlText, feed);
             chunkItems.push(...items);
           } catch (err) {
@@ -275,8 +272,12 @@ export function BulletinNews({ subModule, activeSubModule }: BulletinNewsProps) 
   }, [savedArticles]);
 
   // Save / Unsave toggle with full object preservation
-  const handleToggleSave = useCallback((e: React.MouseEvent, article: ArticleItem) => {
-    e.stopPropagation();
+  const handleToggleSave = useCallback((eOrArt: React.MouseEvent | ArticleItem, optionalArt?: ArticleItem) => {
+    if (eOrArt && 'stopPropagation' in eOrArt) {
+      eOrArt.stopPropagation();
+    }
+    const article = (optionalArt || eOrArt) as ArticleItem;
+    if (!article || !article.id) return;
     
     setSavedArticleIds(prev => {
       const next = new Set(prev);

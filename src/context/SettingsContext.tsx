@@ -49,11 +49,13 @@ const initialSettings: Settings = {
   'user.account.email': { key: 'user.account.email', value: 'enginnalbant9@gmail.com', type: 'string', scope: 'user', default: '' },
   'user.account.plan': { key: 'user.account.plan', value: 'Pro', type: 'string', scope: 'user', default: 'Free' },
 
-  // 2. Görünüm/Tema
+  // 2. Görünüm/Tema & Performans
   'theme.mode': { key: 'theme.mode', value: 'system', type: 'enum', scope: 'user', default: 'system', validation: ['light', 'dark', 'system'] },
   'sidebar_position': { key: 'sidebar_position', value: 'left', type: 'enum', scope: 'user', default: 'left', validation: ['left', 'right', 'bottom'] },
   'ui.settings_panel_position': { key: 'ui.settings_panel_position', value: 'right', type: 'enum', scope: 'user', default: 'right', validation: ['left', 'right', 'bottom'] },
   'theme.accent_color': { key: 'theme.accent_color', value: '#2563eb', type: 'string', scope: 'user', default: '#2563eb' },
+  'performance.fps': { key: 'performance.fps', value: 120, type: 'number', scope: 'user', default: 120, validation: [60, 90, 120] },
+  'ui.mobile_compact': { key: 'ui.mobile_compact', value: true, type: 'boolean', scope: 'user', default: true },
 
   // 3. Uygulama Ayarları
   'app.language': { key: 'app.language', value: 'tr', type: 'enum', scope: 'user', default: 'tr', validation: ['tr', 'en'] },
@@ -136,6 +138,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       return () => mediaQuery.removeEventListener('change', handleChange);
     }
   }, [settings['theme.mode']?.value]);
+
+  // Mobil Performans & FPS Kalibrasyonu Uygula (120, 90, 60 FPS)
+  useEffect(() => {
+    const fps = settings['performance.fps']?.value || 120;
+    const root = window.document.documentElement;
+    root.classList.remove('fps-120', 'fps-90', 'fps-60');
+    root.classList.add(`fps-${fps}`);
+    root.dataset.fps = String(fps);
+    root.style.setProperty('--target-fps', `${fps}`);
+    root.style.setProperty('--frame-duration', `${(1000 / fps).toFixed(2)}ms`);
+  }, [settings['performance.fps']?.value]);
 
   return (
     <SettingsContext.Provider value={{ settings, getSetting, updateSetting, onSettingChange, isLoading }}>
