@@ -237,37 +237,78 @@ export const PREMIUM_FONTS = [
 ];
 
 const initialSettings: Settings = {
-  // Profil & Hesap
+  // Profil & Hesap (3)
   'user.profile.full_name': { key: 'user.profile.full_name', value: 'Engin Nalbant', type: 'string', scope: 'user', default: '' },
   'user.account.email': { key: 'user.account.email', value: 'enginnalbant9@gmail.com', type: 'string', scope: 'user', default: '' },
   'user.account.plan': { key: 'user.account.plan', value: 'Pro', type: 'string', scope: 'user', default: 'Free' },
 
-  // Görünüm & Performans
+  // Görünüm & Tema (8)
   'theme.mode': { key: 'theme.mode', value: 'system', type: 'enum', scope: 'user', default: 'system', validation: ['light', 'dark', 'system'] },
   'sidebar_position': { key: 'sidebar_position', value: 'left', type: 'enum', scope: 'user', default: 'left', validation: ['left', 'right', 'bottom'] },
-  'theme.accent_color': { key: 'theme.accent_color', value: '#E2725B', type: 'string', scope: 'user', default: '#E2725B' },
-  'performance.fps': { key: 'performance.fps', value: 120, type: 'number', scope: 'user', default: 120, validation: [60, 90, 120] },
-  'ui.mobile_compact': { key: 'ui.mobile_compact', value: true, type: 'boolean', scope: 'user', default: true },
+  'theme.accent_color': { key: 'theme.accent_color', value: '#3B82F6', type: 'string', scope: 'user', default: '#3B82F6' },
+  'theme.high_contrast': { key: 'theme.high_contrast', value: false, type: 'boolean', scope: 'user', default: false },
+  'theme.dark_sidebar': { key: 'theme.dark_sidebar', value: true, type: 'boolean', scope: 'user', default: true },
+  'theme.glow_effects': { key: 'theme.glow_effects', value: true, type: 'boolean', scope: 'user', default: true },
+  'theme.card_border_radius': { key: 'theme.card_border_radius', value: 18, type: 'number', scope: 'user', default: 18 },
+  'theme.grid_style': { key: 'theme.grid_style', value: 'cozy', type: 'enum', scope: 'user', default: 'cozy', validation: ['cozy', 'compact', 'spacious'] },
 
-  // Advanced UI & Layout Parameters
+  // Performans & Donanım (5)
+  'performance.fps': { key: 'performance.fps', value: 120, type: 'number', scope: 'user', default: 120, validation: [60, 90, 120] },
+  'performance.hardware_acceleration': { key: 'performance.hardware_acceleration', value: true, type: 'boolean', scope: 'user', default: true },
+  'performance.image_quality': { key: 'performance.image_quality', value: 'high', type: 'enum', scope: 'user', default: 'high', validation: ['low', 'medium', 'high'] },
+  'performance.lazy_load_widgets': { key: 'performance.lazy_load_widgets', value: true, type: 'boolean', scope: 'user', default: true },
+  'performance.animation_easing': { key: 'performance.animation_easing', value: 'smooth', type: 'enum', scope: 'user', default: 'smooth', validation: ['smooth', 'linear', 'elastic'] },
+
+  // Gelişmiş UI & Düzen (5)
+  'ui.mobile_compact': { key: 'ui.mobile_compact', value: true, type: 'boolean', scope: 'user', default: true },
   'ui.animation_speed': { key: 'ui.animation_speed', value: '0.4s', type: 'enum', scope: 'user', default: '0.4s', validation: ['0.2s', '0.4s', '0.8s'] },
   'ui.glass_blur': { key: 'ui.glass_blur', value: 25, type: 'number', scope: 'user', default: 25 },
   'ui.sidebar_default': { key: 'ui.sidebar_default', value: 'expanded', type: 'enum', scope: 'user', default: 'expanded', validation: ['expanded', 'collapsed'] },
+  'ui.floating_dock_enabled': { key: 'ui.floating_dock_enabled', value: true, type: 'boolean', scope: 'user', default: true },
 
-  // Advanced Finance Parameters
+  // Finansal Ayarlar (10)
   'finance.default_currency': { key: 'finance.default_currency', value: 'TRY', type: 'enum', scope: 'user', default: 'TRY', validation: ['TRY', 'USD', 'EUR', 'GBP'] },
   'finance.budget_alert_threshold': { key: 'finance.budget_alert_threshold', value: 80, type: 'number', scope: 'user', default: 80 },
   'finance.auto_save_rate': { key: 'finance.auto_save_rate', value: 15, type: 'number', scope: 'user', default: 15 },
+  'finance.investment_risk_profile': { key: 'finance.investment_risk_profile', value: 'moderate', type: 'enum', scope: 'user', default: 'moderate', validation: ['conservative', 'moderate', 'aggressive'] },
+  'finance.tax_auto_deduct': { key: 'finance.tax_auto_deduct', value: false, type: 'boolean', scope: 'user', default: false },
+  'finance.auto_category_rules': { key: 'finance.auto_category_rules', value: true, type: 'boolean', scope: 'user', default: true },
+  'finance.ledger_view_mode': { key: 'finance.ledger_view_mode', value: 'advanced', type: 'enum', scope: 'user', default: 'advanced', validation: ['simple', 'advanced'] },
+  'finance.saving_target_months': { key: 'finance.saving_target_months', value: 12, type: 'number', scope: 'user', default: 12 },
+  'finance.debt_priority': { key: 'finance.debt_priority', value: 'avalanche', type: 'enum', scope: 'user', default: 'avalanche', validation: ['avalanche', 'snowball'] },
+  'finance.recurrent_transactions_auto_post': { key: 'finance.recurrent_transactions_auto_post', value: true, type: 'boolean', scope: 'user', default: true },
 
-  // System & Synchronization
-  'system.sync_rate': { key: 'system.sync_rate', value: 'realtime', type: 'enum', scope: 'user', default: 'realtime', validation: ['realtime', '5min', 'manual'] },
-  'system.debug_mode': { key: 'system.debug_mode', value: false, type: 'boolean', scope: 'user', default: false },
+  // Yapay Zeka (AI) Tercihleri (7)
+  'ai.personality': { key: 'ai.personality', value: 'profesyonel', type: 'enum', scope: 'user', default: 'profesyonel', validation: ['profesyonel', 'sarkastik', 'motivasyonel', 'minimalist'] },
+  'ai.max_tokens_per_query': { key: 'ai.max_tokens_per_query', value: 1500, type: 'number', scope: 'user', default: 1500 },
+  'ai.voice_enabled': { key: 'ai.voice_enabled', value: false, type: 'boolean', scope: 'user', default: false },
+  'ai.voice_gender': { key: 'ai.voice_gender', value: 'female', type: 'enum', scope: 'user', default: 'female', validation: ['male', 'female'] },
+  'ai.speech_rate': { key: 'ai.speech_rate', value: 1.0, type: 'number', scope: 'user', default: 1.0 },
+  'ai.auto_proactive_briefing': { key: 'ai.auto_proactive_briefing', value: true, type: 'boolean', scope: 'user', default: true },
+  'ai.gemini_temperature': { key: 'ai.gemini_temperature', value: 0.7, type: 'number', scope: 'user', default: 0.7 },
 
-  // Genel & Güvenlik
-  'app.language': { key: 'app.language', value: 'tr', type: 'enum', scope: 'user', default: 'tr', validation: ['tr', 'en'] },
+  // Bildirim Tercihleri (5)
   'app.notifications.enabled': { key: 'app.notifications.enabled', value: true, type: 'boolean', scope: 'user', default: true },
+  'app.notifications.sound_enabled': { key: 'app.notifications.sound_enabled', value: true, type: 'boolean', scope: 'user', default: true },
+  'app.notifications.email_digest': { key: 'app.notifications.email_digest', value: 'weekly', type: 'enum', scope: 'user', default: 'weekly', validation: ['off', 'daily', 'weekly'] },
+  'app.notifications.budget_critical_alerts': { key: 'app.notifications.budget_critical_alerts', value: true, type: 'boolean', scope: 'user', default: true },
+  'app.notifications.system_updates': { key: 'app.notifications.system_updates', value: true, type: 'boolean', scope: 'user', default: true },
+
+  // Güvenlik & Sistem (6)
+  'app.language': { key: 'app.language', value: 'tr', type: 'enum', scope: 'user', default: 'tr', validation: ['tr', 'en'] },
   'security.2fa.enabled': { key: 'security.2fa.enabled', value: false, type: 'boolean', scope: 'user', default: false },
   'security.backup.auto_enabled': { key: 'security.backup.auto_enabled', value: true, type: 'boolean', scope: 'user', default: true },
+  'security.session_timeout_minutes': { key: 'security.session_timeout_minutes', value: 30, type: 'number', scope: 'user', default: 30 },
+  'security.ip_lockdown': { key: 'security.ip_lockdown', value: false, type: 'boolean', scope: 'user', default: false },
+  'security.strict_cookie_policy': { key: 'security.strict_cookie_policy', value: true, type: 'boolean', scope: 'user', default: true },
+
+  // Veri & Gelişmiş Entegrasyonlar (6)
+  'system.sync_rate': { key: 'system.sync_rate', value: 'realtime', type: 'enum', scope: 'user', default: 'realtime', validation: ['realtime', '5min', 'manual'] },
+  'system.debug_mode': { key: 'system.debug_mode', value: false, type: 'boolean', scope: 'user', default: false },
+  'system.local_storage_encryption': { key: 'system.local_storage_encryption', value: false, type: 'boolean', scope: 'user', default: false },
+  'system.auto_export_backup_on_exit': { key: 'system.auto_export_backup_on_exit', value: false, type: 'boolean', scope: 'user', default: false },
+  'system.send_telemetry_diagnostics': { key: 'system.send_telemetry_diagnostics', value: true, type: 'boolean', scope: 'user', default: true },
+  'system.offline_mode_support': { key: 'system.offline_mode_support', value: true, type: 'boolean', scope: 'user', default: true },
 };
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -432,10 +473,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     if (cmd.includes('hızlı') || cmd.includes('hızlandır') || cmd.includes('performans') || cmd.includes('akıcı')) {
       updateSetting('performance.fps', 120);
       updateSetting('ui.animation_speed', '0.2s');
-      modifiedKeys.push('performance.fps', 'ui.animation_speed');
+      updateSetting('performance.hardware_acceleration', true);
+      modifiedKeys.push('performance.fps', 'ui.animation_speed', 'performance.hardware_acceleration');
       return {
         success: true,
-        message: 'Yapay zeka sistemi maksimum performans moduna aldı! Ekran yenileme hızı 120 FPS olarak ayarlandı, animasyon hızı 0.2s (Yıldırım) düzeyine çekildi.',
+        message: 'Yapay zeka sistemi maksimum performans moduna aldı! Ekran yenileme hızı 120 FPS olarak ayarlandı, donanım ivmelendirmesi açıldı ve animasyon hızı 0.2s düzeyine çekildi.',
         modifiedKeys
       };
     }
@@ -451,13 +493,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // Rule 3: Soft Alabaster Light Mode
-    if (cmd.includes('açık') || cmd.includes('gündüz') || cmd.includes('light') || cmd.includes('aydınlık')) {
+    // Rule 3: Pure Pristine White Light Mode
+    if (cmd.includes('açık') || cmd.includes('gündüz') || cmd.includes('light') || cmd.includes('aydınlık') || cmd.includes('beyaz')) {
       updateSetting('theme.mode', 'light');
       modifiedKeys.push('theme.mode');
       return {
         success: true,
-        message: 'Yapay zeka asil ve pürüzsüz Alabaster krem-beyaz modunu aktif etti.',
+        message: 'Yapay zeka asil ve pürüzsüz kusursuz Bembeyaz (Pure White) modunu aktif etti.',
         modifiedKeys
       };
     }
@@ -475,7 +517,59 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // Rule 5: Font switching via AI
+    // Rule 5: AI Personality shifts
+    if (cmd.includes('sarkastik') || cmd.includes('alaycı')) {
+      updateSetting('ai.personality', 'sarkastik');
+      modifiedKeys.push('ai.personality');
+      return {
+        success: true,
+        message: 'AI Kişiliği "Sarkastik" olarak güncellendi. Hazır ol, artık daha esprili ve iğneleyici cevaplar alacaksın!',
+        modifiedKeys
+      };
+    }
+
+    if (cmd.includes('profesyonel') || cmd.includes('resmi')) {
+      updateSetting('ai.personality', 'profesyonel');
+      modifiedKeys.push('ai.personality');
+      return {
+        success: true,
+        message: 'AI Kişiliği resmi ve akademik "Profesyonel" tona çekildi.',
+        modifiedKeys
+      };
+    }
+
+    if (cmd.includes('motivasyon') || cmd.includes('coşkulu')) {
+      updateSetting('ai.personality', 'motivasyonel');
+      modifiedKeys.push('ai.personality');
+      return {
+        success: true,
+        message: 'AI Kişiliği "Motivasyonel" yapıldı. Hedeflerine odaklanman için tam destek buradayız!',
+        modifiedKeys
+      };
+    }
+
+    // Rule 6: High Contrast / Glow effects
+    if (cmd.includes('kontrast') || cmd.includes('yüksek kontrast')) {
+      updateSetting('theme.high_contrast', true);
+      modifiedKeys.push('theme.high_contrast');
+      return {
+        success: true,
+        message: 'Yüksek kontrast modu başarıyla aktif edildi. Metinler ve kenarlıklar artık çok daha belirgin.',
+        modifiedKeys
+      };
+    }
+
+    if (cmd.includes('glow') || cmd.includes('parlama') || cmd.includes('işık efekti')) {
+      updateSetting('theme.glow_effects', true);
+      modifiedKeys.push('theme.glow_effects');
+      return {
+        success: true,
+        message: 'Estetik neon parlama ve gölge efektleri arayüze entegre edildi.',
+        modifiedKeys
+      };
+    }
+
+    // Rule 7: Font switching via AI
     const fontMatch = PREMIUM_FONTS.find(f => cmd.includes(f.name.toLowerCase()) || cmd.includes(f.id));
     if (fontMatch) {
       setActiveFont(fontMatch.id);
@@ -487,7 +581,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // Rule 6: Color switching via AI
+    // Rule 8: Color switching via AI
     const allC = [
       ...PRIMARY_COLORS,
       ...generateIntermediateColors()
@@ -506,7 +600,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     return {
       success: false,
-      message: 'Komut anlaşılamadı. Lütfen yapmak istediğiniz ayarı doğal dil ile ifade edin. (Örn: "Arayüzü hızlandır" veya "Yazı tipini Outfit yap")',
+      message: 'Komut anlaşılamadı. Lütfen yapmak istediğiniz ayarı doğal dil ile ifade edin. (Örn: "Beyaz temaya geç", "AI kişiliğini sarkastik yap", "Arayüzü hızlandır")',
       modifiedKeys
     };
   };
@@ -557,11 +651,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         root.style.setProperty('--text-secondary-val', '#9499B0');
       } else {
         root.classList.remove('dark');
-        root.style.setProperty('--app-bg', '#FCFAF7');
-        root.style.setProperty('--card-bg', 'rgba(255, 253, 251, 0.9)');
-        root.style.setProperty('--border-val', 'rgba(141, 120, 100, 0.12)');
-        root.style.setProperty('--text-primary-val', '#272522');
-        root.style.setProperty('--text-secondary-val', '#7C7267');
+        root.style.setProperty('--app-bg', '#FFFFFF');
+        root.style.setProperty('--card-bg', 'rgba(255, 255, 255, 0.95)');
+        root.style.setProperty('--border-val', 'rgba(226, 232, 240, 0.8)');
+        root.style.setProperty('--text-primary-val', '#0F172A');
+        root.style.setProperty('--text-secondary-val', '#475569');
       }
     };
 

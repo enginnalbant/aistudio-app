@@ -7,33 +7,33 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Premium Ultra-Modern Warm Alabaster & Cream Light Theme */
+  /* Premium Pristine Ultra-White & Sleek Slate Light Theme */
   --pure-white: #FFFFFF;
   --pure-black: #000000;
 
   --void-white-val: #FFFFFF;
-  --void-black-val: #FCFAF7; /* Gorgeous cream/alabaster background */
+  --void-black-val: #FFFFFF; /* Pristine white background */
 
-  --skel-glass-val: #1E293B; /* Elegant dark slate text */
-  --skel-metal-val: #64748B;
-  --skel-matte-val: #475569;
-  --skel-dark-val: #F5EFEB;   /* Extremely soft beige/cream tint background */
-  --skel-space-val: #FFFDFB;  /* Safe white cream space background for inner cards */
+  --skel-glass-val: #0F172A; /* Clean Charcoal Slate */
+  --skel-metal-val: #475569;
+  --skel-matte-val: #64748B;
+  --skel-dark-val: #F1F5F9;   /* Pure soft slate background */
+  --skel-space-val: #FFFFFF;  /* Crisp white space background */
 
-  --focus-ice-val: #FFFBF7;
-  --focus-neon: #E2725B;      /* Warm Terracotta Accent */
+  --focus-ice-val: #F8FAFC;
+  --focus-neon: #3B82F6;      /* Modern Tech Blue Accent */
   --focus-neon-val: var(--focus-neon);
-  --focus-main-val: #D95D39;
-  --focus-deep-val: #B03E1E;
-  --focus-void-val: #FCF4ED;
+  --focus-main-val: #2563EB;
+  --focus-deep-val: #1D4ED8;
+  --focus-void-val: #F1F5F9;
 
-  --ai-fairy-val: #FFF9F2;
-  --ai-bright-val: #D97706;   /* Rich warm gold */
-  --ai-royal-val: #B45309;
-  --ai-night-val: #78350F;
-  --ai-void-val: #FEF3C7;
+  --ai-fairy-val: #FAF5FF;
+  --ai-bright-val: #8B5CF6;   /* Elegant violet */
+  --ai-royal-val: #7C3AED;
+  --ai-night-val: #5B21B6;
+  --ai-void-val: #F3E8FF;
 
-  --crit-pale-val: #FFF5F5;
+  --crit-pale-val: #FEF2F2;
   --crit-vivid-val: #EF4444;
   --crit-blood-val: #DC2626;
   --crit-dark-val: #991B1B;
@@ -50,16 +50,16 @@
   --nrg-fire-val: #EA580C;
   --nrg-brick-val: #B91C1C;
 
-  --app-bg: #FCFAF7; /* Warm Soft Alabaster Cream */
-  --card-bg: rgba(255, 253, 251, 0.9); /* Warm alabaster glassmorphic base */
-  --border-val: rgba(141, 120, 100, 0.12); /* Delicate warm border */
-  --border-strong-val: rgba(141, 120, 100, 0.22);
-  --text-primary-val: #272522; /* Rich dark espresso brown-slate */
-  --text-secondary-val: #7C7267;
+  --app-bg: #FFFFFF; /* Pristine Pure White */
+  --card-bg: rgba(255, 255, 255, 0.95); /* Elegant crisp white base */
+  --border-val: rgba(226, 232, 240, 0.8); /* Clean modern border */
+  --border-strong-val: rgba(203, 213, 225, 1);
+  --text-primary-val: #0F172A; /* Slate Charcoal */
+  --text-secondary-val: #475569;
 
-  --card-shadow: 0 10px 30px -5px rgba(141, 120, 100, 0.08);
-  --card-shadow-hover: 0 20px 40px -10px rgba(141, 120, 100, 0.15);
-  --background: oklch(0.99 0.005 60);
+  --card-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 10px -1px rgba(15, 23, 42, 0.03);
+  --card-shadow-hover: 0 20px 40px -10px rgba(15, 23, 42, 0.1), 0 2px 15px -1px rgba(15, 23, 42, 0.05);
+  --background: oklch(1 0 0);
   --foreground: oklch(0.18 0.01 60);
   --card: oklch(0.99 0.002 60);
   --card-foreground: oklch(0.18 0.01 60);
