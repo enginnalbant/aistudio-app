@@ -57,7 +57,7 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({
               <Sparkles size={18} className="animate-spin" style={{ animationDuration: '4s' }} />
             </div>
             <div>
-              <h3 className="text-base font-display font-black text-white">APEX Siri AI Asistan</h3>
+              <h3 className="text-base font-display font-black text-white">APEX DOCK</h3>
               <p className="text-[11px] text-text-secondary">Günlük durum analizi ve akıllı öneriler</p>
             </div>
           </div>
