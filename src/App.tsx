@@ -60,6 +60,7 @@ import { NotesBooks } from './components/notes/NotesBooks';
 import { NotesDashboard } from './components/notes/NotesDashboard';
 import { NotesQuickMemos } from './components/notes/NotesQuickMemos';
 import { NotesNotebook } from './components/notes/NotesNotebook';
+import { MangaAppContainer } from './components/library/MangaAppContainer';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -254,6 +255,8 @@ function AppLayout() {
                   <ReconAnalytics />
                 ) : activeModule === 'library-ebooks' ? (
                   <NotesBooks />
+                ) : activeModule.startsWith('library-manga') ? (
+                  <MangaAppContainer />
                 ) : activeModule.startsWith('library-') ? (
                   <ComingSoon 
                     title={activeModule.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
