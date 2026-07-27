@@ -153,12 +153,12 @@ function AppLayout() {
         
         <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
         
-        <div className="flex-1 flex overflow-hidden p-1 sm:p-3 lg:p-4 gap-2 sm:gap-3 lg:gap-4 relative pb-20 lg:pb-4 touch-optimized">
+        <div className="flex-1 flex overflow-hidden p-0 sm:p-2 lg:p-4 gap-0 sm:gap-3 lg:gap-4 relative pb-16 lg:pb-4 touch-optimized">
           {/* Backdrop Overlay for Mobiles & Tablets */}
           {!isDesktop && isSidebarOpen && (
             <div 
               onClick={() => setIsSidebarOpen(false)} 
-              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[100] transition-all duration-300"
+              className="fixed inset-0 bg-black/60 backdrop-blur-[5px] z-[100] transition-all duration-300"
             />
           )}
 
@@ -170,7 +170,7 @@ function AppLayout() {
             setSidebarOpen={setIsSidebarOpen}
           />
           
-          <div className="flex-1 flex flex-col gap-2 sm:gap-4 min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[30px] rounded-xl sm:rounded-2xl border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.4)] p-1.5 sm:p-4 lg:p-6 pb-20 sm:pb-28 lg:pb-6 transition-all duration-500">
+          <div className="flex-1 flex flex-col gap-1.5 sm:gap-4 min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[30px] rounded-none sm:rounded-2xl border-x-0 sm:border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.4)] p-1.5 sm:p-4 lg:p-6 pb-24 sm:pb-28 lg:pb-6 transition-all duration-500">
             <main className="flex-1 overflow-x-hidden">
             <AnimatePresence mode="wait">
               <motion.div
@@ -179,7 +179,7 @@ function AppLayout() {
                 animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                className="w-full h-full min-h-[500px]"
+                className="w-full h-full min-h-[380px]"
               >
                 {activeModule === 'notification-page' ? (
                   <NotificationPage />

@@ -262,7 +262,7 @@
 }
 
 @utility bento-card {
-  @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10 rounded-[1.5rem] transition-all duration-700 shadow-[0_10px_40px_rgba(0,0,0,0.2)];
+  @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10 rounded-[1.2rem] md:rounded-[1.5rem] transition-all duration-700 shadow-[0_10px_40px_rgba(0,0,0,0.2)];
   box-shadow: 
     0 10px 40px rgba(0,0,0,0.2),
     inset 0 1px 1px 0 rgba(255, 255, 255, 0.05);
@@ -278,7 +278,7 @@
 }
 
 @utility os-btn {
-  @apply relative px-7 py-3 rounded-xl font-display font-bold tracking-wide transition-all duration-500 flex items-center justify-center gap-3 overflow-hidden;
+  @apply relative px-5 py-2.5 md:px-7 md:py-3 rounded-lg md:rounded-xl font-display font-bold tracking-wide transition-all duration-500 flex items-center justify-center gap-2.5 md:gap-3 overflow-hidden text-xs md:text-sm;
 }
 
 @utility os-btn-primary {
@@ -290,7 +290,7 @@
 }
 
 @utility label-mono {
-  @apply font-mono text-[11px] uppercase tracking-[0.25em] text-text-secondary font-bold;
+  @apply font-mono text-[10px] md:text-[11px] uppercase tracking-[0.25em] text-text-secondary font-bold;
 }
 
 @utility aerogel {
@@ -308,7 +308,7 @@
 }
 
 @utility os-input {
-  @apply bg-skel-space/60 border border-skel-metal/15 rounded-xl px-5 py-3 text-text-primary transition-all duration-500 placeholder:text-text-secondary/40 focus:outline-none focus:border-focus-neon/50 focus:bg-skel-space/90 focus:ring-4 focus:ring-focus-neon/5;
+  @apply bg-skel-space/60 border border-skel-metal/15 rounded-xl px-4 py-2.5 md:px-5 md:py-3 text-xs md:text-sm text-text-primary transition-all duration-500 placeholder:text-text-secondary/40 focus:outline-none focus:border-focus-neon/50 focus:bg-skel-space/90 focus:ring-4 focus:ring-focus-neon/5;
 }
 
 @utility custom-scrollbar {
@@ -387,11 +387,11 @@
 
   /* Mobil Yoğun ve Orantılı Kart Düzenleri */
   .mobile-compact-padding {
-    padding: clamp(0.5rem, 2vw, 1rem);
+    padding: clamp(0.375rem, 1.5vw, 0.75rem);
   }
 
   .mobile-compact-gap {
-    gap: clamp(0.375rem, 1.5vw, 0.75rem);
+    gap: clamp(0.25rem, 1vw, 0.5rem);
   }
 }
 
@@ -455,11 +455,11 @@ body, #root {
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.7);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) * 1.2);
+  --radius-2xl: calc(var(--radius) * 1.5);
+  --radius-3xl: calc(var(--radius) * 1.8);
+  --radius-4xl: calc(var(--radius) * 2.2);
 }
