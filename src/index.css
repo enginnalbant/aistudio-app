@@ -12,7 +12,7 @@
   --pure-black: #000000;
 
   --void-white-val: #FFFFFF;
-  --void-black-val: #050505;
+  --void-black-val: #FAF9F6;
 
   --skel-glass-val: #1E293B; /* Dark text for light mode */
   --skel-metal-val: #64748B; /* Slate 500 */
@@ -50,15 +50,15 @@
   --nrg-fire-val: #EA580C;
   --nrg-brick-val: #C2410C;
 
-  --app-bg: #F8FAFC;
-  --card-bg: rgba(255, 255, 255, 0.8);
-  --border-val: rgba(100, 116, 139, 0.15);
-  --border-strong-val: rgba(100, 116, 139, 0.3);
-  --text-primary-val: #0F172A;
+  --app-bg: #FAF9F6; /* Premium ultra-soft warm alabaster */
+  --card-bg: rgba(255, 255, 255, 0.75);
+  --border-val: rgba(148, 163, 184, 0.12); /* Extremely soft slate-400 border */
+  --border-strong-val: rgba(148, 163, 184, 0.22);
+  --text-primary-val: #1E293B; /* Elegant slate-800 instead of pure pitch black */
   --text-secondary-val: #64748B;
 
-  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-  --card-shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+  --card-shadow: 0 10px 30px -5px rgba(148, 163, 184, 0.06);
+  --card-shadow-hover: 0 20px 40px -10px rgba(148, 163, 184, 0.12);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -262,19 +262,24 @@
 }
 
 @utility bento-card {
-  @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10 rounded-[1.2rem] md:rounded-[1.5rem] transition-all duration-700 shadow-[0_10px_40px_rgba(0,0,0,0.2)];
-  box-shadow: 
-    0 10px 40px rgba(0,0,0,0.2),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.05);
+  background-color: var(--card-bg);
+  backdrop-filter: blur(25px);
+  border: 1px solid var(--border-val);
+  border-radius: 1.2rem;
+  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: var(--card-shadow);
 }
 
 @utility bento-card-hover {
-  @apply border-white/20 bg-white/[0.06] shadow-[0_20px_60px_rgba(0,0,0,0.3)];
-  transform: translateY(-4px) scale(1.01);
+  border-color: var(--border-strong-val);
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-4px) scale(1.005);
 }
 
 @utility glass-panel {
-  @apply bg-void-white/5 backdrop-blur-3xl border border-void-white/10;
+  background-color: var(--card-bg);
+  backdrop-filter: blur(35px);
+  border: 1px solid var(--border-val);
 }
 
 @utility os-btn {
