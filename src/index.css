@@ -268,10 +268,10 @@
 
 @utility bento-card {
   background-color: var(--card-bg);
-  backdrop-filter: blur(25px);
+  backdrop-filter: blur(var(--glass-blur-level, 25px));
   border: 1px solid var(--border-val);
   border-radius: 1.2rem;
-  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: all var(--frame-duration, 0.4s) cubic-bezier(0.2, 0.8, 0.2, 1);
   box-shadow: var(--card-shadow);
 }
 
@@ -283,7 +283,7 @@
 
 @utility glass-panel {
   background-color: var(--card-bg);
-  backdrop-filter: blur(35px);
+  backdrop-filter: blur(var(--glass-blur-level, 35px));
   border: 1px solid var(--border-val);
 }
 

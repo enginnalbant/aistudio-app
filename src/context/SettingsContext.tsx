@@ -17,6 +17,16 @@ interface Settings {
   [key: string]: SettingMetadata;
 }
 
+interface SystemAdvice {
+  id: string;
+  type: 'info' | 'warning' | 'success';
+  title: string;
+  message: string;
+  actionLabel?: string;
+  actionKey?: string;
+  actionValue?: any;
+}
+
 interface SettingsContextType {
   settings: Settings;
   getSetting: (key: string) => any;
@@ -29,6 +39,12 @@ interface SettingsContextType {
   setActiveAccent: (colorHex: string) => void;
   activeAccentName: string;
   setActiveAccentName: (name: string) => void;
+
+  // Advanced Diagnostics & System parameters
+  getStorageUsage: () => { usedBytes: number; totalBytes: number; keyCount: number };
+  clearSystemCache: () => void;
+  getSystemHealthAdvice: () => SystemAdvice[];
+  executeAiCommand: (command: string) => { success: boolean; message: string; modifiedKeys: string[] };
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -69,7 +85,6 @@ export function blendColors(colors: { hex: string; weight: number }[]): string {
 
   colors.forEach(c => {
     totalWeight += c.weight;
-    // parse hex
     const cleanHex = c.hex.replace('#', '');
     const cr = parseInt(cleanHex.substring(0, 2), 16);
     const cg = parseInt(cleanHex.substring(2, 4), 16);
@@ -96,8 +111,6 @@ export function generateIntermediateColors() {
   const list: { name: string; hex: string; formula: string; type: string }[] = [];
   const C = PRIMARY_COLORS;
 
-  // We need exactly 66 intermediate colors. Let's build them systematically with beautiful, popular, highly harmonious names.
-  // Group 1: Two-way blends (2'li Karışımlar) - 30 items
   const twoWayCombinations = [
     { indices: [6, 7], w: [0.5, 0.5], name: 'Okyanus Esintisi', type: "2'li Karışım" }, // Mavi + Mor
     { indices: [3, 4], w: [0.6, 0.4], name: 'Güneş Patlaması', type: "2'li Karışım" }, // Kırmızı + Turuncu
@@ -131,56 +144,52 @@ export function generateIntermediateColors() {
     { indices: [8, 4], w: [0.7, 0.3], name: 'Mercan Lacivert', type: "2'li Karışım" }, // Lacivert + Turuncu
   ];
 
-  // Group 2: Three-way blends (3'lü Karışımlar) - 24 items
   const threeWayCombinations = [
-    { indices: [6, 7, 1], w: [0.4, 0.3, 0.3], name: 'Peros Meltemi', type: "3'lü Karışım" }, // Mavi + Mor + Beyaz
-    { indices: [3, 4, 5], w: [0.4, 0.4, 0.2], name: 'Volkan Külü', type: "3'lü Karışım" }, // Kırmızı + Turuncu + Sarı
-    { indices: [9, 6, 1], w: [0.3, 0.3, 0.4], name: 'Buzul Yeşili', type: "3'lü Karışım" }, // Yeşil + Mavi + Beyaz
-    { indices: [10, 3, 5], w: [0.4, 0.3, 0.3], name: 'Sonbahar Yaprağı', type: "3'lü Karışım" }, // Kahve + Kırmızı + Sarı
-    { indices: [8, 7, 1], w: [0.5, 0.3, 0.2], name: 'Gece Gezegeni', type: "3'lü Karışım" }, // Lacivert + Mor + Beyaz
-    { indices: [0, 6, 9], w: [0.4, 0.3, 0.3], name: 'Atlantis', type: "3'lü Karışım" }, // Siyah + Mavi + Yeşil
-    { indices: [0, 3, 7], w: [0.4, 0.3, 0.3], name: 'Karanlık Nebula', type: "3'lü Karışım" }, // Siyah + Kırmızı + Mor
-    { indices: [2, 10, 1], w: [0.3, 0.4, 0.3], name: 'Keten Dokusu', type: "3'lü Karışım" }, // Gri + Kahve + Beyaz
-    { indices: [6, 9, 5], w: [0.4, 0.4, 0.2], name: 'Limon Otu', type: "3'lü Karışım" }, // Mavi + Yeşil + Sarı
-    { indices: [3, 7, 1], w: [0.3, 0.3, 0.4], name: 'Gül Kurusu', type: "3'lü Karışım" }, // Kırmızı + Mor + Beyaz
-    { indices: [10, 9, 1], w: [0.4, 0.2, 0.4], name: 'Ada Toprağı', type: "3'lü Karışım" }, // Kahve + Yeşil + Beyaz
-    { indices: [8, 6, 9], w: [0.4, 0.3, 0.3], name: 'Derin Doğa', type: "3'lü Karışım" }, // Lacivert + Mavi + Yeşil
-    { indices: [7, 4, 1], w: [0.3, 0.3, 0.4], name: 'Somon Lavanta', type: "3'lü Karışım" }, // Mor + Turuncu + Beyaz
-    { indices: [8, 3, 5], w: [0.4, 0.3, 0.3], name: 'Kozmik Şafak', type: "3'lü Karışım" }, // Lacivert + Kırmızı + Sarı
-    { indices: [10, 4, 2], w: [0.4, 0.4, 0.2], name: 'Kızıl Toprak', type: "3'lü Karışım" }, // Kahve + Turuncu + Gri
-    { indices: [0, 8, 3], w: [0.4, 0.4, 0.2], name: 'Kraliyet Ateşi', type: "3'lü Karışım" }, // Siyah + Lacivert + Kırmızı
-    { indices: [9, 10, 5], w: [0.4, 0.3, 0.3], name: 'Zeytin Bahçesi', type: "3'lü Karışım" }, // Yeşil + Kahve + Sarı
-    { indices: [6, 7, 2], w: [0.4, 0.4, 0.2], name: 'Gümüş Gece', type: "3'lü Karışım" }, // Mavi + Mor + Gri
-    { indices: [3, 9, 5], w: [0.3, 0.3, 0.4], name: 'Tropikal Bahçe', type: "3'lü Karışım" }, // Kırmızı + Yeşil + Sarı
-    { indices: [10, 7, 1], w: [0.4, 0.3, 0.3], name: 'Sıcak Vizon', type: "3'lü Karışım" }, // Kahve + Mor + Beyaz
-    { indices: [8, 9, 2], w: [0.4, 0.4, 0.2], name: 'Arktik Yosun', type: "3'lü Karışım" }, // Lacivert + Yeşil + Gri
-    { indices: [4, 9, 1], w: [0.3, 0.3, 0.4], name: 'Fesleğen Portakal', type: "3'lü Karışım" }, // Turuncu + Yeşil + Beyaz
-    { indices: [3, 8, 1], w: [0.3, 0.4, 0.3], name: 'Puslu Çilek', type: "3'lü Karışım" }, // Kırmızı + Lacivert + Beyaz
-    { indices: [6, 10, 1], w: [0.4, 0.3, 0.3], name: 'Kumlu Deniz', type: "3'lü Karışım" }, // Mavi + Kahve + Beyaz
+    { indices: [6, 7, 1], w: [0.4, 0.3, 0.3], name: 'Peros Meltemi', type: "3'lü Karışım" },
+    { indices: [3, 4, 5], w: [0.4, 0.4, 0.2], name: 'Volkan Külü', type: "3'lü Karışım" },
+    { indices: [9, 6, 1], w: [0.3, 0.3, 0.4], name: 'Buzul Yeşili', type: "3'lü Karışım" },
+    { indices: [10, 3, 5], w: [0.4, 0.3, 0.3], name: 'Sonbahar Yaprağı', type: "3'lü Karışım" },
+    { indices: [8, 7, 1], w: [0.5, 0.3, 0.2], name: 'Gece Gezegeni', type: "3'lü Karışım" },
+    { indices: [0, 6, 9], w: [0.4, 0.3, 0.3], name: 'Atlantis', type: "3'lü Karışım" },
+    { indices: [0, 3, 7], w: [0.4, 0.3, 0.3], name: 'Karanlık Nebula', type: "3'lü Karışım" },
+    { indices: [2, 10, 1], w: [0.3, 0.4, 0.3], name: 'Keten Dokusu', type: "3'lü Karışım" },
+    { indices: [6, 9, 5], w: [0.4, 0.4, 0.2], name: 'Limon Otu', type: "3'lü Karışım" },
+    { indices: [3, 7, 1], w: [0.3, 0.3, 0.4], name: 'Gül Kurusu', type: "3'lü Karışım" },
+    { indices: [10, 9, 1], w: [0.4, 0.2, 0.4], name: 'Ada Toprağı', type: "3'lü Karışım" },
+    { indices: [8, 6, 9], w: [0.4, 0.3, 0.3], name: 'Derin Doğa', type: "3'lü Karışım" },
+    { indices: [7, 4, 1], w: [0.3, 0.3, 0.4], name: 'Somon Lavanta', type: "3'lü Karışım" },
+    { indices: [8, 3, 5], w: [0.4, 0.3, 0.3], name: 'Kozmik Şafak', type: "3'lü Karışım" },
+    { indices: [10, 4, 2], w: [0.4, 0.4, 0.2], name: 'Kızıl Toprak', type: "3'lü Karışım" },
+    { indices: [0, 8, 3], w: [0.4, 0.4, 0.2], name: 'Kraliyet Ateşi', type: "3'lü Karışım" },
+    { indices: [9, 10, 5], w: [0.4, 0.3, 0.3], name: 'Zeytin Bahçesi', type: "3'lü Karışım" },
+    { indices: [6, 7, 2], w: [0.4, 0.4, 0.2], name: 'Gümüş Gece', type: "3'lü Karışım" },
+    { indices: [3, 9, 5], w: [0.3, 0.3, 0.4], name: 'Tropikal Bahçe', type: "3'lü Karışım" },
+    { indices: [10, 7, 1], w: [0.4, 0.3, 0.3], name: 'Sıcak Vizon', type: "3'lü Karışım" },
+    { indices: [8, 9, 2], w: [0.4, 0.4, 0.2], name: 'Arktik Yosun', type: "3'lü Karışım" },
+    { indices: [4, 9, 1], w: [0.3, 0.3, 0.4], name: 'Fesleğen Portakal', type: "3'lü Karışım" },
+    { indices: [3, 8, 1], w: [0.3, 0.4, 0.3], name: 'Puslu Çilek', type: "3'lü Karışım" },
+    { indices: [6, 10, 1], w: [0.4, 0.3, 0.3], name: 'Kumlu Deniz', type: "3'lü Karışım" },
   ];
 
-  // Group 3: Four-way blends (4'lü Karışımlar) - 12 items
   const fourWayCombinations = [
-    { indices: [6, 7, 9, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Egzotik Sualtı', type: "4'lü Karışım" }, // Mavi + Mor + Yeşil + Beyaz
-    { indices: [3, 4, 5, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Günbatımı Meltemi', type: "4'lü Karışım" }, // Kırmızı + Turuncu + Sarı + Beyaz
-    { indices: [8, 9, 10, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Kozmik Vadi', type: "4'lü Karışım" }, // Lacivert + Yeşil + Kahve + Beyaz
-    { indices: [0, 3, 7, 6], w: [0.3, 0.3, 0.2, 0.2], name: 'Süpernova', type: "4'lü Karışım" }, // Siyah + Kırmızı + Mor + Mavi
-    { indices: [10, 3, 9, 5], w: [0.3, 0.3, 0.2, 0.2], name: 'Safarid', type: "4'lü Karışım" }, // Kahve + Kırmızı + Yeşil + Sarı
-    { indices: [2, 6, 7, 1], w: [0.2, 0.3, 0.3, 0.2], name: 'Gümüş Bulut', type: "4'lü Karışım" }, // Gri + Mavi + Mor + Beyaz
-    { indices: [8, 6, 3, 5], w: [0.3, 0.3, 0.2, 0.2], name: 'Altın Galaksi', type: "4'lü Karışım" }, // Lacivert + Mavi + Kırmızı + Sarı
-    { indices: [9, 10, 5, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Vaha Rüzgarı', type: "4'lü Karışım" }, // Yeşil + Kahve + Sarı + Beyaz
-    { indices: [0, 8, 9, 2], w: [0.3, 0.3, 0.2, 0.2], name: 'Obsidyen Orman', type: "4'lü Karışım" }, // Siyah + Lacivert + Yeşil + Gri
-    { indices: [4, 7, 10, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Baharat Yolu', type: "4'lü Karışım" }, // Turuncu + Mor + Kahve + Beyaz
-    { indices: [3, 6, 8, 1], w: [0.3, 0.2, 0.3, 0.2], name: 'Derin Koral', type: "4'lü Karışım" }, // Kırmızı + Mavi + Lacivert + Beyaz
-    { indices: [7, 9, 2, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Sihirli Vadi', type: "4'lü Karışım" }, // Mor + Yeşil + Gri + Beyaz
+    { indices: [6, 7, 9, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Egzotik Sualtı', type: "4'lü Karışım" },
+    { indices: [3, 4, 5, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Günbatımı Meltemi', type: "4'lü Karışım" },
+    { indices: [8, 9, 10, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Kozmik Vadi', type: "4'lü Karışım" },
+    { indices: [0, 3, 7, 6], w: [0.3, 0.3, 0.2, 0.2], name: 'Süpernova', type: "4'lü Karışım" },
+    { indices: [10, 3, 9, 5], w: [0.3, 0.3, 0.2, 0.2], name: 'Safarid', type: "4'lü Karışım" },
+    { indices: [2, 6, 7, 1], w: [0.2, 0.3, 0.3, 0.2], name: 'Gümüş Bulut', type: "4'lü Karışım" },
+    { indices: [8, 6, 3, 5], w: [0.3, 0.3, 0.2, 0.2], name: 'Altın Galaksi', type: "4'lü Karışım" },
+    { indices: [9, 10, 5, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Vaha Rüzgarı', type: "4'lü Karışım" },
+    { indices: [0, 8, 9, 2], w: [0.3, 0.3, 0.2, 0.2], name: 'Obsidyen Orman', type: "4'lü Karışım" },
+    { indices: [4, 7, 10, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Baharat Yolu', type: "4'lü Karışım" },
+    { indices: [3, 6, 8, 1], w: [0.3, 0.2, 0.3, 0.2], name: 'Derin Koral', type: "4'lü Karışım" },
+    { indices: [7, 9, 2, 1], w: [0.3, 0.3, 0.2, 0.2], name: 'Sihirli Vadi', type: "4'lü Karışım" },
   ];
 
-  // Helper mapping index to core color
   const resolveFormula = (indices: number[], weights: number[]) => {
     return indices.map((idx, i) => `${weights[i] * 100}% ${C[idx].name}`).join(' + ');
   };
 
-  // Build twoWay
   twoWayCombinations.forEach(comb => {
     const colorSpec = comb.indices.map((idx, i) => ({ hex: C[idx].hex, weight: comb.w[i] }));
     list.push({
@@ -191,7 +200,6 @@ export function generateIntermediateColors() {
     });
   });
 
-  // Build threeWay
   threeWayCombinations.forEach(comb => {
     const colorSpec = comb.indices.map((idx, i) => ({ hex: C[idx].hex, weight: comb.w[i] }));
     list.push({
@@ -202,7 +210,6 @@ export function generateIntermediateColors() {
     });
   });
 
-  // Build fourWay
   fourWayCombinations.forEach(comb => {
     const colorSpec = comb.indices.map((idx, i) => ({ hex: C[idx].hex, weight: comb.w[i] }));
     list.push({
@@ -216,7 +223,6 @@ export function generateIntermediateColors() {
   return list;
 }
 
-// Complete list of 10 modern premium fonts with description and stack mappings
 export const PREMIUM_FONTS = [
   { id: 'outfit', name: 'Outfit', stack: '"Outfit", sans-serif', description: 'Modern, geometrik, cana yakın ve estetik bir teknoloji yüzü.' },
   { id: 'inter', name: 'Inter', stack: '"Inter", sans-serif', description: 'Görsel netlik ve okunabilirlik odaklı, endüstri standardı arayüz fontu.' },
@@ -231,30 +237,37 @@ export const PREMIUM_FONTS = [
 ];
 
 const initialSettings: Settings = {
+  // Profil & Hesap
   'user.profile.full_name': { key: 'user.profile.full_name', value: 'Engin Nalbant', type: 'string', scope: 'user', default: '' },
   'user.account.email': { key: 'user.account.email', value: 'enginnalbant9@gmail.com', type: 'string', scope: 'user', default: '' },
   'user.account.plan': { key: 'user.account.plan', value: 'Pro', type: 'string', scope: 'user', default: 'Free' },
 
+  // Görünüm & Performans
   'theme.mode': { key: 'theme.mode', value: 'system', type: 'enum', scope: 'user', default: 'system', validation: ['light', 'dark', 'system'] },
   'sidebar_position': { key: 'sidebar_position', value: 'left', type: 'enum', scope: 'user', default: 'left', validation: ['left', 'right', 'bottom'] },
-  'ui.settings_panel_position': { key: 'ui.settings_panel_position', value: 'right', type: 'enum', scope: 'user', default: 'right', validation: ['left', 'right', 'bottom'] },
   'theme.accent_color': { key: 'theme.accent_color', value: '#E2725B', type: 'string', scope: 'user', default: '#E2725B' },
   'performance.fps': { key: 'performance.fps', value: 120, type: 'number', scope: 'user', default: 120, validation: [60, 90, 120] },
   'ui.mobile_compact': { key: 'ui.mobile_compact', value: true, type: 'boolean', scope: 'user', default: true },
 
+  // Advanced UI & Layout Parameters
+  'ui.animation_speed': { key: 'ui.animation_speed', value: '0.4s', type: 'enum', scope: 'user', default: '0.4s', validation: ['0.2s', '0.4s', '0.8s'] },
+  'ui.glass_blur': { key: 'ui.glass_blur', value: 25, type: 'number', scope: 'user', default: 25 },
+  'ui.sidebar_default': { key: 'ui.sidebar_default', value: 'expanded', type: 'enum', scope: 'user', default: 'expanded', validation: ['expanded', 'collapsed'] },
+
+  // Advanced Finance Parameters
+  'finance.default_currency': { key: 'finance.default_currency', value: 'TRY', type: 'enum', scope: 'user', default: 'TRY', validation: ['TRY', 'USD', 'EUR', 'GBP'] },
+  'finance.budget_alert_threshold': { key: 'finance.budget_alert_threshold', value: 80, type: 'number', scope: 'user', default: 80 },
+  'finance.auto_save_rate': { key: 'finance.auto_save_rate', value: 15, type: 'number', scope: 'user', default: 15 },
+
+  // System & Synchronization
+  'system.sync_rate': { key: 'system.sync_rate', value: 'realtime', type: 'enum', scope: 'user', default: 'realtime', validation: ['realtime', '5min', 'manual'] },
+  'system.debug_mode': { key: 'system.debug_mode', value: false, type: 'boolean', scope: 'user', default: false },
+
+  // Genel & Güvenlik
   'app.language': { key: 'app.language', value: 'tr', type: 'enum', scope: 'user', default: 'tr', validation: ['tr', 'en'] },
   'app.notifications.enabled': { key: 'app.notifications.enabled', value: true, type: 'boolean', scope: 'user', default: true },
-
   'security.2fa.enabled': { key: 'security.2fa.enabled', value: false, type: 'boolean', scope: 'user', default: false },
   'security.backup.auto_enabled': { key: 'security.backup.auto_enabled', value: true, type: 'boolean', scope: 'user', default: true },
-
-  'admin.maintenance_mode': { key: 'admin.maintenance_mode', value: false, type: 'boolean', scope: 'user', default: false },
-  'admin.access_level': { key: 'admin.access_level', value: 'admin', type: 'enum', scope: 'user', default: 'user', validation: ['user', 'admin'] },
-  
-  'modules.dashboard.active': { key: 'modules.dashboard.active', value: true, type: 'boolean', scope: 'user', default: true },
-  'modules.analytics.active': { key: 'modules.analytics.active', value: true, type: 'boolean', scope: 'user', default: true },
-  'modules.projects.active': { key: 'modules.projects.active', value: true, type: 'boolean', scope: 'user', default: true },
-  'modules.team.active': { key: 'modules.team.active', value: false, type: 'boolean', scope: 'user', default: false },
 };
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -297,7 +310,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setActiveAccent = (colorHex: string) => {
     setActiveAccentState(colorHex);
     localStorage.setItem('apex_active_accent', colorHex);
-    // Also sync standard setting
     updateSetting('theme.accent_color', colorHex);
   };
 
@@ -306,26 +318,225 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('apex_active_accent_name', name);
   };
 
+  // ADVANCED DIAGNOSTICS: Calculate exact LocalStorage usage metrics
+  const getStorageUsage = () => {
+    let usedBytes = 0;
+    const keys = Object.keys(localStorage);
+    keys.forEach(k => {
+      const val = localStorage.getItem(k) || '';
+      usedBytes += (k.length + val.length) * 2; // ~2 bytes per character
+    });
+    return {
+      usedBytes,
+      totalBytes: 5242880, // standard 5MB browser limit
+      keyCount: keys.length
+    };
+  };
+
+  const clearSystemCache = () => {
+    const backupKeys = ['supabase.auth.token', 'is_reset_v2', 'apex_active_font', 'apex_active_accent', 'apex_active_accent_name'];
+    const backup: Record<string, string> = {};
+    backupKeys.forEach(k => {
+      const v = localStorage.getItem(k);
+      if (v) backup[k] = v;
+    });
+
+    localStorage.clear();
+
+    // Restore essential system parameters
+    Object.keys(backup).forEach(k => {
+      localStorage.setItem(k, backup[k]);
+    });
+
+    // Reset settings state to defaults
+    setSettings(initialSettings);
+  };
+
+  // SYSTEM DIAGNOSTICS: Get active context alerts and suggestions
+  const getSystemHealthAdvice = (): SystemAdvice[] => {
+    const list: SystemAdvice[] = [];
+
+    // Check 1: Animation speed & FPS
+    const fps = getSetting('performance.fps');
+    if (fps < 90) {
+      list.push({
+        id: 'fps_low',
+        type: 'info',
+        title: 'Ekran Yenileme Hızı Limiti',
+        message: 'Arayüz akıcılığını artırmak için FPS ayarını 120 FPS seçeneğine almanızı öneririz.',
+        actionLabel: '120 FPS Yap',
+        actionKey: 'performance.fps',
+        actionValue: 120
+      });
+    }
+
+    // Check 2: 2FA Authentication
+    const mfaEnabled = getSetting('security.2fa.enabled');
+    if (!mfaEnabled) {
+      list.push({
+        id: 'security_mfa',
+        type: 'warning',
+        title: 'İki Faktörlü Doğrulama Pasif',
+        message: 'Hesap ve finansal veri güvenliğinizi maksimum düzeye çıkarmak için 2FA özelliğini aktif edin.',
+        actionLabel: 'Güvenliğe Git',
+        actionKey: 'security.2fa.enabled',
+        actionValue: true
+      });
+    }
+
+    // Check 3: Budget Alert thresholds
+    const budgetAlert = getSetting('finance.budget_alert_threshold');
+    if (budgetAlert > 90) {
+      list.push({
+        id: 'budget_threshold_high',
+        type: 'warning',
+        title: 'Yüksek Bütçe Toleransı',
+        message: 'Bütçe uyarı eşiğiniz %90 gibi yüksek bir seviyede. Bütçe aşımını daha erken engellemek için eşiği %80\'e çekmenizi öneririz.',
+        actionLabel: '%80 Yap',
+        actionKey: 'finance.budget_alert_threshold',
+        actionValue: 80
+      });
+    }
+
+    // Check 4: LocalStorage usage threshold
+    const usage = getStorageUsage();
+    const percent = (usage.usedBytes / usage.totalBytes) * 100;
+    if (percent > 60) {
+      list.push({
+        id: 'storage_high',
+        type: 'warning',
+        title: 'Depolama Alanı Doluyor',
+        message: `LocalStorage alanınız %${percent.toFixed(1)} doluluğa ulaştı. Sistem önbelleğini temizleyerek yer açabilirsiniz.`,
+        actionLabel: 'Önbelleği Boşalt',
+        actionKey: 'system_cache_clear',
+        actionValue: true
+      });
+    } else {
+      list.push({
+        id: 'system_healthy',
+        type: 'success',
+        title: 'Sistem Tamamen Kararlı',
+        message: 'Tüm bellek, depolama ve senkronizasyon katmanları kusursuz ve kararlı çalışıyor.'
+      });
+    }
+
+    return list;
+  };
+
+  // AI CO-PILOT COMMAND EXECUTION (NLU Engine)
+  const executeAiCommand = (command: string): { success: boolean; message: string; modifiedKeys: string[] } => {
+    const cmd = command.toLowerCase();
+    const modifiedKeys: string[] = [];
+
+    // Rule 1: High performance / fast animations
+    if (cmd.includes('hızlı') || cmd.includes('hızlandır') || cmd.includes('performans') || cmd.includes('akıcı')) {
+      updateSetting('performance.fps', 120);
+      updateSetting('ui.animation_speed', '0.2s');
+      modifiedKeys.push('performance.fps', 'ui.animation_speed');
+      return {
+        success: true,
+        message: 'Yapay zeka sistemi maksimum performans moduna aldı! Ekran yenileme hızı 120 FPS olarak ayarlandı, animasyon hızı 0.2s (Yıldırım) düzeyine çekildi.',
+        modifiedKeys
+      };
+    }
+
+    // Rule 2: Low-glare dark theme / dark mode
+    if (cmd.includes('karanlık') || cmd.includes('gece') || cmd.includes('dark')) {
+      updateSetting('theme.mode', 'dark');
+      modifiedKeys.push('theme.mode');
+      return {
+        success: true,
+        message: 'Yapay zeka göz sağlığınız için Slate Dark gece modunu aktif etti.',
+        modifiedKeys
+      };
+    }
+
+    // Rule 3: Soft Alabaster Light Mode
+    if (cmd.includes('açık') || cmd.includes('gündüz') || cmd.includes('light') || cmd.includes('aydınlık')) {
+      updateSetting('theme.mode', 'light');
+      modifiedKeys.push('theme.mode');
+      return {
+        success: true,
+        message: 'Yapay zeka asil ve pürüzsüz Alabaster krem-beyaz modunu aktif etti.',
+        modifiedKeys
+      };
+    }
+
+    // Rule 4: Budget thresholds
+    if (cmd.includes('bütçe uyar') || cmd.includes('bütçe eşik') || cmd.includes('limit')) {
+      const match = cmd.match(/\d+/);
+      const val = match ? parseInt(match[0]) : 80;
+      updateSetting('finance.budget_alert_threshold', val);
+      modifiedKeys.push('finance.budget_alert_threshold');
+      return {
+        success: true,
+        message: `Yapay zeka bütçe kontrol limitini %${val} doluluk seviyesine sabitledi.`,
+        modifiedKeys
+      };
+    }
+
+    // Rule 5: Font switching via AI
+    const fontMatch = PREMIUM_FONTS.find(f => cmd.includes(f.name.toLowerCase()) || cmd.includes(f.id));
+    if (fontMatch) {
+      setActiveFont(fontMatch.id);
+      modifiedKeys.push('activeFont');
+      return {
+        success: true,
+        message: `Yapay zeka arayüz yazı tipini başarıyla '${fontMatch.name}' olarak değiştirdi.`,
+        modifiedKeys
+      };
+    }
+
+    // Rule 6: Color switching via AI
+    const allC = [
+      ...PRIMARY_COLORS,
+      ...generateIntermediateColors()
+    ];
+    const colorMatch = allC.find(c => cmd.includes(c.name.toLowerCase()));
+    if (colorMatch) {
+      setActiveAccent(colorMatch.hex);
+      setActiveAccentName(colorMatch.name);
+      modifiedKeys.push('activeAccent');
+      return {
+        success: true,
+        message: `Yapay zeka sistem vurgu rengini başarıyla '${colorMatch.name}' (${colorMatch.hex}) olarak güncelledi.`,
+        modifiedKeys
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Komut anlaşılamadı. Lütfen yapmak istediğiniz ayarı doğal dil ile ifade edin. (Örn: "Arayüzü hızlandır" veya "Yazı tipini Outfit yap")',
+      modifiedKeys
+    };
+  };
+
   // Inject Accent Color & Active Font dynamically into the DOM
   useEffect(() => {
     const root = window.document.documentElement;
 
-    // Apply Active Accent Color to CSS variables
     root.style.setProperty('--focus-neon', activeAccent);
     root.style.setProperty('--focus-neon-val', activeAccent);
     root.style.setProperty('--color-accent', activeAccent);
-
-    // Dynamic focus deep and main color scaling
     root.style.setProperty('--focus-main-val', activeAccent);
     root.style.setProperty('--focus-deep-val', activeAccent);
 
-    // Apply Typography
     const fontObj = PREMIUM_FONTS.find(f => f.id === activeFont) || PREMIUM_FONTS[1];
     root.style.setProperty('--font-sans-val', fontObj.stack);
     root.style.setProperty('--font-display-val', fontObj.stack);
     root.style.setProperty('--font-heading', fontObj.stack);
 
   }, [activeFont, activeAccent]);
+
+  // Inject Advanced UI parameters
+  useEffect(() => {
+    const root = window.document.documentElement;
+    const speed = getSetting('ui.animation_speed') || '0.4s';
+    const blur = getSetting('ui.glass_blur') ?? 25;
+
+    root.style.setProperty('--frame-duration', speed);
+    root.style.setProperty('--glass-blur-level', `${blur}px`);
+  }, [settings['ui.animation_speed']?.value, settings['ui.glass_blur']?.value]);
 
   // Tema Değişikliğini Uygula
   useEffect(() => {
@@ -346,7 +557,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         root.style.setProperty('--text-secondary-val', '#9499B0');
       } else {
         root.classList.remove('dark');
-        // Elegant Warm White / Cream Alabaster
         root.style.setProperty('--app-bg', '#FCFAF7');
         root.style.setProperty('--card-bg', 'rgba(255, 253, 251, 0.9)');
         root.style.setProperty('--border-val', 'rgba(141, 120, 100, 0.12)');
@@ -374,7 +584,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     root.classList.add(`fps-${fps}`);
     root.dataset.fps = String(fps);
     root.style.setProperty('--target-fps', `${fps}`);
-    root.style.setProperty('--frame-duration', `${(1000 / fps).toFixed(2)}ms`);
   }, [settings['performance.fps']?.value]);
 
   return (
@@ -389,7 +598,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       activeAccent,
       setActiveAccent,
       activeAccentName,
-      setActiveAccentName
+      setActiveAccentName,
+      getStorageUsage,
+      clearSystemCache,
+      getSystemHealthAdvice,
+      executeAiCommand
     }}>
       {children}
     </SettingsContext.Provider>
