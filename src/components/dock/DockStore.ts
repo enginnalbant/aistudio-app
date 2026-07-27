@@ -9,12 +9,23 @@ export interface DockUsageRecord {
 
 export type DockProfile = 'work' | 'personal' | 'finance' | 'production' | 'admin';
 
+export type IndicatorStyle = 'dot' | 'pill' | 'aura' | 'line';
+export type DockSize = 'sm' | 'md' | 'lg';
+export type GlassBlur = 'low' | 'medium' | 'high';
+export type HapticStrength = 'none' | 'light' | 'medium' | 'heavy';
+
 export interface DockState {
   profile: DockProfile;
   dockSlots: string[];
   recentModules: string[];
   analytics: DockUsageRecord[];
   isCustomizing: boolean;
+  // Customization preferences
+  indicatorStyle: IndicatorStyle;
+  dockSize: DockSize;
+  glassBlur: GlassBlur;
+  hapticStrength: HapticStrength;
+  dynamicColor: boolean;
 }
 
 const DEFAULT_SLOTS: Record<DockProfile, string[]> = {
@@ -34,7 +45,12 @@ export class DockStore {
     dockSlots: DEFAULT_SLOTS.finance,
     recentModules: [],
     analytics: [],
-    isCustomizing: false
+    isCustomizing: false,
+    indicatorStyle: 'dot',
+    dockSize: 'md',
+    glassBlur: 'medium',
+    hapticStrength: 'medium',
+    dynamicColor: true
   };
 
   private constructor() {
@@ -54,13 +70,24 @@ export class DockStore {
       const savedSlots = localStorage.getItem(`apex_dock_slots_${profile}`);
       const recent = localStorage.getItem('apex_recent_modules');
       const analytics = localStorage.getItem('apex_dock_analytics');
+      const indicatorStyle = localStorage.getItem('apex_dock_indicator_style') as IndicatorStyle || 'dot';
+      const dockSize = localStorage.getItem('apex_dock_size') as DockSize || 'md';
+      const glassBlur = localStorage.getItem('apex_dock_glass_blur') as GlassBlur || 'medium';
+      const hapticStrength = localStorage.getItem('apex_dock_haptic_strength') as HapticStrength || 'medium';
+      const dynamicColorVal = localStorage.getItem('apex_dock_dynamic_color');
+      const dynamicColor = dynamicColorVal !== null ? dynamicColorVal === 'true' : true;
 
       this.state = {
         profile,
         dockSlots: savedSlots ? JSON.parse(savedSlots) : DEFAULT_SLOTS[profile],
         recentModules: recent ? JSON.parse(recent) : ['finance-dashboard', 'notes-dashboard'],
         analytics: analytics ? JSON.parse(analytics) : [],
-        isCustomizing: false
+        isCustomizing: false,
+        indicatorStyle,
+        dockSize,
+        glassBlur,
+        hapticStrength,
+        dynamicColor
       };
     } catch {
       // safe fallback
@@ -73,6 +100,11 @@ export class DockStore {
       localStorage.setItem(`apex_dock_slots_${this.state.profile}`, JSON.stringify(this.state.dockSlots));
       localStorage.setItem('apex_recent_modules', JSON.stringify(this.state.recentModules));
       localStorage.setItem('apex_dock_analytics', JSON.stringify(this.state.analytics));
+      localStorage.setItem('apex_dock_indicator_style', this.state.indicatorStyle);
+      localStorage.setItem('apex_dock_size', this.state.dockSize);
+      localStorage.setItem('apex_dock_glass_blur', this.state.glassBlur);
+      localStorage.setItem('apex_dock_haptic_strength', this.state.hapticStrength);
+      localStorage.setItem('apex_dock_dynamic_color', String(this.state.dynamicColor));
     } catch {}
   }
 
@@ -108,6 +140,11 @@ export class DockStore {
 
   public resetSlots() {
     this.state.dockSlots = DEFAULT_SLOTS[this.state.profile];
+    this.emit();
+  }
+
+  public updateCustomization<K extends keyof DockState>(key: K, value: DockState[K]) {
+    this.state[key] = value;
     this.emit();
   }
 
@@ -190,7 +227,7 @@ export class DockStore {
     const warnings: string[] = [];
 
     // Check key modules
-    const modulesToCheck = ['finance-dashboard', 'notes-dashboard', 'stocks-dashboard', 'bulletin-dashboard'];
+    const modulesToCheck = ['finance-dashboard', 'notes-dashboard', 'bulletin-dashboard'];
     modulesToCheck.forEach(m => {
       const lastAccess = this.state.analytics.find(a => a.moduleId === m);
       if (!lastAccess || (now - lastAccess.timestamp > limit)) {
@@ -217,6 +254,7 @@ export const useDockStore = () => {
     setProfile: (p: DockProfile) => store.setProfile(p),
     updateSlot: (idx: number, modId: string) => store.updateSlot(idx, modId),
     resetSlots: () => store.resetSlots(),
+    updateCustomization: <K extends keyof DockState>(key: K, value: DockState[K]) => store.updateCustomization(key, value),
     logUsage: (modId: string) => store.logUsage(modId),
     getSiriSuggestion: () => store.getSiriSuggestion(),
     getUnusedWarnings: () => store.getUnusedWarnings()
