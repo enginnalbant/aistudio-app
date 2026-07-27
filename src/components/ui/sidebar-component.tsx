@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { 
   Zap,
   LayoutDashboard,
+  Activity,
   Settings as SettingsIcon,
   ChevronDown,
   Search,
@@ -178,6 +179,7 @@ function getSidebarContent(activeSection: string): SidebarContent {
           title: "Yönetim",
           items: [
             { id: 'finance-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'finance-dashboard' },
+            { id: 'finance-status', icon: <Activity size={16} />, label: 'Finansal Durum', moduleId: 'finance-status' },
             { id: 'finance-incomes', icon: <TrendingUp size={16} />, label: 'Gelirlerim', moduleId: 'finance-incomes' },
             { id: 'finance-expenses', icon: <TrendingDown size={16} />, label: 'Giderlerim', moduleId: 'finance-expenses' },
             { id: 'finance-subscriptions', icon: <CreditCard size={16} />, label: 'Abonelik ve Borçlarım', moduleId: 'finance-subscriptions' },

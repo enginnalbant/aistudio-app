@@ -21,6 +21,7 @@ import {
 } from './components/PurchasingModules';
 import {
   FinanceDashboard,
+  FinanceStatus,
   FinanceIncomes,
   FinanceExpenses,
   FinanceSubscriptions,
@@ -189,6 +190,8 @@ function AppLayout() {
                   <CalendarPage />
                 ) : activeModule === 'finance-dashboard' ? (
                   <FinanceDashboard />
+                ) : activeModule === 'finance-status' ? (
+                  <FinanceStatus />
                 ) : activeModule === 'finance-incomes' ? (
                   <FinanceIncomes />
                 ) : activeModule === 'finance-expenses' ? (
