@@ -65,68 +65,77 @@ export const Header = React.memo(function Header({ toggleSidebar, setActiveModul
       </div>
 
       <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-4 shrink-0">
-        <EnvironmentalWidget />
+        <div className="hidden lg:block">
+          <EnvironmentalWidget />
+        </div>
 
-        <div className="flex items-center gap-0.5 sm:gap-1.5 lg:gap-2">
-          {/* FPS Mode Quick Selector */}
+        <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2">
+          {/* FPS Mode Quick Selector - Desktop Only */}
           <button
             onClick={() => {
               const currentFps = settings['performance.fps']?.value || 120;
               const nextFps = currentFps === 120 ? 90 : currentFps === 90 ? 60 : 120;
               updateSetting('performance.fps', nextFps);
             }}
-            className="h-7 sm:h-8 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-focus-neon/10 border border-focus-neon/30 text-focus-neon font-mono text-[9px] sm:text-[10px] font-black flex items-center gap-0.5 sm:gap-1 hover:bg-focus-neon/20 active:scale-95 transition-all shrink-0"
+            className="h-7 sm:h-8 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-focus-neon/10 border border-focus-neon/30 text-focus-neon font-mono text-[9px] sm:text-[10px] font-black hidden lg:flex items-center gap-0.5 sm:gap-1 hover:bg-focus-neon/20 active:scale-95 transition-all shrink-0"
             title={`Ekran Tazeleme Oranı (Şu an: ${settings['performance.fps']?.value || 120} FPS) - Değiştirmek için dokunun`}
           >
             <Gauge size={12} className="animate-pulse shrink-0" />
-            <span className="hidden xs:inline">{settings['performance.fps']?.value || 120} FPS</span>
-            <span className="xs:hidden">{settings['performance.fps']?.value || 120}</span>
+            <span>{settings['performance.fps']?.value || 120} FPS</span>
           </button>
 
-          {/* Language Selector */}
-          <LanguageSelector variant="compact" />
+          {/* Language Selector - Desktop Only */}
+          <div className="hidden lg:block">
+            <LanguageSelector variant="compact" />
+          </div>
 
-          <div className="mr-0.5 hidden md:block">
+          {/* Theme Selector - Desktop Only */}
+          <div className="hidden lg:block mr-0.5">
             <Switch 
               checked={settings['theme.mode']?.value === 'dark' || (settings['theme.mode']?.value === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)}
               onChange={(checked) => updateSetting('theme.mode', checked ? 'dark' : 'light')}
             />
           </div>
           
-          <div className="flex items-center gap-0.5 sm:gap-1 pl-0.5">
-            {/* Notification Button with Popover */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <button 
-                  className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-lg sm:rounded-xl bg-skel-matte/5 hover:bg-skel-matte/10 text-text-secondary hover:text-focus-neon transition-all duration-300 active:scale-95 border border-skel-metal/10 relative group/btn shrink-0"
-                  title={t('nav.notifications', 'Bildirimler')}
-                >
-                  <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  {unreadCount > 0 && (
-                    <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-focus-neon rounded-full border border-skel-space shadow-[0_0_8px_rgba(37,99,235,0.8)]" />
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[300px] sm:w-[520px] p-0 border-none bg-transparent shadow-none" align="end" sideOffset={12}>
-                <NotificationsMenu />
-              </PopoverContent>
-            </Popover>
+          <div className="flex items-center gap-1 pl-0.5">
+            {/* Notification Button with Popover - Desktop Only */}
+            <div className="hidden lg:block">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-skel-matte/10 text-text-secondary hover:text-focus-neon transition-all duration-300 active:scale-95 border border-skel-metal/10 relative group/btn shrink-0"
+                    title={t('nav.notifications', 'Bildirimler')}
+                  >
+                    <Bell className="w-4 h-4" />
+                    {unreadCount > 0 && (
+                      <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-focus-neon rounded-full border border-skel-space shadow-[0_0_8px_rgba(37,99,235,0.8)]" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[520px] p-0 border-none bg-transparent shadow-none" align="end" sideOffset={12}>
+                  <NotificationsMenu />
+                </PopoverContent>
+              </Popover>
+            </div>
 
-            {/* Calendar Button with Popover */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <button 
-                  className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-lg sm:rounded-xl bg-skel-matte/5 hover:bg-skel-matte/10 text-text-secondary hover:text-focus-neon transition-all duration-300 active:scale-95 border border-skel-metal/10 group/btn shrink-0"
-                  title={t('nav.calendar', 'Takvim')}
-                >
-                  <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[280px] sm:w-[320px] p-0 border-none bg-transparent shadow-none" align="end" sideOffset={12}>
-                <CalendarMenu />
-              </PopoverContent>
-            </Popover>
+            {/* Calendar Button with Popover - Desktop Only */}
+            <div className="hidden lg:block">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-skel-matte/5 hover:bg-skel-matte/10 text-text-secondary hover:text-focus-neon transition-all duration-300 active:scale-95 border border-skel-metal/10 group/btn shrink-0"
+                    title={t('nav.calendar', 'Takvim')}
+                  >
+                    <Calendar className="w-4 h-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] p-0 border-none bg-transparent shadow-none" align="end" sideOffset={12}>
+                  <CalendarMenu />
+                </PopoverContent>
+              </Popover>
+            </div>
 
+            {/* Settings Modal Trigger - Both Mobile and Desktop */}
             <button 
               onClick={() => (window as any).openSettingsModal?.()}
               className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-lg sm:rounded-xl bg-skel-matte/5 hover:bg-skel-matte/10 text-text-secondary hover:text-focus-neon transition-all duration-300 active:scale-95 border border-skel-metal/10 group/btn shrink-0"
