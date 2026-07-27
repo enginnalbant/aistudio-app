@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { runFinanceHealthEngine, UserProfile } from '../../lib/financeHealthEngine';
+import { useDevice } from '../../hooks/useDevice';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
@@ -135,6 +136,9 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 export const FinanceDashboard = () => {
+  const { isMobile, isTablet, screenTier, width } = useDevice();
+  const isXs = screenTier === 'xs' || width < 380;
+
   // Pull data from local storages
   const [incomes, setIncomes] = useLocalStorage<Income[]>('finance_incomes', []);
   const [expenses, setExpenses] = useLocalStorage<Expense[]>('finance_expenses', []);
@@ -776,7 +780,7 @@ export const FinanceDashboard = () => {
   ];
 
   return (
-    <div className="p-2.5 sm:p-4 md:p-6 w-full max-w-7xl mx-auto space-y-3.5 sm:space-y-6 pb-20 text-text-primary touch-optimized">
+    <div className="p-1 sm:p-3 md:p-6 w-full max-w-7xl mx-auto space-y-2.5 md:space-y-6 pb-20 text-text-primary touch-optimized">
       {/* Toast alert */}
       <AnimatePresence>
         {successToast && (
@@ -784,9 +788,9 @@ export const FinanceDashboard = () => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4.5 py-3 rounded-xl border border-focus-neon/30 bg-focus-neon/10 text-focus-neon font-bold text-sm shadow-2xl"
+            className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-focus-neon/30 bg-focus-neon/10 text-focus-neon font-bold text-xs md:text-sm shadow-2xl"
           >
-            <CheckCircle2 size={16} />
+            <CheckCircle2 size={14} />
             <span>{successToast}</span>
           </motion.div>
         )}
@@ -797,56 +801,59 @@ export const FinanceDashboard = () => {
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-ai-bright/25 to-focus-neon/10 border border-ai-bright/35 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xl"
+          className="bg-gradient-to-r from-ai-bright/25 to-focus-neon/10 border border-ai-bright/35 rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 shadow-xl"
         >
-          <div className="space-y-1.5 max-w-2xl">
-            <h3 className="font-display font-black text-white text-base md:text-lg flex items-center gap-2">
-              <Sparkles className="text-ai-bright shrink-0 animate-pulse" size={20} />
+          <div className="space-y-1 max-w-2xl">
+            <h3 className="font-display font-black text-white text-sm md:text-lg flex items-center gap-2">
+              <Sparkles className="text-ai-bright shrink-0 animate-pulse" size={16} />
               Bütçe Modülünü Keşfedin!
             </h3>
-            <p className="text-xs text-text-secondary leading-relaxed">
+            <p className="text-[11px] md:text-xs text-text-secondary leading-relaxed">
               Kişisel finans bütçe veritabanınız şu anda boş görünüyor. Dashboard'u tüm dinamik grafikleri, akıllı stres testlerini ve finansal sağlık skorlarını deneyimlemek için örnek simülasyon verileriyle hemen doldurabilirsiniz.
             </p>
           </div>
-          <div className="flex flex-wrap sm:flex-nowrap gap-3 shrink-0 w-full md:w-auto">
+          <div className="flex flex-wrap sm:flex-nowrap gap-2 md:gap-3 shrink-0 w-full md:w-auto">
             <button
               onClick={handleLoadDemoData}
-              className="flex-1 sm:flex-none bg-white hover:bg-neutral-100 text-black px-4.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg"
+              className="flex-grow sm:flex-none bg-white hover:bg-neutral-100 text-black px-3.5 py-2 rounded-xl text-[10px] md:text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg"
             >
-              <Coins size={14} /> Örnek Bütçe Verisi Yükle
+              <Coins size={12} /> Örnek Bütçe Verisi Yükle
             </button>
             <button
               onClick={handleResetFinanceData}
-              className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-4.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg"
+              className="flex-grow sm:flex-none bg-red-600 hover:bg-red-700 text-white px-3.5 py-2 rounded-xl text-[10px] md:text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg"
             >
-              <RefreshCw size={14} /> Finans Verilerini Sıfırla
+              <RefreshCw size={12} /> Sıfırla
             </button>
           </div>
         </motion.div>
       )}
 
       {/* Header and Welcome */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-display font-black text-white tracking-tight flex items-center gap-2">
+          <h1 className="text-xl md:text-3xl font-display font-black text-white tracking-tight flex items-center gap-1.5">
             Finansal Durum Paneli
           </h1>
-          <p className="text-xs md:text-sm text-text-secondary">
+          <p className="text-[10px] md:text-sm text-text-secondary">
             Gelir, gider, yatırım ve borç kalemlerinin akıllı finansal dinamik analiz ve stres testi motoru.
           </p>
         </div>
         <button
           onClick={() => setShowHealthScoreDetails(!showHealthScoreDetails)}
-          className="flex items-center gap-3 bg-white/[0.02] border border-white/5 hover:border-white/15 px-4.5 py-2.5 rounded-2xl transition-all hover:scale-102 cursor-pointer active:scale-98"
+          className="flex items-center gap-2.5 bg-white/[0.02] border border-white/5 hover:border-white/15 px-3.5 py-2 rounded-xl transition-all hover:scale-102 cursor-pointer active:scale-98 self-stretch md:self-auto justify-between"
         >
-          <Activity size={18} className="text-ai-bright animate-pulse" />
-          <div className="flex flex-col text-left">
-            <span className="text-[9px] text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1">
-              Finansal Sağlık Skoru
-              <span className="text-[8px] bg-white/5 px-1 py-0.2 rounded font-mono text-focus-neon">DETAYLAR</span>
-            </span>
-            <span className="text-base font-mono font-black text-white">{healthScore} / 100</span>
+          <div className="flex items-center gap-2">
+            <Activity size={16} className="text-ai-bright animate-pulse shrink-0" />
+            <div className="flex flex-col text-left">
+              <span className="text-[8px] md:text-[9px] text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1">
+                Sağlık Skoru
+                <span className="text-[7px] bg-white/5 px-1 py-0.2 rounded font-mono text-focus-neon">DETAY</span>
+              </span>
+              <span className="text-xs md:text-base font-mono font-black text-white">{healthScore} / 100</span>
+            </div>
           </div>
+          <ChevronRight size={14} className="text-text-secondary md:hidden" />
         </button>
       </div>
 
@@ -1131,21 +1138,21 @@ export const FinanceDashboard = () => {
       </AnimatePresence>
 
       {/* Main KPI metrics (4 Columns) - Compact */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
         {/* Card 1: Total Net Worth */}
         <motion.div 
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
+          className="bg-black/30 border border-white/5 p-3 md:p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
         >
-          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Wallet size={48} className="text-focus-neon" />
+          <div className="absolute top-0 right-0 p-2 md:p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Wallet size={36} className="text-focus-neon" />
           </div>
-          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Net Varlık</span>
-          <span className={`text-lg md:text-xl font-mono font-black block mt-0.5 ${netWorth >= 0 ? 'text-white' : 'text-crit-vivid'}`}>
+          <span className="text-[8px] md:text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Net Varlık</span>
+          <span className={`text-sm md:text-xl font-mono font-black block mt-0.5 ${netWorth >= 0 ? 'text-white' : 'text-crit-vivid'}`}>
             ₺{netWorth.toLocaleString('tr-TR')}
           </span>
-          <span className="text-[9px] text-text-secondary mt-1 block">Varlıklar - Borçlar</span>
+          <span className="text-[8px] md:text-[9px] text-text-secondary mt-0.5 block">Varlıklar - Borçlar</span>
         </motion.div>
 
         {/* Card 2: Income */}
@@ -1153,16 +1160,16 @@ export const FinanceDashboard = () => {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
+          className="bg-black/30 border border-white/5 p-3 md:p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
         >
-          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
-            <ArrowDownRight size={48} className="text-focus-neon" />
+          <div className="absolute top-0 right-0 p-2 md:p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <ArrowDownRight size={36} className="text-focus-neon" />
           </div>
-          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Gelir</span>
-          <span className="text-lg md:text-xl font-mono font-black text-focus-neon block mt-0.5">
+          <span className="text-[8px] md:text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Gelir</span>
+          <span className="text-sm md:text-xl font-mono font-black text-focus-neon block mt-0.5">
             ₺{monthlyIncome.toLocaleString('tr-TR')}
           </span>
-          <span className="text-[9px] text-text-secondary mt-1 block">Tamamlanan nakit akışı</span>
+          <span className="text-[8px] md:text-[9px] text-text-secondary mt-0.5 block">Kazanılan nakit</span>
         </motion.div>
 
         {/* Card 3: Expenses */}
@@ -1170,17 +1177,17 @@ export const FinanceDashboard = () => {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
+          className="bg-black/30 border border-white/5 p-3 md:p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
         >
-          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
-            <ArrowUpRight size={48} className="text-crit-vivid" />
+          <div className="absolute top-0 right-0 p-2 md:p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <ArrowUpRight size={36} className="text-crit-vivid" />
           </div>
-          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Gider</span>
-          <span className="text-lg md:text-xl font-mono font-black text-white block mt-0.5">
+          <span className="text-[8px] md:text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Gider</span>
+          <span className="text-sm md:text-xl font-mono font-black text-white block mt-0.5">
             ₺{monthlyExpense.toLocaleString('tr-TR')}
           </span>
-          <span className="text-[9px] text-text-secondary mt-1 block">
-            Gelirin %{monthlyIncome > 0 ? Math.round((monthlyExpense / monthlyIncome) * 100) : 0}\'i
+          <span className="text-[8px] md:text-[9px] text-text-secondary mt-0.5 block">
+            Gelirin %{monthlyIncome > 0 ? Math.round((monthlyExpense / monthlyIncome) * 100) : 0}\'ü
           </span>
         </motion.div>
 
@@ -1189,41 +1196,41 @@ export const FinanceDashboard = () => {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
+          className="bg-black/30 border border-white/5 p-3 md:p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
         >
-          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Target size={48} className="text-nrg-sun" />
+          <div className="absolute top-0 right-0 p-2 md:p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Target size={36} className="text-nrg-sun" />
           </div>
-          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Net Bakiye</span>
-          <span className={`text-lg md:text-xl font-mono font-black block mt-0.5 ${(monthlyIncome - monthlyExpense) >= 0 ? 'text-focus-neon' : 'text-crit-vivid'}`}>
+          <span className="text-[8px] md:text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Net Bakiye</span>
+          <span className={`text-sm md:text-xl font-mono font-black block mt-0.5 ${(monthlyIncome - monthlyExpense) >= 0 ? 'text-focus-neon' : 'text-crit-vivid'}`}>
             ₺{(monthlyIncome - monthlyExpense).toLocaleString('tr-TR')}
           </span>
-          <div className="w-full bg-white/5 h-0.5 rounded-full mt-1.5 overflow-hidden">
+          <div className="w-full bg-white/5 h-0.5 mt-1 overflow-hidden">
             <div className={`h-full ${(monthlyIncome - monthlyExpense) >= 0 ? 'bg-focus-neon' : 'bg-crit-vivid'}`} style={{ width: `${Math.min(100, Math.max(0, savingsRate))}%` }} />
           </div>
         </motion.div>
       </div>
 
       {/* Interactive Quick Actions Panel */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5">
-        <h3 className="text-xs font-bold text-text-secondary mb-4 uppercase tracking-wider px-2">Hızlı Sayfa Geçişleri</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3 md:p-5">
+        <h3 className="text-[10px] md:text-xs font-bold text-text-secondary mb-2 md:mb-4 uppercase tracking-wider px-1">Hızlı Sayfa Geçişleri</h3>
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3">
           {quickActions.map((action) => (
             <button
               key={action.id}
               onClick={() => handleNavigation(action.id)}
               onMouseEnter={() => setActiveQuickAction(action.id)}
               onMouseLeave={() => setActiveQuickAction(null)}
-              className={`relative overflow-hidden flex flex-col items-center justify-center p-4.5 h-22 rounded-2xl border transition-all duration-300 ${
+              className={`relative overflow-hidden flex flex-col items-center justify-center p-2 h-16 md:h-22 rounded-xl md:rounded-2xl border transition-all duration-300 ${
                 activeQuickAction === action.id 
-                  ? `${action.bgClass} ${action.borderClass} -translate-y-1 shadow-lg` 
+                  ? `${action.bgClass} ${action.borderClass} -translate-y-0.5 shadow-lg`
                   : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
               }`}
             >
-              <div className={`mb-2 transition-colors ${activeQuickAction === action.id ? action.textClass : 'text-text-secondary'}`}>
-                {action.icon}
+              <div className={`mb-1 md:mb-2 transition-colors ${activeQuickAction === action.id ? action.textClass : 'text-text-secondary'}`}>
+                {React.cloneElement(action.icon, { size: isXs ? 14 : 18 })}
               </div>
-              <span className={`text-[11px] font-black transition-colors ${activeQuickAction === action.id ? 'text-white' : 'text-text-secondary'}`}>
+              <span className={`text-[9px] md:text-[11px] font-black transition-colors truncate max-w-full ${activeQuickAction === action.id ? 'text-white' : 'text-text-secondary'}`}>
                 {action.label}
               </span>
             </button>

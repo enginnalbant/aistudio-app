@@ -69,7 +69,7 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
 }) => {
   const { t, language, toggleLanguage } = useLanguage();
   const { settings, updateSetting } = useSettings();
-  const { width, screenTier } = useDevice();
+  const { width, screenTier, isTablet } = useDevice();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -190,22 +190,25 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
   const isXs = screenTier === 'xs' || width < 380;
   const isSm = screenTier === 'sm' || (width >= 380 && width < 640);
 
+  // Exquisite iOS-style container dimensions
   const dockContainerClass = isXs 
-    ? "w-[96%] max-w-[320px] p-1 rounded-2xl" 
+    ? "w-[94%] max-w-[310px] p-1.5 rounded-[22px]"
     : isSm 
-    ? "w-[94%] max-w-[370px] p-1.5 rounded-3xl" 
-    : "w-[90%] max-w-[430px] p-2 rounded-3xl";
+    ? "w-[92%] max-w-[360px] p-2 rounded-[28px]"
+    : isTablet
+    ? "w-[85%] max-w-[480px] p-2.5 rounded-[32px]"
+    : "w-[90%] max-w-[420px] p-2.5 rounded-[30px]";
 
   const dockItemClass = isXs
-    ? "px-1 py-1 min-w-[42px] max-w-[60px]"
+    ? "px-1 py-1 min-w-[42px] max-w-[58px]"
     : isSm
-    ? "px-1.5 py-1 min-w-[50px] max-w-[72px]"
-    : "px-2 py-1.5 min-w-[58px] max-w-[82px]";
+    ? "px-1.5 py-1 min-w-[48px] max-w-[68px]"
+    : "px-2 py-1 min-w-[54px] max-w-[76px]";
 
   const iconSize = isXs ? 16 : isSm ? 18 : 20;
   const textSizeClass = isXs ? "text-[8px]" : isSm ? "text-[8.5px]" : "text-[9.5px]";
-  const launcherSizeClass = isXs ? "w-11 h-11 -top-3" : isSm ? "w-13 h-13 -top-4" : "w-14 h-14 -top-5";
-  const launcherIconSize = isXs ? 20 : isSm ? 22 : 24;
+  const launcherSizeClass = isXs ? "w-10 h-10 -top-1" : isSm ? "w-11 h-11 -top-1" : "w-12 h-12 -top-1";
+  const launcherIconSize = isXs ? 18 : isSm ? 20 : 22;
 
   // Custom Long Press Handler hook for Dock Slots
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -241,15 +244,15 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
 
   return (
     <>
-      {/* ----------------- DYNAMIC PROPORTIONAL ANDROID DOCK BAR ----------------- */}
-      <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 lg:hidden pointer-events-auto transition-all duration-300">
+      {/* ----------------- EXQUISITE iOS-STYLE FLOATING DOCK BAR ----------------- */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 lg:hidden pointer-events-auto transition-all duration-300">
         <nav className={clsx(
-          "bg-neutral-950/92 backdrop-blur-2xl border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.85)] flex items-center justify-between relative overflow-visible select-none",
+          "bg-white/[0.05] dark:bg-black/[0.4] backdrop-blur-[45px] border border-white/10 dark:border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex items-center justify-between relative overflow-visible select-none",
           dockContainerClass
         )}>
           
-          {/* Neon Dock Ambient Line */}
-          <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-focus-neon/70 to-transparent" />
+          {/* Subtle upper glow line typical of premium iOS devices */}
+          <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-white/20 dark:via-focus-neon/40 to-transparent" />
 
           {/* Left Slots: Slot 0 & Slot 1 */}
           {[0, 1].map(slotIdx => {
@@ -274,14 +277,14 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
                 onTouchEnd={cancelLongPress}
                 onTouchMove={cancelLongPress}
                 className={clsx(
-                  "flex flex-col items-center justify-center rounded-2xl transition-all duration-300 relative touch-manipulation active:scale-90 group",
+                  "flex flex-col items-center justify-center rounded-[18px] transition-all duration-300 relative touch-manipulation active:scale-90 group",
                   dockItemClass,
-                  isActive ? "text-focus-neon bg-focus-neon/15 font-bold" : "text-text-secondary hover:text-white"
+                  isActive ? "text-focus-neon bg-focus-neon/10 font-bold" : "text-text-secondary hover:text-white"
                 )}
                 title={`${app.title} (Değiştirmek için basılı tutun)`}
               >
                 {/* Slot Number Indicator on Hover / Hold */}
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-5 bg-neutral-900 border border-white/20 text-[8px] font-mono text-focus-neon px-1.5 py-0.5 rounded-full shadow-lg whitespace-nowrap pointer-events-none">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-5 bg-neutral-900 border border-white/10 text-[8px] font-mono text-focus-neon px-1.5 py-0.5 rounded-full shadow-lg whitespace-nowrap pointer-events-none">
                   Slot #{slotIdx + 1}
                 </div>
 
@@ -289,31 +292,28 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
                   {React.cloneElement(app.icon as React.ReactElement<any>, { size: iconSize })}
                 </div>
 
-                <span className={clsx("font-bold tracking-tight truncate max-w-full mt-0.5", textSizeClass)}>
+                <span className={clsx("font-semibold tracking-tight truncate max-w-full mt-1 opacity-90", textSizeClass)}>
                   {app.title}
                 </span>
 
                 {isActive && (
-                  <motion.div layoutId="dock-dot" className="absolute -bottom-0.5 w-1.5 h-1.5 bg-focus-neon rounded-full shadow-[0_0_8px_#70a1ff]" />
+                  <motion.div layoutId="dock-dot" className="absolute -bottom-1 w-1 h-1 bg-focus-neon rounded-full shadow-[0_0_8px_#70a1ff]" />
                 )}
               </button>
             );
           })}
 
           {/* CENTER DYNAMIC SMART LAUNCHER BUTTON */}
-          <div className="relative shrink-0 px-0.5">
+          <div className="relative shrink-0 px-1">
             <button
               onClick={() => setIsDrawerOpen(prev => !prev)}
               className={clsx(
-                "group relative rounded-2xl bg-gradient-to-tr from-focus-main via-focus-neon to-indigo-500 p-[2px] shadow-[0_10px_25px_rgba(112,161,255,0.5)] active:scale-90 transition-transform duration-300 flex items-center justify-center",
+                "group relative rounded-[20px] bg-gradient-to-tr from-focus-main via-focus-neon to-indigo-500 p-[1.5px] shadow-[0_8px_20px_rgba(112,161,255,0.4)] active:scale-90 transition-transform duration-300 flex items-center justify-center",
                 launcherSizeClass
               )}
               title="APEX Dynamic Launcher Çekmecesi"
             >
-              {/* Pulsing Aura */}
-              <div className="absolute inset-0 rounded-2xl bg-focus-neon/40 animate-ping opacity-25 group-hover:opacity-50" />
-
-              <div className="w-full h-full bg-neutral-950 rounded-[14px] flex items-center justify-center text-focus-neon group-hover:bg-transparent group-hover:text-black transition-colors duration-300">
+              <div className="w-full h-full bg-neutral-900/90 rounded-[18px] flex items-center justify-center text-focus-neon group-hover:bg-transparent group-hover:text-black transition-colors duration-300">
                 <Zap size={launcherIconSize} className="fill-current animate-pulse" />
               </div>
             </button>
@@ -342,14 +342,14 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
                 onTouchEnd={cancelLongPress}
                 onTouchMove={cancelLongPress}
                 className={clsx(
-                  "flex flex-col items-center justify-center rounded-2xl transition-all duration-300 relative touch-manipulation active:scale-90 group",
+                  "flex flex-col items-center justify-center rounded-[18px] transition-all duration-300 relative touch-manipulation active:scale-90 group",
                   dockItemClass,
-                  isActive ? "text-focus-neon bg-focus-neon/15 font-bold" : "text-text-secondary hover:text-white"
+                  isActive ? "text-focus-neon bg-focus-neon/10 font-bold" : "text-text-secondary hover:text-white"
                 )}
                 title={`${app.title} (Değiştirmek için basılı tutun)`}
               >
                 {/* Slot Number Indicator on Hover / Hold */}
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-5 bg-neutral-900 border border-white/20 text-[8px] font-mono text-focus-neon px-1.5 py-0.5 rounded-full shadow-lg whitespace-nowrap pointer-events-none">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-5 bg-neutral-900 border border-white/10 text-[8px] font-mono text-focus-neon px-1.5 py-0.5 rounded-full shadow-lg whitespace-nowrap pointer-events-none">
                   Slot #{slotIdx + 1}
                 </div>
 
@@ -357,12 +357,12 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
                   {React.cloneElement(app.icon as React.ReactElement<any>, { size: iconSize })}
                 </div>
 
-                <span className={clsx("font-bold tracking-tight truncate max-w-full mt-0.5", textSizeClass)}>
+                <span className={clsx("font-semibold tracking-tight truncate max-w-full mt-1 opacity-90", textSizeClass)}>
                   {app.title}
                 </span>
 
                 {isActive && (
-                  <motion.div layoutId="dock-dot" className="absolute -bottom-0.5 w-1.5 h-1.5 bg-focus-neon rounded-full shadow-[0_0_8px_#70a1ff]" />
+                  <motion.div layoutId="dock-dot" className="absolute -bottom-1 w-1 h-1 bg-focus-neon rounded-full shadow-[0_0_8px_#70a1ff]" />
                 )}
               </button>
             );

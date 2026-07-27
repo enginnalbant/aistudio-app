@@ -1556,7 +1556,7 @@ Dil tamamen Türkçe ve Markdown formatında olmalıdır.`;
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get(/^(?!\/api).*$/, (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
