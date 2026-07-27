@@ -53,6 +53,7 @@ import { Zap } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
 import { BulletinNews } from './components/bulletin/BulletinNews';
 import { NotesTodo } from './components/notes/NotesTodo';
+import { HomeDashboard } from './components/HomeDashboard';
 import { NotesBookmarks } from './components/notes/NotesBookmarks';
 import { NotesPasswords } from './components/notes/NotesPasswords';
 import { NotesBooks } from './components/notes/NotesBooks';
@@ -68,7 +69,7 @@ import { useDevice } from './hooks/useDevice';
 function AppLayout() {
   const { settings } = useSettings();
   const { isMobile, isDesktop } = useDevice();
-  const [activeModule, setActiveModule] = useState('finance-dashboard');
+  const [activeModule, setActiveModule] = useState('home-dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(isDesktop && settings['sidebar_default']?.value === 'expanded');
   const [isBooting, setIsBooting] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -175,7 +176,9 @@ function AppLayout() {
                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
                 className="w-full h-full min-h-[380px]"
               >
-                {activeModule === 'notification-page' ? (
+                {activeModule === 'home-dashboard' ? (
+                  <HomeDashboard />
+                ) : activeModule === 'notification-page' ? (
                   <NotificationPage />
                 ) : activeModule === 'notification-settings' ? (
                   <NotificationSettings />
@@ -278,7 +281,7 @@ function AppLayout() {
                 ) : activeModule.startsWith('bulletin-') ? (
                   <BulletinNews activeSubModule={activeModule.replace('bulletin-', '')} />
                 ) : (
-                  <FinanceDashboard />
+                  <HomeDashboard />
                 )}
               </motion.div>
             </AnimatePresence>
