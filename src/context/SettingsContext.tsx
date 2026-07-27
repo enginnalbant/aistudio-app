@@ -309,6 +309,70 @@ const initialSettings: Settings = {
   'system.auto_export_backup_on_exit': { key: 'system.auto_export_backup_on_exit', value: false, type: 'boolean', scope: 'user', default: false },
   'system.send_telemetry_diagnostics': { key: 'system.send_telemetry_diagnostics', value: true, type: 'boolean', scope: 'user', default: true },
   'system.offline_mode_support': { key: 'system.offline_mode_support', value: true, type: 'boolean', scope: 'user', default: true },
+
+  // --- MODÜLER & SAYFA ÖZEL AYARLAR (50+ ADET EK AYAR) ---
+
+  // Finans Modülü Özelleştirmeleri (12 Ayar)
+  'mod.finance.show_cashflow_heatmap': { key: 'mod.finance.show_cashflow_heatmap', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.finance.show_bubble_investments': { key: 'mod.finance.show_bubble_investments', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.finance.show_debt_snowball_chart': { key: 'mod.finance.show_debt_snowball_chart', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.finance.heatmap_resolution': { key: 'mod.finance.heatmap_resolution', value: 'weekly', type: 'enum', scope: 'user', default: 'weekly', validation: ['daily', 'weekly', 'monthly'] },
+  'mod.finance.currency_api_refresh_rate_sec': { key: 'mod.finance.currency_api_refresh_rate_sec', value: 300, type: 'number', scope: 'user', default: 300 },
+  'mod.finance.ai_recommender_proactivity': { key: 'mod.finance.ai_recommender_proactivity', value: 'high', type: 'enum', scope: 'user', default: 'high', validation: ['low', 'medium', 'high'] },
+  'mod.finance.enable_purchase_prioritization': { key: 'mod.finance.enable_purchase_prioritization', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.finance.inflation_index_adjustment': { key: 'mod.finance.inflation_index_adjustment', value: 45.0, type: 'number', scope: 'user', default: 45.0 },
+  'mod.finance.saving_interest_simulation': { key: 'mod.finance.saving_interest_simulation', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.finance.include_pending_quotes': { key: 'mod.finance.include_pending_quotes', value: false, type: 'boolean', scope: 'user', default: false },
+  'mod.finance.debt_extinguisher_alerts': { key: 'mod.finance.debt_extinguisher_alerts', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.finance.custom_income_taxes_pct': { key: 'mod.finance.custom_income_taxes_pct', value: 20.0, type: 'number', scope: 'user', default: 20.0 },
+
+  // Notlarım Modülü Özelleştirmeleri (10 Ayar)
+  'mod.notes.auto_save_delay_ms': { key: 'mod.notes.auto_save_delay_ms', value: 1000, type: 'number', scope: 'user', default: 1000 },
+  'mod.notes.enable_encryption': { key: 'mod.notes.enable_encryption', value: false, type: 'boolean', scope: 'user', default: false },
+  'mod.notes.encryption_algorithm': { key: 'mod.notes.encryption_algorithm', value: 'AES-256', type: 'enum', scope: 'user', default: 'AES-256', validation: ['AES-256', 'ChaCha20'] },
+  'mod.notes.default_notebook_layout': { key: 'mod.notes.default_notebook_layout', value: 'grid', type: 'enum', scope: 'user', default: 'grid', validation: ['grid', 'list', 'masonry'] },
+  'mod.notes.voice_transcribe_language': { key: 'mod.notes.voice_transcribe_language', value: 'tr-TR', type: 'enum', scope: 'user', default: 'tr-TR', validation: ['tr-TR', 'en-US'] },
+  'mod.notes.allow_quick_memos_on_dock': { key: 'mod.notes.allow_quick_memos_on_dock', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.notes.todo_auto_sort_by_deadline': { key: 'mod.notes.todo_auto_sort_by_deadline', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.notes.todo_remind_hours_before': { key: 'mod.notes.todo_remind_hours_before', value: 24, type: 'number', scope: 'user', default: 24 },
+  'mod.notes.ai_summary_length_words': { key: 'mod.notes.ai_summary_length_words', value: 150, type: 'number', scope: 'user', default: 150 },
+  'mod.notes.allow_markdown_rendering': { key: 'mod.notes.allow_markdown_rendering', value: true, type: 'boolean', scope: 'user', default: true },
+
+  // Kütüphane Modülü Özelleştirmeleri (10 Ayar)
+  'mod.library.reading_progress_tracking_type': { key: 'mod.library.reading_progress_tracking_type', value: 'pages', type: 'enum', scope: 'user', default: 'pages', validation: ['pages', 'percentage', 'chapters'] },
+  'mod.library.sync_highlights_cloud': { key: 'mod.library.sync_highlights_cloud', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.library.auto_dark_mode_reader': { key: 'mod.library.auto_dark_mode_reader', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.library.font_size_reader': { key: 'mod.library.font_size_reader', value: 16, type: 'number', scope: 'user', default: 16 },
+  'mod.library.line_height_reader': { key: 'mod.library.line_height_reader', value: 1.6, type: 'number', scope: 'user', default: 1.6 },
+  'mod.library.enable_dictionary_lookup': { key: 'mod.library.enable_dictionary_lookup', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.library.default_book_category_filter': { key: 'mod.library.default_book_category_filter', value: 'all', type: 'string', scope: 'user', default: 'all' },
+  'mod.library.daily_reading_goal_minutes': { key: 'mod.library.daily_reading_goal_minutes', value: 30, type: 'number', scope: 'user', default: 30 },
+  'mod.library.allow_audio_narration': { key: 'mod.library.allow_audio_narration', value: false, type: 'boolean', scope: 'user', default: false },
+  'mod.library.ai_book_recommendation_count': { key: 'mod.library.ai_book_recommendation_count', value: 5, type: 'number', scope: 'user', default: 5 },
+
+  // Bülten Modülü Özelleştirmeleri (8 Ayar)
+  'mod.bulletin.rss_refresh_interval_min': { key: 'mod.bulletin.rss_refresh_interval_min', value: 60, type: 'number', scope: 'user', default: 60 },
+  'mod.bulletin.auto_translate_to_turkish': { key: 'mod.bulletin.auto_translate_to_turkish', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.bulletin.sentiment_analysis_sensitivity': { key: 'mod.bulletin.sentiment_analysis_sensitivity', value: 0.8, type: 'number', scope: 'user', default: 0.8 },
+  'mod.bulletin.auto_tag_nlp_categorizer': { key: 'mod.bulletin.auto_tag_nlp_categorizer', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.bulletin.maximum_articles_per_feed': { key: 'mod.bulletin.maximum_articles_per_feed', value: 50, type: 'number', scope: 'user', default: 50 },
+  'mod.bulletin.strip_obsolete_ads': { key: 'mod.bulletin.strip_obsolete_ads', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.bulletin.summary_bullet_points_count': { key: 'mod.bulletin.summary_bullet_points_count', value: 3, type: 'number', scope: 'user', default: 3 },
+  'mod.bulletin.enable_rss_source_diagnostics': { key: 'mod.bulletin.enable_rss_source_diagnostics', value: true, type: 'boolean', scope: 'user', default: true },
+
+  // Görsel Motor, 3D & Efektler (12 Ayar)
+  'mod.engine.3d_render_complexity': { key: 'mod.engine.3d_render_complexity', value: 'medium', type: 'enum', scope: 'user', default: 'medium', validation: ['low', 'medium', 'high'] },
+  'mod.engine.3d_rotation_speed': { key: 'mod.engine.3d_rotation_speed', value: 1.0, type: 'number', scope: 'user', default: 1.0 },
+  'mod.engine.particle_density': { key: 'mod.engine.particle_density', value: 40, type: 'number', scope: 'user', default: 40 },
+  'mod.engine.interactive_shaders_enabled': { key: 'mod.engine.interactive_shaders_enabled', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.engine.click_haptic_strength': { key: 'mod.engine.click_haptic_strength', value: 'medium', type: 'enum', scope: 'user', default: 'medium', validation: ['none', 'low', 'medium', 'high'] },
+  'mod.engine.confetti_effects_enabled': { key: 'mod.engine.confetti_effects_enabled', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.engine.sound_foley_effects': { key: 'mod.engine.sound_foley_effects', value: false, type: 'boolean', scope: 'user', default: false },
+  'mod.engine.page_transitions_style': { key: 'mod.engine.page_transitions_style', value: 'morph', type: 'enum', scope: 'user', default: 'morph', validation: ['morph', 'fade', 'slide', 'none'] },
+  'mod.engine.shadow_map_resolution': { key: 'mod.engine.shadow_map_resolution', value: 'medium', type: 'enum', scope: 'user', default: 'medium', validation: ['low', 'medium', 'high'] },
+  'mod.engine.hdr_bloom_intensity': { key: 'mod.engine.hdr_bloom_intensity', value: 0.5, type: 'number', scope: 'user', default: 0.5 },
+  'mod.engine.vignette_vibe': { key: 'mod.engine.vignette_vibe', value: true, type: 'boolean', scope: 'user', default: true },
+  'mod.engine.hover_glow_dynamic_intensity': { key: 'mod.engine.hover_glow_dynamic_intensity', value: 1.0, type: 'number', scope: 'user', default: 1.0 },
 };
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
