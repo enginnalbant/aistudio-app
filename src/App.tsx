@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
-import { AndroidDockBar } from './components/AndroidDockBar';
+import { Dock } from './components/dock/Dock';
 import { SpatialBackground } from './components/SpatialBackground';
 import { SettingsModal } from './components/ui/SettingsModal';
 import { NotificationPage } from './components/NotificationPage';
@@ -54,12 +54,14 @@ import { Zap } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
 import { BulletinNews } from './components/bulletin/BulletinNews';
 import { NotesTodo } from './components/notes/NotesTodo';
+import { HomeDashboard } from './components/HomeDashboard';
 import { NotesBookmarks } from './components/notes/NotesBookmarks';
 import { NotesPasswords } from './components/notes/NotesPasswords';
 import { NotesBooks } from './components/notes/NotesBooks';
 import { NotesDashboard } from './components/notes/NotesDashboard';
 import { NotesQuickMemos } from './components/notes/NotesQuickMemos';
 import { NotesNotebook } from './components/notes/NotesNotebook';
+import { MangaAppContainer } from './components/library/MangaAppContainer';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -69,7 +71,7 @@ import { useDevice } from './hooks/useDevice';
 function AppLayout() {
   const { settings } = useSettings();
   const { isMobile, isDesktop } = useDevice();
-  const [activeModule, setActiveModule] = useState('finance-dashboard');
+  const [activeModule, setActiveModule] = useState('home-dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(isDesktop && settings['sidebar_default']?.value === 'expanded');
   const [isBooting, setIsBooting] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -155,21 +157,15 @@ function AppLayout() {
         <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
         
         <div className="flex-1 flex overflow-hidden p-0 sm:p-2 lg:p-4 gap-0 sm:gap-3 lg:gap-4 relative pb-16 lg:pb-4 touch-optimized">
-          {/* Backdrop Overlay for Mobiles & Tablets */}
-          {!isDesktop && isSidebarOpen && (
-            <div 
-              onClick={() => setIsSidebarOpen(false)} 
-              className="fixed inset-0 bg-black/60 backdrop-blur-[5px] z-[100] transition-all duration-300"
+          {isDesktop && (
+            <Sidebar
+              isOpen={isSidebarOpen}
+              activeModule={activeModule}
+              setActiveModule={handleSetActiveModule}
+              closeSidebar={() => setIsSidebarOpen(false)}
+              setSidebarOpen={setIsSidebarOpen}
             />
           )}
-
-          <Sidebar 
-            isOpen={isSidebarOpen} 
-            activeModule={activeModule} 
-            setActiveModule={handleSetActiveModule} 
-            closeSidebar={() => setIsSidebarOpen(false)}
-            setSidebarOpen={setIsSidebarOpen}
-          />
           
           <div className="flex-1 flex flex-col gap-1.5 sm:gap-4 min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[30px] rounded-none sm:rounded-2xl border-x-0 sm:border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.4)] p-1.5 sm:p-4 lg:p-6 pb-24 sm:pb-28 lg:pb-6 transition-all duration-500">
             <main className="flex-1 overflow-x-hidden">
@@ -182,7 +178,9 @@ function AppLayout() {
                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
                 className="w-full h-full min-h-[380px]"
               >
-                {activeModule === 'notification-page' ? (
+                {activeModule === 'home-dashboard' ? (
+                  <HomeDashboard />
+                ) : activeModule === 'notification-page' ? (
                   <NotificationPage />
                 ) : activeModule === 'notification-settings' ? (
                   <NotificationSettings />
@@ -260,6 +258,8 @@ function AppLayout() {
                   <ReconAnalytics />
                 ) : activeModule === 'library-ebooks' ? (
                   <NotesBooks />
+                ) : activeModule.startsWith('library-manga') ? (
+                  <MangaAppContainer />
                 ) : activeModule.startsWith('library-') ? (
                   <ComingSoon 
                     title={activeModule.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
@@ -287,7 +287,7 @@ function AppLayout() {
                 ) : activeModule.startsWith('bulletin-') ? (
                   <BulletinNews activeSubModule={activeModule.replace('bulletin-', '')} />
                 ) : (
-                  <FinanceDashboard />
+                  <HomeDashboard />
                 )}
               </motion.div>
             </AnimatePresence>
@@ -296,7 +296,7 @@ function AppLayout() {
       </div>
       </div>
 
-      <AndroidDockBar 
+      <Dock
         activeModule={activeModule} 
         setActiveModule={handleSetActiveModule} 
         toggleSidebar={toggleSidebar} 

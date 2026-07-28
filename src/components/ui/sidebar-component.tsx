@@ -172,6 +172,17 @@ interface SidebarContent {
 
 function getSidebarContent(activeSection: string): SidebarContent {
   const contentMap: Record<string, SidebarContent> = {
+    home: {
+      title: "Ana Sayfa",
+      sections: [
+        {
+          title: "Yönetim",
+          items: [
+            { id: 'home-dashboard', icon: <LayoutDashboard size={16} />, label: 'Akıllı Ana Ekran', moduleId: 'home-dashboard' },
+          ],
+        },
+      ],
+    },
     finance: {
       title: "Kişisel Finans",
       sections: [
@@ -332,6 +343,7 @@ function IconNavigation({
   setSidebarOpen?: (open: boolean) => void;
 }) {
   const navItems = [
+    { id: "home", icon: <LayoutDashboard size={18} />, label: "Ana Sayfa", moduleId: 'home-dashboard' },
     { id: "finance", icon: <Wallet size={18} />, label: "Kişisel Finans", moduleId: 'finance-dashboard' },
     { id: "library", icon: <Library size={18} />, label: "Kütüphane", moduleId: 'library-dashboard' },
     { id: "notes", icon: <NotebookPen size={18} />, label: "Notlarım", moduleId: 'notes-dashboard' },
@@ -352,12 +364,12 @@ function IconNavigation({
       <div 
         className="mb-3 size-8 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
         onClick={() => {
-          onSectionChange('finance');
-          setActiveModule('finance-dashboard');
+          onSectionChange('home');
+          setActiveModule('home-dashboard');
         }}
       >
         <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-lg transition-all duration-500 ${
-          activeSection === 'finance' ? 'bg-focus-main shadow-focus-main/30' : 'bg-neutral-800 shadow-black/20'
+          activeSection === 'home' ? 'bg-focus-main shadow-focus-main/30' : 'bg-neutral-800 shadow-black/20'
         }`}>
           <Zap size={14} className="text-pure-white" />
         </div>
@@ -430,6 +442,7 @@ function DetailSidebar({ activeSection, onSectionChange, setActiveModule, active
   const [isCollapsed, setIsCollapsed] = useState(false);
   const content = getSidebarContent(activeSection);
   const subBrand = 
+    activeSection === 'home' ? 'OS' :
     activeSection === 'finance' ? 'FİNANS' : 
     activeSection === 'library' ? 'KÜTÜPHANE' : 
     activeSection === 'notes' ? 'NOTLARIM' : 
@@ -648,7 +661,9 @@ export function TwoLevelSidebar({ setActiveModule, isOpen, activeModule, setSide
 
   // Sync activeSection with activeModule when it changes from outside (e.g. Header)
   React.useEffect(() => {
-    if (activeModule.startsWith('finance-')) {
+    if (activeModule.startsWith('home-')) {
+      setActiveSection('home');
+    } else if (activeModule.startsWith('finance-')) {
       setActiveSection('finance');
     } else if (activeModule.startsWith('library-')) {
       setActiveSection('library');
