@@ -142,7 +142,7 @@ export const FinanceStatus = () => {
   const [simExtraSavings, setSimExtraSavings] = useState<number>(0); // Ek tasarruf miktarı (₺)
   const [simInflationShock, setSimInflationShock] = useState<number>(0); // Enflasyon Şoku (%)
   const [simEmergencyShock, setSimEmergencyShock] = useState<number>(0); // Beklenmedik Gider (₺)
-  const [startingReserve, setStartingReserve] = useLocalStorage<number>('finance_starting_reserve_v2', 250000); // Başlangıç Varlık / Birikim Kalkanı
+  const [startingReserve, setStartingReserve] = useLocalStorage<number>('finance_starting_reserve_v2', 0); // Başlangıç Varlık / Birikim Kalkanı - Temiz bütçe başlangıcı için 0 yapıldı
 
   // 1. Generate Timeline Array (25 Months)
   const timelineMonths = useMemo(() => {
@@ -265,37 +265,12 @@ export const FinanceStatus = () => {
         return sum + Number(inc.amount || 0) * mult;
       }, 0);
 
-      // If user has no incomes entered, provide a helpful baseline salary so they have a nice mockup
-      if (baseIncomeSum === 0) {
-        baseIncomeSum = offset < 0 ? 35000 : 38000 + (offset * 500);
-        monthIncomes = [{
-          id: 'mock-inc-1',
-          title: 'Simüle Maaş Geliri (Referans)',
-          amount: baseIncomeSum,
-          category: 'Maaş',
-          date: `${month.yearMonthStr}-15`,
-          status: 'Tamamlandı'
-        }];
-      }
-
       // Find matching expenses
       let monthExpenses = expenses.filter(exp => isTxActiveInMonth(exp.date, exp.recurrence, month.yearMonthStr));
       let baseExpenseSum = monthExpenses.reduce((sum, exp) => {
         const mult = exp.recurrence === 'Haftalık' ? 4 : 1;
         return sum + Number(exp.amount || 0) * mult;
       }, 0);
-
-      if (baseExpenseSum === 0) {
-        baseExpenseSum = offset < 0 ? 20000 : 22000 + (offset * 300);
-        monthExpenses = [{
-          id: 'mock-exp-1',
-          title: 'Simüle Sabit Giderler (Referans)',
-          amount: baseExpenseSum,
-          category: 'Barınma',
-          date: `${month.yearMonthStr}-05`,
-          status: 'Gerçekleşti'
-        }];
-      }
 
       // Apply Interactive Simulation Inflation Shock to future months
       if (offset > 0 && simInflationShock > 0) {
@@ -346,7 +321,7 @@ export const FinanceStatus = () => {
       const purchaseSum = purchases
         .filter(p => p.scheduledMonth === month.yearMonthStr)
         .reduce((sum, p) => sum + Number(p.price || 0), 0);
-      const investAlloc = 3000; // Standard simulated savings allocation
+      const investAlloc = 0; // Standard simulated savings allocation has been removed to start with absolute zero budget
       const budgetAllocationsSum = purchaseSum + investAlloc;
 
       const netCashFlowBeforeBudgets = baseIncomeSum - standardOutflow;
@@ -545,22 +520,6 @@ export const FinanceStatus = () => {
           dateStr: targetMonthObj?.yearMonthStr
         });
       }
-    });
-
-    // Subscriptions scheduled for cancellation (mocking 1 or 2 as customizable)
-    subscriptions.filter(s => s.status === 'Aktif').slice(0, 1).forEach((sub) => {
-      list.push({
-        id: `term-sub-${sub.id}`,
-        title: `${sub.title} Üyeliği`,
-        type: 'Dijital Abonelik',
-        monthlyAmount: Number(sub.amount || 0),
-        remainingAmount: 0,
-        totalAmount: Number(sub.amount || 0),
-        paidPercentage: 50,
-        monthsRemaining: 3, // Mocked 3 months to cancellation
-        endingMonthName: 'Ekim 2026',
-        dateStr: '2026-10'
-      });
     });
 
     return list.sort((a, b) => a.monthsRemaining - b.monthsRemaining);

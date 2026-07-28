@@ -144,75 +144,7 @@ export const getSmartCategory = (title: string, description: string = ''): strin
   return 'Diğer';
 };
 
-const MOCK_PURCHASES: PurchaseItem[] = [
-  {
-    id: "demo-1",
-    title: "Apple iPhone 16 Pro 256GB Naturel Titanyum",
-    url: "https://www.apple.com/tr/shop/buy-iphone/iphone-16-pro",
-    price: 82999,
-    oldPrice: 85999,
-    description: "Sınıfının en iyisi kamera sistemi, olağanüstü güçlü A18 Pro çip, göz alıcı titanyum tasarım.",
-    category: "Elektronik",
-    status: "Para Biriktiriliyor",
-    priority: "Yüksek",
-    savedAmount: 35000,
-    imageUrl: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=500&auto=format&fit=crop&q=60",
-    storeName: "Apple Store",
-    features: [
-      "Havacılık ve uzay endüstrisi standartlarında titanyum kasa",
-      "Kamerayı anında kontrol eden yenilikçi tuş",
-      "Gelişmiş A18 Pro Çip ve yapay zeka özellikleri",
-      "Profesyonel düzeyde 48 MP üçlü kamera sistemi",
-      "Super Retina XDR ekran ile ProMotion teknolojisi"
-    ],
-    specs: [
-      { key: "Ekran Boyutu", value: "6.3 inç" },
-      { key: "Dahili Hafıza", value: "256 GB" },
-      { key: "İşlemci", value: "Apple A18 Pro" },
-      { key: "Kamera", value: "48 MP + 48 MP + 12 MP" },
-      { key: "İşletim Sistemi", value: "iOS 18" }
-    ],
-    rating: 4.8,
-    reviewsCount: 1420,
-    reviews: [
-      { author: "Kemal Y.", rating: 5, comment: "Kamerası tek kelimeyle kusursuz. Titanyum rengi çok asil duruyor.", date: "12.05.2026" },
-      { author: "Selin G.", rating: 4, comment: "Harika bir cihaz ancak pil ömrü önceki nesilden çok farklı hissettirmedi.", date: "18.05.2026" },
-      { author: "Arda Ö.", rating: 5, comment: "Mükemmel hız, inanılmaz malzeme kalitesi. Tavsiye ederim.", date: "22.05.2026" }
-    ]
-  },
-  {
-    id: "demo-2",
-    title: "Kindle Paperwhite 16 GB (6.8 inç Ekran)",
-    url: "https://www.amazon.com.tr/dp/B09TSI6AA3",
-    price: 6250,
-    oldPrice: 6250,
-    description: "Göz yormayan e-mürekkep ekran, haftalarca süren pil ömrü ve tamamen su geçirmez gövde.",
-    category: "Kitap / Hobi",
-    status: "Alınabilir",
-    priority: "Orta",
-    savedAmount: 6250,
-    imageUrl: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=500&auto=format&fit=crop&q=60",
-    storeName: "Amazon TR",
-    features: [
-      "Yansımasız gerçek kağıt hissi veren 300 ppi e-ink ekran",
-      "Sıcaklığı ayarlanabilir ekran ışığı (Sarı/Beyaz tonlar)",
-      "IPX8 sertifikası ile havuzda veya banyoda güvenli okuma",
-      "Tek bir şarj ile 10 haftaya kadar süren pil ömrü"
-    ],
-    specs: [
-      { key: "Ekran Boyutu", value: "6.8 inç" },
-      { key: "Dahili Bellek", value: "16 GB" },
-      { key: "Su Geçirmezlik", value: "IPX8 (2 metreye kadar)" },
-      { key: "Ağırlık", value: "205 gram" }
-    ],
-    rating: 4.7,
-    reviewsCount: 890,
-    reviews: [
-      { author: "Deniz K.", rating: 5, comment: "Gözü hiç yormuyor, gerçekten kitap okuyor gibisiniz. Bataryası bitmek bilmiyor.", date: "02.06.2026" },
-      { author: "Merve Ç.", rating: 5, comment: "E-kitap okuyucu alacaksanız tek adres kesinlikle Kindle Paperwhite.", date: "14.06.2026" }
-    ]
-  }
-];
+const MOCK_PURCHASES: PurchaseItem[] = [];
 
 export const FinancePurchasing = () => {
   const [purchases, setPurchases] = useLocalStorage<PurchaseItem[]>('finance_purchases', MOCK_PURCHASES);
