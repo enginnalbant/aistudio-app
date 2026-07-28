@@ -38,6 +38,7 @@ interface Income {
   category: string;
   date: string;
   status: 'Tamamlandı' | 'Beklemede';
+  recurrence?: string;
 }
 
 interface Expense {
@@ -47,6 +48,7 @@ interface Expense {
   category: string;
   date: string;
   status: 'Gerçekleşti' | 'Planlı';
+  recurrence?: string;
 }
 
 interface Investment {
@@ -193,99 +195,251 @@ export const FinanceStatus = () => {
     return 3000;
   };
 
+  // Helper to determine if a transaction is active in a target month
+  const isTxActiveInMonth = (txDateStr: string, recurrence: string | undefined, targetYearMonthStr: string) => {
+    if (!txDateStr) return false;
+    const [txYear, txMonth] = txDateStr.split('-').map(Number);
+    const [tgtYear, tgtMonth] = targetYearMonthStr.split('-').map(Number);
+
+    const txDateNum = txYear * 12 + (txMonth - 1);
+    const tgtDateNum = tgtYear * 12 + (tgtMonth - 1);
+
+    if (tgtDateNum < txDateNum) return false;
+    if (tgtDateNum === txDateNum) return true;
+
+    const rec = recurrence || 'Tek Seferlik';
+    if (rec === 'Tek Seferlik') return false;
+    if (rec === 'Aylık' || rec === 'Haftalık') return true;
+    if (rec === 'Yıllık') {
+      return (tgtMonth - 1) === (txMonth - 1);
+    }
+    return false;
+  };
+
   // 2. Step-by-Step Cashflow Simulation Engine (Generates data for all 25 months relative to each other)
   const monthlySimulatedData = useMemo(() => {
     const dataMap: Record<string, any> = {};
-    let runningBalance = currentSavingsTotal;
 
-    // We simulate step by step from -12 to +12 months to accumulate realistic starting balances
-    timelineMonths.forEach((month) => {
-      const isPast = month.offset < 0;
-      const isCurrent = month.offset === 0;
+    // First, let's map out the debts remaining balances at offset = 0 (current month)
+    const initialDebtRemaining: Record<string, number> = {};
+    debts.forEach(d => {
+      if (d.status !== 'Ödendi') {
+        initialDebtRemaining[d.id] = Number(d.remainingAmount ?? d.totalAmount ?? 0);
+      }
+    });
 
-      // Filter incomes for this specific month
-      const monthIncomes = incomes.filter(inc => {
-        if (!inc.date) return false;
-        return inc.date.startsWith(month.yearMonthStr);
+    // We will simulate forward from offset 0 to 12
+    const forwardBalances: Record<string, { start: number; end: number; net: number }> = {};
+    let currentBalance = currentSavingsTotal;
+
+    // Track debt remaining balances through forward months
+    const projectedDebtRemaining: Record<string, Record<number, number>> = {};
+    // Initialize for month 0
+    projectedDebtRemaining[0] = { ...initialDebtRemaining };
+
+    // Let's also record the dynamic payoff month for each debt
+    const dynamicDebtPayoffs: Record<string, { yearMonthStr: string; offset: number; monthName: string }> = {};
+
+    // Helper to calculate details for any given month
+    const calculateMonthDetails = (month: typeof timelineMonths[0], offset: number, debtBalances: Record<string, number>) => {
+      // Find matching incomes
+      let monthIncomes = incomes.filter(inc => isTxActiveInMonth(inc.date, inc.recurrence, month.yearMonthStr));
+      let baseIncomeSum = monthIncomes.reduce((sum, inc) => {
+        const mult = inc.recurrence === 'Haftalık' ? 4 : 1;
+        return sum + Number(inc.amount || 0) * mult;
+      }, 0);
+
+      // If user has no incomes entered, provide a helpful baseline salary so they have a nice mockup
+      if (baseIncomeSum === 0) {
+        baseIncomeSum = offset < 0 ? 35000 : 38000 + (offset * 500);
+        monthIncomes = [{
+          id: 'mock-inc-1',
+          title: 'Simüle Maaş Geliri (Referans)',
+          amount: baseIncomeSum,
+          category: 'Maaş',
+          date: `${month.yearMonthStr}-15`,
+          status: 'Tamamlandı'
+        }];
+      }
+
+      // Find matching expenses
+      let monthExpenses = expenses.filter(exp => isTxActiveInMonth(exp.date, exp.recurrence, month.yearMonthStr));
+      let baseExpenseSum = monthExpenses.reduce((sum, exp) => {
+        const mult = exp.recurrence === 'Haftalık' ? 4 : 1;
+        return sum + Number(exp.amount || 0) * mult;
+      }, 0);
+
+      if (baseExpenseSum === 0) {
+        baseExpenseSum = offset < 0 ? 20000 : 22000 + (offset * 300);
+        monthExpenses = [{
+          id: 'mock-exp-1',
+          title: 'Simüle Sabit Giderler (Referans)',
+          amount: baseExpenseSum,
+          category: 'Barınma',
+          date: `${month.yearMonthStr}-05`,
+          status: 'Gerçekleşti'
+        }];
+      }
+
+      // Subscriptions (Active digital services)
+      const activeSubs = subscriptions.filter(s => s.status === 'Aktif');
+      const subSum = activeSubs.reduce((sum, s) => {
+        const mult = s.billingCycle === 'Haftalık' ? 4 : (s.billingCycle === 'Yıllık' ? 0.083 : 1);
+        return sum + Number(s.amount || 0) * mult;
+      }, 0);
+
+      // Debt payments for this month
+      const activeDebtsList: typeof debts = [];
+      let debtSum = 0;
+
+      debts.forEach(d => {
+        if (d.status === 'Ödendi') return;
+
+        // For past months, assume payment is made if status is ongoing
+        if (offset < 0) {
+          activeDebtsList.push(d);
+          debtSum += Number(d.paymentAmount || 0);
+        } else {
+          // For current and future months, check projected remaining balance
+          const rem = debtBalances[d.id];
+          if (rem !== undefined && rem > 0) {
+            const pay = Math.min(Number(d.paymentAmount || 0), rem);
+            debtSum += pay;
+            activeDebtsList.push({
+              ...d,
+              paymentAmount: pay,
+              remainingAmount: rem - pay
+            });
+          }
+        }
       });
 
-      // Filter expenses for this specific month
-      const monthExpenses = expenses.filter(exp => {
-        if (!exp.date) return false;
-        return exp.date.startsWith(month.yearMonthStr);
-      });
-
-      // Calculate base incomes (Actual entered or simulated baseline)
-      const baseIncomeSum = monthIncomes.length > 0
-        ? monthIncomes.reduce((sum, i) => sum + Number(i.amount || 0), 0)
-        : (isPast ? 35000 : 38000 + (month.offset * 500)); // Dynamic baseline scaling
-
-      // Calculate base expenses
-      const baseExpenseSum = monthExpenses.length > 0
-        ? monthExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0)
-        : (isPast ? 20000 : 22000 + (month.offset * 300));
-
-      // Subscriptions (Active ones apply)
-      const subSum = subscriptions
-        .filter(s => s.status === 'Aktif')
-        .reduce((sum, s) => sum + Number(s.amount || 0), 0);
-
-      // Debts (Active debts apply based on whether they are still unpaid by this month index)
-      const activeDebtsForMonth = debts.filter(d => {
-        if (d.status === 'Ödendi') return false;
-        // Estimate remaining months. If remaining is 0, we check if payment is needed
-        const totalRem = Number(d.remainingAmount || d.totalAmount || 0);
-        const monthlyTaksit = Number(d.paymentAmount || 0);
-        if (monthlyTaksit <= 0) return false;
-        const totalMonthsToPay = Math.ceil(totalRem / monthlyTaksit);
-        // If this month is within the paying horizon (from offset 0 to totalMonthsToPay)
-        return month.offset >= 0 && month.offset < totalMonthsToPay;
-      });
-      const debtSum = activeDebtsForMonth.reduce((sum, d) => sum + Number(d.paymentAmount || 0), 0);
-
-      // Total standard outflow
+      // Total regular outflow
       const standardOutflow = baseExpenseSum + subSum + debtSum;
 
-      // Optional Budgets (Yatırım, Birikim ve Satın Alma Bütçesi)
-      const purchaseSum = getPurchaseBudgetForMonth(month.yearMonthStr);
-      const investAlloc = getInvestmentAllocation();
+      // Optional Budgets (Investments, savings, planned purchases)
+      const purchaseSum = purchases
+        .filter(p => p.scheduledMonth === month.yearMonthStr)
+        .reduce((sum, p) => sum + Number(p.price || 0), 0);
+      const investAlloc = 3000; // Standard simulated savings allocation
       const budgetAllocationsSum = purchaseSum + investAlloc;
 
-      // Cash Flow Result
       const netCashFlowBeforeBudgets = baseIncomeSum - standardOutflow;
       const netCashFlowWithBudgets = netCashFlowBeforeBudgets - budgetAllocationsSum;
-
       const activeNetCashFlow = includeBudgets ? netCashFlowWithBudgets : netCashFlowBeforeBudgets;
 
-      // Accumulate balance forward
-      const startBalance = runningBalance;
-      runningBalance += activeNetCashFlow;
-      const endBalance = runningBalance;
-
-      dataMap[month.yearMonthStr] = {
-        month,
-        startBalance,
-        incomesList: monthIncomes.length > 0 ? monthIncomes : [{ id: 'mock-1', title: 'Maaş ve Diğer Gelirler', amount: baseIncomeSum, category: 'Maaş', date: `${month.yearMonthStr}-01`, status: 'Tamamlandı' }],
-        expensesList: monthExpenses.length > 0 ? monthExpenses : [
-          { id: 'mock-e1', title: 'Sabit Giderler', amount: baseExpenseSum, category: 'Barınma', date: `${month.yearMonthStr}-01`, status: 'Gerçekleşti' }
-        ],
-        subscriptionsSum: subSum,
-        activeDebtsList: activeDebtsForMonth,
+      return {
+        monthIncomes,
+        baseIncomeSum,
+        monthExpenses,
+        baseExpenseSum,
+        subSum,
+        activeDebtsList,
         debtSum,
         purchaseSum,
         investAlloc,
-        baseIncomeSum,
         standardOutflow,
         budgetAllocationsSum,
         netCashFlowBeforeBudgets,
         netCashFlowWithBudgets,
-        activeNetCashFlow,
-        endBalance
+        activeNetCashFlow
       };
-    });
+    };
+
+    // Forward simulation (0 to 12)
+    let tempDebts = { ...initialDebtRemaining };
+    for (let o = 0; o <= 12; o++) {
+      const month = timelineMonths.find(m => m.offset === o);
+      if (!month) continue;
+
+      // Calculate details
+      const details = calculateMonthDetails(month, o, tempDebts);
+
+      // Update remaining debt balances for the next month
+      const nextDebts = { ...tempDebts };
+      debts.forEach(d => {
+        if (d.status === 'Ödendi') return;
+        const rem = tempDebts[d.id];
+        if (rem !== undefined && rem > 0) {
+          const pay = Math.min(Number(d.paymentAmount || 0), rem);
+          nextDebts[d.id] = Math.max(0, rem - pay);
+          if (nextDebts[d.id] === 0 && !dynamicDebtPayoffs[d.id]) {
+            dynamicDebtPayoffs[d.id] = {
+              yearMonthStr: month.yearMonthStr,
+              offset: o,
+              monthName: `${month.monthName} ${month.year}`
+            };
+          }
+        }
+      });
+      tempDebts = nextDebts;
+      projectedDebtRemaining[o + 1] = { ...tempDebts };
+
+      // Balance tracking
+      const startBal = currentBalance;
+      currentBalance += details.activeNetCashFlow;
+      const endBal = currentBalance;
+
+      forwardBalances[month.yearMonthStr] = { start: startBal, end: endBal, net: details.activeNetCashFlow };
+
+      dataMap[month.yearMonthStr] = {
+        month,
+        startBalance: startBal,
+        endBalance: endBal,
+        incomesList: details.monthIncomes,
+        expensesList: details.monthExpenses,
+        subscriptionsSum: details.subSum,
+        activeDebtsList: details.activeDebtsList,
+        debtSum: details.debtSum,
+        purchaseSum: details.purchaseSum,
+        investAlloc: details.investAlloc,
+        baseIncomeSum: details.baseIncomeSum,
+        standardOutflow: details.standardOutflow,
+        budgetAllocationsSum: details.budgetAllocationsSum,
+        netCashFlowBeforeBudgets: details.netCashFlowBeforeBudgets,
+        netCashFlowWithBudgets: details.netCashFlowWithBudgets,
+        activeNetCashFlow: details.activeNetCashFlow
+      };
+    }
+
+    // Backward simulation (-1 to -12)
+    let backwardBalance = currentSavingsTotal;
+    for (let o = -1; o >= -12; o--) {
+      const month = timelineMonths.find(m => m.offset === o);
+      if (!month) continue;
+
+      const details = calculateMonthDetails(month, o, {});
+
+      // For backward, we subtract the net flow to find previous starting balance
+      const endBal = backwardBalance;
+      backwardBalance -= details.activeNetCashFlow;
+      const startBal = backwardBalance;
+
+      dataMap[month.yearMonthStr] = {
+        month,
+        startBalance: startBal,
+        endBalance: endBal,
+        incomesList: details.monthIncomes,
+        expensesList: details.monthExpenses,
+        subscriptionsSum: details.subSum,
+        activeDebtsList: details.activeDebtsList,
+        debtSum: details.debtSum,
+        purchaseSum: details.purchaseSum,
+        investAlloc: details.investAlloc,
+        baseIncomeSum: details.baseIncomeSum,
+        standardOutflow: details.standardOutflow,
+        budgetAllocationsSum: details.budgetAllocationsSum,
+        netCashFlowBeforeBudgets: details.netCashFlowBeforeBudgets,
+        netCashFlowWithBudgets: details.netCashFlowWithBudgets,
+        activeNetCashFlow: details.activeNetCashFlow
+      };
+    }
+
+    // We can attach the dynamic payoffs helper to the returned map
+    dataMap._dynamicDebtPayoffs = dynamicDebtPayoffs;
 
     return dataMap;
-  }, [incomes, expenses, currentSavingsTotal, subscriptions, debts, purchases, includeBudgets]);
+  }, [incomes, expenses, currentSavingsTotal, subscriptions, debts, purchases, includeBudgets, timelineMonths]);
 
   // Current selected month simulated metrics
   const activeMonthData = useMemo(() => {
@@ -312,18 +466,29 @@ export const FinanceStatus = () => {
   // 3. Giderlerin Ne Zaman ve Ne Kadarının Biteceği (Expense Termination Engine)
   const expenseTerminationSchedule = useMemo(() => {
     const list: any[] = [];
-    const todayOffset = 0; // July 2026 is today (offset 0)
+    const payoffs = monthlySimulatedData._dynamicDebtPayoffs || {};
 
     debts.forEach((debt) => {
       if (debt.status === 'Ödendi') return;
-      const remaining = Number(debt.remainingAmount || debt.totalAmount || 0);
+      const payoffInfo = payoffs[debt.id];
       const monthlyPay = Number(debt.paymentAmount || 0);
+      const remaining = Number(debt.remainingAmount || debt.totalAmount || 0);
       if (monthlyPay <= 0) return;
 
-      const monthsLeft = Math.ceil(remaining / monthlyPay);
-      const targetMonthObj = timelineMonths.find(m => m.offset === monthsLeft);
-
-      if (monthsLeft > 0 && monthsLeft <= 12) {
+      if (payoffInfo) {
+        list.push({
+          id: `term-debt-${debt.id}`,
+          title: debt.title,
+          type: 'Borç / Kredi',
+          monthlyAmount: monthlyPay,
+          remainingAmount: remaining,
+          monthsRemaining: payoffInfo.offset,
+          endingMonthName: payoffInfo.monthName,
+          dateStr: payoffInfo.yearMonthStr
+        });
+      } else {
+        const monthsLeft = Math.ceil(remaining / monthlyPay);
+        const targetMonthObj = timelineMonths.find(m => m.offset === monthsLeft);
         list.push({
           id: `term-debt-${debt.id}`,
           title: debt.title,
@@ -352,7 +517,7 @@ export const FinanceStatus = () => {
     });
 
     return list.sort((a, b) => a.monthsRemaining - b.monthsRemaining);
-  }, [debts, subscriptions, timelineMonths]);
+  }, [debts, subscriptions, timelineMonths, monthlySimulatedData]);
 
   // Total amount of expenses that will end over the next 12 months
   const totalUpcomingFreedBudget = useMemo(() => {
@@ -419,7 +584,7 @@ export const FinanceStatus = () => {
       {/* Header and Welcome */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-display font-black text-white tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-display font-black text-text-primary tracking-tight flex items-center gap-2">
             <Activity className="text-focus-neon shrink-0 animate-pulse" size={28} />
             Dinamik Finansal Durum & Zaman Tüneli
           </h1>
@@ -429,23 +594,21 @@ export const FinanceStatus = () => {
         </div>
 
         {/* Global Inclusion Toggle Controls */}
-        <div className="flex items-center gap-3 bg-white/[0.02] border border-white/5 p-2 rounded-2xl self-stretch md:self-auto justify-between">
+        <div className="flex items-center gap-3 bg-neutral-800/5 dark:bg-white/[0.02] border border-black/5 dark:border-white/5 p-2 rounded-2xl self-stretch md:self-auto justify-between">
           <div className="flex items-center gap-2">
-            <ShoppingBag size={16} className="text-ai-bright" />
+            <ShoppingBag size={16} className="text-ai-bright font-medium" />
             <div className="flex flex-col">
-              <span className="text-[10px] text-white font-bold">Yatırım & Satın Alma Bütçesi</span>
+              <span className="text-[10px] text-text-primary font-bold">Yatırım & Satın Alma Bütçesi</span>
               <span className="text-[9px] text-text-secondary">Hesaplamaya dahil et</span>
             </div>
           </div>
           <button
             onClick={() => setIncludeBudgets(!includeBudgets)}
             className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-1 shrink-0 ${
-              includeBudgets ? 'bg-focus-neon' : 'bg-white/10'
+              includeBudgets ? 'bg-focus-neon' : 'bg-neutral-800/20 dark:bg-white/10'
             }`}
           >
-            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
-              includeBudgets ? 'translate-x-6' : 'translate-x-0'
-            }`} />
+            <div className="w-4 h-4 rounded-full bg-white transition-transform transform translate-x-0 dark:translate-x-0" style={{ transform: includeBudgets ? 'translateX(24px)' : 'translateX(0)' }} />
           </button>
         </div>
       </div>
@@ -459,21 +622,21 @@ export const FinanceStatus = () => {
           onClick={() => handleQuickJump(-6)}
           className={`cursor-pointer p-4 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between ${
             selectedOffset === -6
-              ? 'bg-gradient-to-br from-neutral-900 to-black border-focus-neon/50 shadow-lg shadow-focus-neon/5'
-              : 'bg-white/[0.02] border-white/5 hover:border-white/15'
+              ? 'bg-neutral-800/10 dark:bg-neutral-900 border-focus-neon/50 shadow-lg shadow-focus-neon/5'
+              : 'bg-neutral-800/5 dark:bg-white/[0.02] border-black/5 dark:border-white/5 hover:border-black/10 hover:dark:border-white/15'
           }`}
         >
           <div className="flex justify-between items-start">
             <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">Giriş Noktası</span>
-            <span className="text-[10px] font-mono text-text-secondary bg-white/5 px-2 py-0.5 rounded-full">Ocak 2026</span>
+            <span className="text-[10px] font-mono text-text-secondary bg-neutral-800/10 dark:bg-white/5 px-2 py-0.5 rounded-full">Ocak 2026</span>
           </div>
           <div className="mt-4">
-            <h3 className="text-sm font-display font-black text-white">6 Ay Önce</h3>
+            <h3 className="text-sm font-display font-black text-text-primary">6 Ay Önce</h3>
             <p className="text-[11px] text-text-secondary mt-1">Geçmiş bütçe dengesi ve birikim kalkanı.</p>
           </div>
-          <div className="mt-4 pt-2 border-t border-white/5 flex justify-between items-center text-xs font-mono">
+          <div className="mt-4 pt-2 border-t border-black/5 dark:border-white/5 flex justify-between items-center text-xs font-mono">
             <span className="text-text-secondary">Dönem Kapanışı</span>
-            <span className="text-white font-bold">₺{(monthlySimulatedData['2026-01']?.endBalance || 240000).toLocaleString('tr-TR')}</span>
+            <span className="text-text-primary font-bold">₺{(monthlySimulatedData['2026-01']?.endBalance || 240000).toLocaleString('tr-TR')}</span>
           </div>
         </motion.div>
 
@@ -484,8 +647,8 @@ export const FinanceStatus = () => {
           onClick={() => handleQuickJump(0)}
           className={`cursor-pointer p-4 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between ${
             selectedOffset === 0
-              ? 'bg-gradient-to-br from-neutral-900 to-black border-focus-neon/50 shadow-lg shadow-focus-neon/5'
-              : 'bg-white/[0.02] border-white/5 hover:border-white/15'
+              ? 'bg-neutral-800/10 dark:bg-neutral-900 border-focus-neon/50 shadow-lg shadow-focus-neon/5'
+              : 'bg-neutral-800/5 dark:bg-white/[0.02] border-black/5 dark:border-white/5 hover:border-black/10 hover:dark:border-white/15'
           }`}
         >
           <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-focus-neon animate-ping" />
@@ -494,10 +657,10 @@ export const FinanceStatus = () => {
             <span className="text-[10px] font-mono text-focus-neon bg-focus-neon/10 px-2 py-0.5 rounded-full">Temmuz 2026</span>
           </div>
           <div className="mt-4">
-            <h3 className="text-sm font-display font-black text-white">Bu Ay (Şimdi)</h3>
+            <h3 className="text-sm font-display font-black text-text-primary">Bu Ay (Şimdi)</h3>
             <p className="text-[11px] text-text-secondary mt-1">Gerçekleşen gelir-gider ve anlık net varlık havuzu.</p>
           </div>
-          <div className="mt-4 pt-2 border-t border-white/5 flex justify-between items-center text-xs font-mono">
+          <div className="mt-4 pt-2 border-t border-black/5 dark:border-white/5 flex justify-between items-center text-xs font-mono">
             <span className="text-text-secondary">Eldeki Nakit</span>
             <span className="text-focus-neon font-bold">₺{currentSavingsTotal.toLocaleString('tr-TR')}</span>
           </div>
@@ -510,8 +673,8 @@ export const FinanceStatus = () => {
           onClick={() => handleQuickJump(6)}
           className={`cursor-pointer p-4 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between ${
             selectedOffset === 6
-              ? 'bg-gradient-to-br from-neutral-900 to-black border-focus-neon/50 shadow-lg shadow-focus-neon/5'
-              : 'bg-white/[0.02] border-white/5 hover:border-white/15'
+              ? 'bg-neutral-800/10 dark:bg-neutral-900 border-focus-neon/50 shadow-lg shadow-focus-neon/5'
+              : 'bg-neutral-800/5 dark:bg-white/[0.02] border-black/5 dark:border-white/5 hover:border-black/10 hover:dark:border-white/15'
           }`}
         >
           <div className="flex justify-between items-start">
@@ -519,10 +682,10 @@ export const FinanceStatus = () => {
             <span className="text-[10px] font-mono text-ai-bright bg-ai-bright/10 px-2 py-0.5 rounded-full">Ocak 2027</span>
           </div>
           <div className="mt-4">
-            <h3 className="text-sm font-display font-black text-white">6 Ay Sonra</h3>
+            <h3 className="text-sm font-display font-black text-text-primary">6 Ay Sonra</h3>
             <p className="text-[11px] text-text-secondary mt-1">Gelecek tahminleri ve biten borçların olumlu bütçe etkisi.</p>
           </div>
-          <div className="mt-4 pt-2 border-t border-white/5 flex justify-between items-center text-xs font-mono">
+          <div className="mt-4 pt-2 border-t border-black/5 dark:border-white/5 flex justify-between items-center text-xs font-mono">
             <span className="text-text-secondary">Tahmini Birikim</span>
             <span className="text-ai-bright font-bold">₺{Math.round(monthlySimulatedData['2027-01']?.endBalance || 420000).toLocaleString('tr-TR')}</span>
           </div>
@@ -530,13 +693,13 @@ export const FinanceStatus = () => {
       </div>
 
       {/* 25-MONTHS HORIZONTAL ANIMATED TIMELINE SLIDER */}
-      <div className="bg-black/30 border border-white/5 p-4 rounded-3xl space-y-4">
+      <div className="bg-neutral-800/5 dark:bg-black/30 border border-black/5 dark:border-white/5 p-4 rounded-3xl space-y-4">
         <div className="flex justify-between items-center">
           <span className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
             <CalendarDays size={14} className="text-focus-neon" />
             25 Aylık Akıllı Zaman Şeridi
           </span>
-          <span className="text-xs font-mono font-bold text-white bg-white/5 px-2.5 py-0.5 rounded-lg">
+          <span className="text-xs font-mono font-bold text-text-primary bg-neutral-800/10 dark:bg-white/5 px-2.5 py-0.5 rounded-lg">
             Seçili: {activeMonth.monthName} {activeMonth.year} ({selectedOffset === 0 ? 'Şimdi' : `${selectedOffset > 0 ? '+' : ''}${selectedOffset} Ay`})
           </span>
         </div>
@@ -546,7 +709,7 @@ export const FinanceStatus = () => {
           <button
             disabled={selectedOffset === -12}
             onClick={() => setSelectedOffset(prev => Math.max(-12, prev - 1))}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all cursor-pointer"
+            className="p-2 rounded-lg bg-neutral-800/10 dark:bg-white/5 hover:bg-neutral-800/20 hover:dark:bg-white/10 disabled:opacity-20 transition-all cursor-pointer text-text-primary"
           >
             <ChevronLeft size={16} />
           </button>
@@ -561,8 +724,8 @@ export const FinanceStatus = () => {
                   onClick={() => setSelectedOffset(m.offset)}
                   className={`flex-shrink-0 px-3.5 py-2.5 rounded-xl border flex flex-col items-center gap-0.5 transition-all duration-300 min-w-[70px] ${
                     isSelected
-                      ? 'bg-focus-neon text-black border-focus-neon font-black shadow-lg shadow-focus-neon/15 scale-105'
-                      : 'bg-white/[0.02] border-white/5 text-text-secondary hover:text-white hover:bg-white/[0.05]'
+                      ? 'bg-focus-neon text-white border-focus-neon font-black shadow-lg shadow-focus-neon/15 scale-105'
+                      : 'bg-neutral-800/5 dark:bg-white/[0.02] border-black/5 dark:border-white/5 text-text-secondary hover:text-text-primary hover:bg-neutral-800/10 hover:dark:bg-white/[0.05]'
                   }`}
                 >
                   <span className="text-[8px] uppercase tracking-wider font-mono font-bold">
@@ -572,7 +735,7 @@ export const FinanceStatus = () => {
                     {m.monthName.slice(0, 3)}
                   </span>
                   {hasEvents && (
-                    <div className={`w-1 h-1 rounded-full mt-1 ${isSelected ? 'bg-black' : 'bg-ai-bright animate-ping'}`} />
+                    <div className={`w-1 h-1 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-ai-bright animate-ping'}`} />
                   )}
                 </button>
               );
@@ -582,7 +745,7 @@ export const FinanceStatus = () => {
           <button
             disabled={selectedOffset === 12}
             onClick={() => setSelectedOffset(prev => Math.min(12, prev + 1))}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all cursor-pointer"
+            className="p-2 rounded-lg bg-neutral-800/10 dark:bg-white/5 hover:bg-neutral-800/20 hover:dark:bg-white/10 disabled:opacity-20 transition-all cursor-pointer text-text-primary"
           >
             <ChevronRight size={16} />
           </button>
@@ -595,16 +758,16 @@ export const FinanceStatus = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         {/* LHS: STEP-BY-STEP MONTHLY FLOW LEDGER (7 Columns) */}
-        <div className="lg:col-span-7 bg-white/[0.01] border border-white/5 rounded-3xl p-5 md:p-6 space-y-6">
-          <div className="flex justify-between items-center border-b border-white/5 pb-4">
+        <div className="lg:col-span-7 bg-neutral-800/5 dark:bg-white/[0.01] border border-black/5 dark:border-white/5 rounded-3xl p-5 md:p-6 space-y-6">
+          <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-4">
             <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
                 <Sparkles size={16} className="text-focus-neon animate-pulse" />
                 Adım Adım Aylık Bütçe Akışı ({activeMonth.monthName} {activeMonth.year})
               </h3>
               <p className="text-[11px] text-text-secondary mt-1">Seçili ay içerisindeki nakit hareketleri ve bütçe süzgeci.</p>
             </div>
-            <span className="text-[10px] text-text-secondary uppercase bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
+            <span className="text-[10px] text-text-secondary uppercase bg-neutral-800/10 dark:bg-white/5 px-2.5 py-1 rounded-full border border-black/10 dark:border-white/10">
               {activeMonth.isPast ? 'Geçmiş Dönem' : activeMonth.isCurrent ? 'Günümüz' : 'Gelecek Projeksiyon'}
             </span>
           </div>
@@ -615,16 +778,16 @@ export const FinanceStatus = () => {
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="p-4 rounded-2xl bg-black/30 border border-white/5 flex items-center justify-between"
+              className="p-4 rounded-2xl bg-neutral-800/10 dark:bg-black/30 border border-black/5 dark:border-white/5 flex items-center justify-between"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-white/5 text-white flex items-center justify-center font-bold text-xs shrink-0">1</div>
+                <div className="w-8 h-8 rounded-full bg-neutral-800/20 dark:bg-white/5 text-text-primary dark:text-white flex items-center justify-center font-bold text-xs shrink-0">1</div>
                 <div>
                   <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block">Adım 1: Dönem Başı Devreden Nakit</span>
-                  <span className="text-xs text-white font-medium">Önceki aylardan devrolan toplam serbest likit rezerv.</span>
+                  <span className="text-xs text-text-primary dark:text-white font-medium">Önceki aylardan devrolan toplam serbest likit rezerv.</span>
                 </div>
               </div>
-              <span className="text-sm font-mono font-bold text-white">
+              <span className="text-sm font-mono font-bold text-text-primary dark:text-white">
                 ₺{Math.round(activeMonthData.startBalance).toLocaleString('tr-TR')}
               </span>
             </motion.div>
@@ -634,14 +797,14 @@ export const FinanceStatus = () => {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="p-4 rounded-2xl bg-black/30 border border-white/5 space-y-3"
+              className="p-4 rounded-2xl bg-neutral-800/10 dark:bg-black/30 border border-black/5 dark:border-white/5 space-y-3"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-focus-neon/20 text-focus-neon flex items-center justify-center font-bold text-xs shrink-0">2</div>
                   <div>
                     <span className="text-[10px] font-bold text-focus-neon uppercase tracking-widest block">Adım 2: Onaylanmış / Planlı Aylık Gelirler</span>
-                    <span className="text-xs text-white font-medium">Maaş, serbest çalışma ve yatırım gelirleri toplamı.</span>
+                    <span className="text-xs text-text-primary dark:text-white font-medium">Maaş, serbest çalışma ve yatırım gelirleri toplamı.</span>
                   </div>
                 </div>
                 <span className="text-sm font-mono font-bold text-focus-neon">
@@ -650,14 +813,14 @@ export const FinanceStatus = () => {
               </div>
 
               {/* Sub-list of incomes for detail */}
-              <div className="pl-11 border-l border-white/5 space-y-2 pt-1">
+              <div className="pl-11 border-l border-black/5 dark:border-white/5 space-y-2 pt-1">
                 {activeMonthData.incomesList.map((inc: any, i: number) => (
                   <div key={inc.id || i} className="flex justify-between items-center text-xs text-text-secondary">
                     <span className="flex items-center gap-1">
                       <span className="w-1.5 h-1.5 bg-focus-neon rounded-full" />
                       {inc.title}
                     </span>
-                    <span className="font-mono font-bold text-white">₺{Number(inc.amount).toLocaleString('tr-TR')}</span>
+                    <span className="font-mono font-bold text-text-primary dark:text-white">₺{Number(inc.amount).toLocaleString('tr-TR')}</span>
                   </div>
                 ))}
               </div>
@@ -668,14 +831,14 @@ export const FinanceStatus = () => {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              className="p-4 rounded-2xl bg-black/30 border border-white/5 space-y-3"
+              className="p-4 rounded-2xl bg-neutral-800/10 dark:bg-black/30 border border-black/5 dark:border-white/5 space-y-3"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center font-bold text-xs shrink-0">3</div>
                   <div>
                     <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest block">Adım 3: Sabit ve Zorunlu Aylık Giderler</span>
-                    <span className="text-xs text-white font-medium">Kira, faturalar, abonelikler ve kredi ödemeleri.</span>
+                    <span className="text-xs text-text-primary dark:text-white font-medium">Kira, faturalar, abonelikler ve kredi ödemeleri.</span>
                   </div>
                 </div>
                 <span className="text-sm font-mono font-bold text-red-400">
@@ -684,7 +847,7 @@ export const FinanceStatus = () => {
               </div>
 
               {/* Detailed Expenses Breakdown */}
-              <div className="pl-11 border-l border-white/5 space-y-2 pt-1">
+              <div className="pl-11 border-l border-black/5 dark:border-white/5 space-y-2 pt-1">
                 {activeMonthData.expensesList.slice(0, 3).map((exp: any, i: number) => (
                   <div key={exp.id || i} className="flex justify-between items-center text-xs text-text-secondary">
                     <span className="flex items-center gap-1">
@@ -707,11 +870,11 @@ export const FinanceStatus = () => {
                 )}
                 {activeMonthData.debtSum > 0 && (
                   <div className="flex justify-between items-center text-xs text-text-secondary">
-                    <span className="flex items-center gap-1 font-bold text-white">
+                    <span className="flex items-center gap-1 font-bold text-text-primary dark:text-white">
                       <span className="w-1.5 h-1.5 bg-orange-400 rounded-full" />
                       Aktif Borç / Kredi Taksitleri
                     </span>
-                    <span className="font-mono font-bold text-white">-₺{activeMonthData.debtSum.toLocaleString('tr-TR')}</span>
+                    <span className="font-mono font-bold text-text-primary dark:text-white">-₺{activeMonthData.debtSum.toLocaleString('tr-TR')}</span>
                   </div>
                 )}
               </div>
@@ -723,14 +886,14 @@ export const FinanceStatus = () => {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
-                className="p-4 rounded-2xl bg-gradient-to-r from-ai-bright/5 to-black/30 border border-ai-bright/20 space-y-3"
+                className="p-4 rounded-2xl bg-neutral-800/10 dark:bg-black/30 border border-black/5 dark:border-white/5 space-y-3"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-ai-bright/20 text-ai-bright flex items-center justify-center font-bold text-xs shrink-0">4</div>
                     <div>
                       <span className="text-[10px] font-bold text-ai-bright uppercase tracking-widest block font-display">Adım 4: Yatırım, Birikim ve Satın Alma Bütçeleri</span>
-                      <span className="text-xs text-white font-medium">Uzun vadeli birikim ve satın alma planlaması için bloke edilen tutarlar.</span>
+                      <span className="text-xs text-text-primary dark:text-white font-medium">Uzun vadeli birikim ve satın alma planlaması için bloke edilen tutarlar.</span>
                     </div>
                   </div>
                   <span className="text-sm font-mono font-bold text-ai-bright">
@@ -738,13 +901,13 @@ export const FinanceStatus = () => {
                   </span>
                 </div>
 
-                <div className="pl-11 border-l border-white/5 space-y-2 pt-1 text-xs text-text-secondary">
+                <div className="pl-11 border-l border-black/5 dark:border-white/5 space-y-2 pt-1 text-xs text-text-secondary">
                   <div className="flex justify-between items-center">
                     <span>Aylık Otomatik Yatırım & Birikim Hedefleri</span>
                     <span className="font-mono">-₺{activeMonthData.investAlloc.toLocaleString('tr-TR')}</span>
                   </div>
                   {activeMonthData.purchaseSum > 0 ? (
-                    <div className="flex justify-between items-center font-bold text-white">
+                    <div className="flex justify-between items-center font-bold text-text-primary dark:text-white">
                       <span className="flex items-center gap-1">
                         <ShoppingBag size={12} className="text-focus-neon" />
                         Planlanan Satın Alımlar (Bloke)
@@ -763,7 +926,7 @@ export const FinanceStatus = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="p-5 rounded-2xl bg-gradient-to-r from-neutral-900 to-black border-focus-neon/30 flex items-center justify-between shadow-lg"
+              className="p-5 rounded-2xl bg-neutral-800/10 dark:bg-black/30 border border-focus-neon/30 flex items-center justify-between shadow-lg"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-focus-neon/10 border border-focus-neon/30 text-focus-neon flex items-center justify-center font-bold text-sm shrink-0">
@@ -775,7 +938,7 @@ export const FinanceStatus = () => {
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-lg font-mono font-black text-white block">
+                <span className="text-lg font-mono font-black text-text-primary dark:text-white block">
                   ₺{Math.round(activeMonthData.endBalance).toLocaleString('tr-TR')}
                 </span>
                 <span className={`text-[10px] font-mono font-bold ${activeMonthData.activeNetCashFlow >= 0 ? 'text-focus-neon' : 'text-red-400'}`}>
@@ -790,8 +953,8 @@ export const FinanceStatus = () => {
         <div className="lg:col-span-5 space-y-6">
 
           {/* Chart Overview */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 space-y-4">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+          <div className="bg-neutral-800/5 dark:bg-white/[0.02] border border-black/5 dark:border-white/5 rounded-3xl p-5 space-y-4">
+            <h3 className="text-xs font-bold text-text-primary dark:text-white uppercase tracking-wider flex items-center gap-1.5">
               <TrendingUp size={14} className="text-focus-neon" />
               25 Aylık Nakit Akışı Kümülatif Trendi
             </h3>
@@ -806,11 +969,11 @@ export const FinanceStatus = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
-                  <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} />
-                  <YAxis stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} tickFormatter={(val) => `₺${(val/1000).toFixed(0)}K`} />
+                  <XAxis dataKey="name" stroke="rgba(100,116,139,0.5)" fontSize={9} tickLine={false} />
+                  <YAxis stroke="rgba(100,116,139,0.5)" fontSize={9} tickLine={false} tickFormatter={(val) => `₺${(val/1000).toFixed(0)}K`} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#121214', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                    labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                    contentStyle={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-val)', borderRadius: '12px' }}
+                    labelStyle={{ color: 'var(--text-primary-val)', fontWeight: 'bold' }}
                     formatter={(value) => `₺${Number(value).toLocaleString('tr-TR')}`}
                   />
                   <Area type="monotone" dataKey="netBakiye" name="Net Varlık" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorStatusNet)" />
@@ -820,9 +983,9 @@ export const FinanceStatus = () => {
           </div>
 
           {/* Interactive Gider Bitiş ve Özgürleşme Takvimi */}
-          <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
-            <div className="flex justify-between items-center border-b border-white/5 pb-3">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+          <div className="bg-neutral-800/5 dark:bg-white/[0.01] border border-black/5 dark:border-white/5 rounded-3xl p-5 space-y-4">
+            <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-3">
+              <h3 className="text-xs font-bold text-text-primary dark:text-white uppercase tracking-wider flex items-center gap-1.5">
                 <CreditCard size={14} className="text-orange-400" />
                 Gider Bitiş & Özgürleşme Takvimi
               </h3>
@@ -834,13 +997,13 @@ export const FinanceStatus = () => {
             {expenseTerminationSchedule.length > 0 ? (
               <div className="space-y-3.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
                 {expenseTerminationSchedule.slice(0, 4).map((item) => (
-                  <div key={item.id} className="p-3 bg-black/25 border border-white/5 rounded-xl flex justify-between items-center">
+                  <div key={item.id} className="p-3 bg-neutral-800/10 dark:bg-black/25 border border-black/5 dark:border-white/5 rounded-xl flex justify-between items-center">
                     <div className="flex items-center gap-2.5">
                       <div className="p-1.5 rounded-lg bg-orange-400/10 text-orange-400 text-xs shrink-0">
                         <TrendingDown size={14} />
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-white block truncate w-32 md:w-44">{item.title}</span>
+                        <span className="text-xs font-bold text-text-primary dark:text-white block truncate w-32 md:w-44">{item.title}</span>
                         <span className="text-[10px] text-text-secondary">{item.endingMonthName} ({item.monthsRemaining} ay kaldı)</span>
                       </div>
                     </div>
@@ -863,7 +1026,7 @@ export const FinanceStatus = () => {
                 )}
               </div>
             ) : (
-              <div className="py-6 text-center border border-dashed border-white/10 rounded-xl">
+              <div className="py-6 text-center border border-dashed border-black/10 dark:border-white/10 rounded-xl">
                 <p className="text-xs text-text-secondary">Önümüzdeki 12 ayda bitecek herhangi bir borç veya taksitli ödeme bulunmuyor.</p>
               </div>
             )}
@@ -873,10 +1036,10 @@ export const FinanceStatus = () => {
       </div>
 
       {/* DETAILED REPORTS, RECOMMENDATIONS, PREDICTIONS & SPECIAL AI ASSISTANT PANEL */}
-      <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-3xl p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-white/5 pb-4 gap-3">
+      <div className="bg-gradient-to-br from-neutral-800/10 to-transparent dark:from-white/[0.05] dark:to-transparent border border-black/10 dark:border-white/10 rounded-3xl p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center border-b border-black/5 dark:border-white/5 pb-4 gap-3">
           <div>
-            <h3 className="text-base font-display font-black text-white flex items-center gap-2">
+            <h3 className="text-base font-display font-black text-text-primary dark:text-white flex items-center gap-2">
               <Sparkles className="text-ai-bright shrink-0 animate-pulse" size={20} />
               AI Finansal Analiz, Öngörüler ve Bütçe Tavsiyeleri
             </h3>
@@ -891,12 +1054,12 @@ export const FinanceStatus = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
           {/* Analysis Card 1 */}
-          <div className="p-5 rounded-2xl bg-black/40 border border-white/5 space-y-3 hover:border-white/10 transition-colors">
+          <div className="p-5 rounded-2xl bg-neutral-800/10 dark:bg-black/40 border border-black/5 dark:border-white/5 space-y-3 hover:border-black/10 hover:dark:border-white/10 transition-colors">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-focus-neon/15 text-focus-neon flex items-center justify-center font-bold text-xs">
                 <CheckCircle2 size={14} />
               </div>
-              <h4 className="font-bold text-white text-xs uppercase tracking-wider">Satın Alma Planlama Analizi</h4>
+              <h4 className="font-bold text-text-primary dark:text-white text-xs uppercase tracking-wider">Satın Alma Planlama Analizi</h4>
             </div>
             <p className="text-xs text-text-secondary leading-relaxed">
               Mevcut satın alma bütçenizi dahil ettiğimizde, {activeMonth.monthName} ayındaki toplam birikim havuzunuz <strong>₺{Math.round(activeMonthData.endBalance).toLocaleString('tr-TR')}</strong> seviyesinde kararlı görünmektedir. Acil ihtiyaçlarınızı önceliklendirin.
@@ -904,12 +1067,12 @@ export const FinanceStatus = () => {
           </div>
 
           {/* Analysis Card 2 */}
-          <div className="p-5 rounded-2xl bg-black/40 border border-white/5 space-y-3 hover:border-white/10 transition-colors">
+          <div className="p-5 rounded-2xl bg-neutral-800/10 dark:bg-black/40 border border-black/5 dark:border-white/5 space-y-3 hover:border-black/10 hover:dark:border-white/10 transition-colors">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-orange-400/15 text-orange-400 flex items-center justify-center font-bold text-xs">
                 <AlertTriangle size={14} />
               </div>
-              <h4 className="font-bold text-white text-xs uppercase tracking-wider">Gider Sızıntıları ve Öngörüler</h4>
+              <h4 className="font-bold text-text-primary dark:text-white text-xs uppercase tracking-wider">Gider Sızıntıları ve Öngörüler</h4>
             </div>
             <p className="text-xs text-text-secondary leading-relaxed">
               Abonelikleriniz ve borç taksitleriniz bütçenizin <strong>%{(activeMonthData.baseIncomeSum > 0 ? ((activeMonthData.standardOutflow / activeMonthData.baseIncomeSum) * 100).toFixed(0) : '0')}%</strong>'lik kısmını oluşturuyor. Önümüzdeki 4. ayda biten borçla birlikte bütçeniz rahat bir nefes alacaktır.
@@ -917,12 +1080,12 @@ export const FinanceStatus = () => {
           </div>
 
           {/* Analysis Card 3 */}
-          <div className="p-5 rounded-2xl bg-black/40 border border-white/5 space-y-3 hover:border-white/10 transition-colors">
+          <div className="p-5 rounded-2xl bg-neutral-800/10 dark:bg-black/40 border border-black/5 dark:border-white/5 space-y-3 hover:border-black/10 hover:dark:border-white/10 transition-colors">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-ai-bright/15 text-ai-bright flex items-center justify-center font-bold text-xs">
                 <Zap size={14} />
               </div>
-              <h4 className="font-bold text-white text-xs uppercase tracking-wider">Yatırım & Tasarruf Tavsiyeleri</h4>
+              <h4 className="font-bold text-text-primary dark:text-white text-xs uppercase tracking-wider">Yatırım & Tasarruf Tavsiyeleri</h4>
             </div>
             <p className="text-xs text-text-secondary leading-relaxed">
               Aylık kümülatif serbest bakiye birikimlerinizi enflasyon karşısında korumak amacıyla, düzenli olarak %15 oranında değerli metallere veya endeks fonlarına yönlendirmeniz finansal özgürlüğünüzü hızlandıracaktır.
@@ -932,10 +1095,10 @@ export const FinanceStatus = () => {
         </div>
 
         {/* INTERACTIVE Q&A SPECIAL MODULE WITH CHAT SIMULATION */}
-        <div className="p-4 md:p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-4">
+        <div className="p-4 md:p-5 rounded-2xl bg-neutral-800/5 dark:bg-white/[0.02] border border-black/5 dark:border-white/5 space-y-4">
           <div className="flex items-center gap-2">
             <MessageSquare size={16} className="text-ai-bright" />
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">APEX AI Finansal Danışmanı ile Konuş</h4>
+            <h4 className="text-xs font-bold text-text-primary dark:text-white uppercase tracking-wider">APEX AI Finansal Danışmanı ile Konuş</h4>
           </div>
 
           {/* Predefined Questions Fast-Action Pill Buttons */}
@@ -947,7 +1110,7 @@ export const FinanceStatus = () => {
                   setChatInput(q);
                   handleAskQuestion(q);
                 }}
-                className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-focus-neon/30 hover:bg-focus-neon/5 transition-all text-[11px] text-text-secondary hover:text-white"
+                className="px-3 py-1.5 rounded-full bg-neutral-800/10 dark:bg-white/5 border border-black/5 dark:border-white/10 hover:border-focus-neon/30 hover:bg-focus-neon/5 transition-all text-[11px] text-text-secondary hover:text-text-primary"
               >
                 {q}
               </button>
@@ -961,11 +1124,11 @@ export const FinanceStatus = () => {
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               placeholder="Finansal durumunuz, satın alımlarınız veya borçlarınız hakkında yapay zekaya sorun..."
-              className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-ai-bright"
+              className="flex-1 bg-neutral-800/5 dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-xl px-4 py-2.5 text-xs text-text-primary dark:text-white focus:outline-none focus:border-ai-bright"
             />
             <button
               onClick={() => handleAskQuestion(chatInput)}
-              className="px-4 py-2.5 rounded-xl bg-ai-bright hover:bg-ai-bright/90 text-black font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-ai-bright hover:bg-ai-bright/90 text-white dark:text-black font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Zap size={12} /> Sor
             </button>
@@ -978,7 +1141,7 @@ export const FinanceStatus = () => {
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 5 }}
-                className="p-4 bg-black/50 border border-white/10 rounded-xl space-y-2"
+                className="p-4 bg-neutral-800/10 dark:bg-black/50 border border-black/5 dark:border-white/10 rounded-xl space-y-2"
               >
                 <div className="flex items-center gap-2">
                   <Sparkles size={12} className="text-ai-bright" />
