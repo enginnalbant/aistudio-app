@@ -712,14 +712,28 @@ export const FinanceIncomes = () => {
                         </div>
                       </div>
 
-                      {/* Simple visual status checkmark */}
-                      <span className={`p-1.5 rounded-lg border ${
-                        income.status === 'Tamamlandı' 
-                          ? 'bg-focus-main/10 text-focus-main border-focus-main/20' 
-                          : 'bg-nrg-sun/10 text-nrg-sun border-nrg-sun/20'
-                      }`}>
-                        {income.status === 'Tamamlandı' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                      </span>
+                      {/* Quick complete button or visual status badge */}
+                      {income.status === 'Beklemede' && !income.isDynamic ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIncomes(prev => prev.map(item => item.id === income.id ? { ...item, status: 'Tamamlandı' } : item));
+                          }}
+                          className="p-1.5 rounded-lg border bg-nrg-sun/10 text-nrg-sun border-nrg-sun/20 hover:bg-focus-main hover:text-pure-black hover:border-focus-main transition-all cursor-pointer"
+                          title="Geliri Gerçekleşti Olarak İşaretle"
+                        >
+                          <Clock size={12} className="group-hover:hidden" />
+                        </button>
+                      ) : (
+                        <span className={`p-1.5 rounded-lg border ${
+                          income.status === 'Tamamlandı'
+                            ? 'bg-focus-main/10 text-focus-main border-focus-main/20'
+                            : 'bg-nrg-sun/10 text-nrg-sun border-nrg-sun/20'
+                        }`}>
+                          {income.status === 'Tamamlandı' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
