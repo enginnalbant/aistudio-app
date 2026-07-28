@@ -33,9 +33,10 @@ import { MangaUploadWizard } from "./MangaUploadWizard";
 
 interface MangaDashboardProps {
   onSelectManga: (manga: Manga) => void;
+  activeModule?: string;
 }
 
-export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga }) => {
+export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga, activeModule }) => {
   // Storage State
   const [mangas, setMangas] = useState<Manga[]>([]);
   const [collections, setCollections] = useState<MangaCollection[]>([]);
@@ -48,10 +49,14 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
   const [selectedGenre, setSelectedGenre] = useState<string>("Tümü");
   const [sortBy, setSortBy] = useState<"added" | "title" | "rating" | "pages">("added");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [showStatsTab, setShowStatsTab] = useState<boolean>(false);
+  const [showStatsTab, setShowStatsTab] = useState<boolean>(
+    activeModule === "library-manga-dashboard"
+  );
 
   // Wizards & Modals State
-  const [isUploadWizardOpen, setIsUploadWizardOpen] = useState<boolean>(false);
+  const [isUploadWizardOpen, setIsUploadWizardOpen] = useState<boolean>(
+    activeModule === "library-manga-panel"
+  );
   const [selectedMangaDetail, setSelectedMangaDetail] = useState<Manga | null>(null);
   const [isNewCollectionOpen, setIsNewCollectionOpen] = useState<boolean>(false);
 
@@ -64,6 +69,20 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
   useEffect(() => {
     loadMangaEcosystem();
   }, []);
+
+  // Update states dynamically based on sidebar/navigation updates
+  useEffect(() => {
+    if (activeModule === "library-manga-dashboard") {
+      setShowStatsTab(true);
+      setIsUploadWizardOpen(false);
+    } else if (activeModule === "library-manga-panel") {
+      setIsUploadWizardOpen(true);
+      setShowStatsTab(false);
+    } else {
+      setShowStatsTab(false);
+      setIsUploadWizardOpen(false);
+    }
+  }, [activeModule]);
 
   const loadMangaEcosystem = () => {
     setMangas(MangaStorageService.getMangas());
