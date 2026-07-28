@@ -18,6 +18,9 @@ export interface Manga {
   totalPages?: number;
   totalChapters?: number;
   status: 'Okunuyor' | 'Tamamlandı' | 'Yarım Kaldı' | 'Daha Sonra';
+  readProgress?: number; // 0 to 100 percentage
+  lastReadPage?: number;
+  isCachedOffline?: boolean;
 }
 
 export interface MangaChapter {
@@ -40,6 +43,15 @@ export interface MangaCollection {
   color?: string;
 }
 
+export interface MangaBookmark {
+  id: string;
+  mangaId: string;
+  pageNumber: number;
+  chapterNumber: number;
+  note?: string;
+  createdAt: string;
+}
+
 export interface ReaderSettings {
   readingMode: 'RTL' | 'LTR' | 'WEBTOON'; // Right to Left, Left to Right, Vertical Webtoon scroll
   fitMode: 'WIDTH' | 'HEIGHT' | 'CONTAIN' | 'ORIGINAL';
@@ -48,7 +60,8 @@ export interface ReaderSettings {
   contrast: number; // 0.5 to 1.5
   autoScrollActive: boolean;
   autoScrollSpeed: number; // 1 to 10
-  doublePage: boolean;
+  doublePage: boolean; // physical book layout spread
+  guidedPanelMode: boolean; // panel-by-panel mobile view
   pageAnimation: 'CURL' | 'SLIDE' | 'FADE' | 'NONE';
 }
 
@@ -57,4 +70,11 @@ export interface MangaReadingHistory {
   lastReadPage: number;
   lastReadChapter: number;
   lastReadAt: string;
+}
+
+export interface MangaReadingStats {
+  weeklyMinutes: { [dayOfWeek: string]: number }; // e.g. { "Pzt": 25, "Sal": 40 }
+  favoriteGenres: { [genre: string]: number }; // e.g. { "Cyberpunk": 3, "Aksiyon": 1 }
+  totalReadMinutes: number;
+  totalPagesRead: number;
 }

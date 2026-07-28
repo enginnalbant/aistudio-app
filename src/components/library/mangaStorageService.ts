@@ -1,9 +1,11 @@
-import { Manga, MangaCollection, ReaderSettings, MangaChapter } from './mangaTypes';
+import { Manga, MangaCollection, ReaderSettings, MangaChapter, MangaBookmark, MangaReadingStats } from './mangaTypes';
 
-const MANGA_STORAGE_KEY = 'apex_manga_items_v1';
-const CHAPTER_STORAGE_KEY = 'apex_manga_chapters_v1';
-const COLLECTION_STORAGE_KEY = 'apex_manga_collections_v1';
-const READER_SETTINGS_KEY = 'apex_manga_reader_settings_v1';
+const MANGA_STORAGE_KEY = 'apex_manga_items_v2';
+const CHAPTER_STORAGE_KEY = 'apex_manga_chapters_v2';
+const COLLECTION_STORAGE_KEY = 'apex_manga_collections_v2';
+const READER_SETTINGS_KEY = 'apex_manga_reader_settings_v2';
+const BOOKMARKS_STORAGE_KEY = 'apex_manga_bookmarks_v2';
+const STATS_STORAGE_KEY = 'apex_manga_stats_v2';
 
 const INITIAL_MANGAS: Manga[] = [
   {
@@ -23,7 +25,10 @@ const INITIAL_MANGAS: Manga[] = [
     fileName: 'tokyo_2099_sample.cbz',
     fileSize: '12.4 MB',
     totalPages: 12,
-    status: 'Okunuyor'
+    status: 'Okunuyor',
+    readProgress: 42,
+    lastReadPage: 5,
+    isCachedOffline: true
   },
   {
     id: 'manga-fantasy',
@@ -42,7 +47,10 @@ const INITIAL_MANGAS: Manga[] = [
     fileName: 'wind_whisper_volume1.pdf',
     fileSize: '8.7 MB',
     totalPages: 24,
-    status: 'Daha Sonra'
+    status: 'Daha Sonra',
+    readProgress: 0,
+    lastReadPage: 1,
+    isCachedOffline: false
   },
   {
     id: 'manga-sliceoflife',
@@ -61,7 +69,10 @@ const INITIAL_MANGAS: Manga[] = [
     fileName: 'coffee_manga.cbz',
     fileSize: '15.1 MB',
     totalPages: 8,
-    status: 'Tamamlandı'
+    status: 'Tamamlandı',
+    readProgress: 100,
+    lastReadPage: 8,
+    isCachedOffline: true
   }
 ];
 
@@ -81,7 +92,15 @@ const DEFAULT_READER_SETTINGS: ReaderSettings = {
   autoScrollActive: false,
   autoScrollSpeed: 3,
   doublePage: false,
-  pageAnimation: 'SLIDE'
+  guidedPanelMode: false,
+  pageAnimation: 'CURL'
+};
+
+const INITIAL_STATS: MangaReadingStats = {
+  weeklyMinutes: { 'Pzt': 25, 'Sal': 40, 'Çar': 15, 'Per': 55, 'Cum': 30, 'Cmt': 90, 'Paz': 65 },
+  favoriteGenres: { 'Cyberpunk': 45, 'Slice of Life': 30, 'Aksiyon': 25, 'Gizem': 20, 'Fantastik': 10 },
+  totalReadMinutes: 320,
+  totalPagesRead: 112
 };
 
 export const MangaStorageService = {
@@ -91,7 +110,6 @@ export const MangaStorageService = {
       if (stored) {
         return JSON.parse(stored);
       }
-      // Initialize with default mock mangas
       localStorage.setItem(MANGA_STORAGE_KEY, JSON.stringify(INITIAL_MANGAS));
       return INITIAL_MANGAS;
     } catch (e) {
@@ -170,17 +188,89 @@ export const MangaStorageService = {
     }
   },
 
-  // Helper utility to update reader bookmark
+  getBookmarks(): MangaBookmark[] {
+    try {
+      const stored = localStorage.getItem(BOOKMARKS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.error('Failed to get bookmarks:', e);
+      return [];
+    }
+  },
+
+  saveBookmarks(bookmarks: MangaBookmark[]): void {
+    try {
+      localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(bookmarks));
+    } catch (e) {
+      console.error('Failed to save bookmarks:', e);
+    }
+  },
+
+  addBookmark(mangaId: string, pageNumber: number, note?: string): void {
+    const bookmarks = this.getBookmarks();
+    const newBookmark: MangaBookmark = {
+      id: `bookmark-${Date.now()}`,
+      mangaId,
+      pageNumber,
+      chapterNumber: 1,
+      note,
+      createdAt: new Date().toLocaleDateString('tr-TR')
+    };
+    this.saveBookmarks([...bookmarks, newBookmark]);
+  },
+
+  deleteBookmark(id: string): void {
+    const bookmarks = this.getBookmarks();
+    this.saveBookmarks(bookmarks.filter(b => b.id !== id));
+  },
+
+  getStats(): MangaReadingStats {
+    try {
+      const stored = localStorage.getItem(STATS_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+      localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(INITIAL_STATS));
+      return INITIAL_STATS;
+    } catch (e) {
+      console.error('Failed to get stats:', e);
+      return INITIAL_STATS;
+    }
+  },
+
+  saveStats(stats: MangaReadingStats): void {
+    try {
+      localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats));
+    } catch (e) {
+      console.error('Failed to save stats:', e);
+    }
+  },
+
+  incrementPagesRead(count: number = 1): void {
+    const stats = this.getStats();
+    stats.totalPagesRead += count;
+
+    // Simulate daily stats addition
+    const days = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+    const currentDay = days[new Date().getDay()];
+    stats.weeklyMinutes[currentDay] = (stats.weeklyMinutes[currentDay] || 0) + 1; // mock minutes
+    stats.totalReadMinutes += 1;
+
+    this.saveStats(stats);
+  },
+
   updateMangaProgress(mangaId: string, lastReadPage: number, status?: Manga['status']): void {
     const mangas = this.getMangas();
     const updated = mangas.map(m => {
       if (m.id === mangaId) {
         const nextStatus = status || m.status;
+        const total = m.totalPages || 12;
+        const progress = Math.min(100, Math.round((lastReadPage / total) * 100));
         return {
           ...m,
-          status: nextStatus,
-          // If the last page matches total, automatically complete
-          ...(lastReadPage >= (m.totalPages || 100) ? { status: 'Tamamlandı' as const } : {})
+          status: progress >= 100 ? 'Tamamlandı' as const : nextStatus,
+          lastReadPage,
+          readProgress: progress
         };
       }
       return m;

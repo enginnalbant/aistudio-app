@@ -21,9 +21,13 @@ import {
   Calendar,
   Layers,
   X,
-  FileArchive
+  FileArchive,
+  BarChart2,
+  TrendingUp,
+  Bookmark,
+  TrendingDown
 } from "lucide-react";
-import { Manga, MangaCollection, ReaderSettings } from "./mangaTypes";
+import { Manga, MangaCollection, ReaderSettings, MangaReadingStats, MangaBookmark } from "./mangaTypes";
 import { MangaStorageService } from "./mangaStorageService";
 import { MangaUploadWizard } from "./MangaUploadWizard";
 
@@ -35,6 +39,8 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
   // Storage State
   const [mangas, setMangas] = useState<Manga[]>([]);
   const [collections, setCollections] = useState<MangaCollection[]>([]);
+  const [stats, setStats] = useState<MangaReadingStats>(MangaStorageService.getStats());
+  const [bookmarks, setBookmarks] = useState<MangaBookmark[]>(MangaStorageService.getBookmarks());
 
   // Selection / Navigation State
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("col-all");
@@ -42,6 +48,7 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
   const [selectedGenre, setSelectedGenre] = useState<string>("Tümü");
   const [sortBy, setSortBy] = useState<"added" | "title" | "rating" | "pages">("added");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [showStatsTab, setShowStatsTab] = useState<boolean>(false);
 
   // Wizards & Modals State
   const [isUploadWizardOpen, setIsUploadWizardOpen] = useState<boolean>(false);
@@ -61,6 +68,8 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
   const loadMangaEcosystem = () => {
     setMangas(MangaStorageService.getMangas());
     setCollections(MangaStorageService.getCollections());
+    setStats(MangaStorageService.getStats());
+    setBookmarks(MangaStorageService.getBookmarks());
   };
 
   // Extract unique genres across all imported mangas
@@ -181,14 +190,12 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
       if (activeCol) {
         result = result.filter(m => activeCol.mangaIds.includes(m.id));
       } else {
-        // Handle special pseudo filters if any
         if (selectedCollectionId === "col-favorites") {
           result = result.filter(m => m.favorite);
         }
       }
     }
 
-    // Filter by Search Query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(m =>
@@ -198,12 +205,10 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
       );
     }
 
-    // Filter by Genre
     if (selectedGenre !== "Tümü") {
       result = result.filter(m => m.genres && m.genres.includes(selectedGenre));
     }
 
-    // Sort items
     result.sort((a, b) => {
       if (sortBy === "title") {
         return a.title.localeCompare(b.title);
@@ -212,7 +217,6 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
       } else if (sortBy === "pages") {
         return (b.totalPages || 0) - (a.totalPages || 0);
       } else {
-        // added date fallback
         return b.addedAt.localeCompare(a.addedAt);
       }
     });
@@ -232,13 +236,24 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
             <BookOpen className="w-5 h-5 animate-pulse" />
           </div>
           <div>
-            <h2 className="text-xl font-extrabold text-text-primary tracking-tight">Manga Kütüphanesi</h2>
+            <h2 className="text-xl font-extrabold text-text-primary tracking-tight font-display">Manga Kütüphanesi</h2>
             <p className="text-xs text-text-secondary">Arşivlerinizi akıllıca yönetin ve kaldığınız yerden okuyun</p>
           </div>
         </div>
 
-        {/* Action Button & View Switches */}
+        {/* Action Button, View Switches & Analytics Toggle */}
         <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+          <button
+            onClick={() => setShowStatsTab(!showStatsTab)}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+              showStatsTab
+                ? "bg-violet-600/10 text-violet-400 border-violet-500/30"
+                : "border-border hover:bg-white/5 text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            <BarChart2 className="w-4 h-4" /> İstatistikler
+          </button>
+
           <div className="flex bg-black/20 rounded-xl p-1 border border-border">
             <button
               onClick={() => setViewMode("grid")}
@@ -267,6 +282,89 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
         </div>
       </div>
 
+      {/* Analytics Panel Overlay if enabled */}
+      <AnimatePresence>
+        {showStatsTab && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden border-b border-border bg-violet-950/5"
+          >
+            <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+
+              {/* Stat Card 1: Time Read */}
+              <div className="p-4 rounded-2xl bg-black/20 border border-border flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Haftalık Okuma</p>
+                  <h4 className="text-xl font-bold text-text-primary mt-1">{stats.totalReadMinutes} <span className="text-xs text-text-secondary font-medium">dk</span></h4>
+                  <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 mt-1">
+                    <TrendingUp className="w-3.5 h-3.5" /> %12 artış
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-violet-500/10 text-violet-400">
+                  <Clock className="w-5 h-5" />
+                </div>
+              </div>
+
+              {/* Stat Card 2: Pages Read */}
+              <div className="p-4 rounded-2xl bg-black/20 border border-border flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Toplam Okunan Sayfa</p>
+                  <h4 className="text-xl font-bold text-text-primary mt-1">{stats.totalPagesRead} <span className="text-xs text-text-secondary font-medium">sf</span></h4>
+                  <p className="text-[10px] text-text-secondary font-semibold flex items-center gap-1 mt-1">
+                    Günlük ortalama: 16 sayfa
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-violet-500/10 text-violet-400">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+              </div>
+
+              {/* Stat Card 3: Weekly Activity Visualizer */}
+              <div className="p-4 rounded-2xl bg-black/20 border border-border">
+                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-2">Haftalık Aktivite (Dakika)</p>
+                <div className="flex items-end justify-between h-12 pt-1 font-mono text-[9px] text-text-secondary">
+                  {Object.entries(stats.weeklyMinutes).map(([day, min]) => {
+                    const heightPercent = Math.min(100, Math.round((min / 120) * 100));
+                    return (
+                      <div key={day} className="flex flex-col items-center flex-1 gap-1 group">
+                        <div className="w-2.5 bg-violet-500/20 rounded-full h-8 relative overflow-hidden">
+                          <div
+                            style={{ height: `${heightPercent}%` }}
+                            className="absolute bottom-0 left-0 right-0 bg-violet-500 rounded-full"
+                          />
+                        </div>
+                        <span className="scale-75 origin-bottom">{day}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Stat Card 4: Genre distribution */}
+              <div className="p-4 rounded-2xl bg-black/20 border border-border flex flex-col justify-between">
+                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-1.5">En Çok Okunan Türler</p>
+                <div className="space-y-1.5">
+                  {Object.entries(stats.favoriteGenres).slice(0, 3).map(([genre, percent]) => (
+                    <div key={genre} className="space-y-0.5">
+                      <div className="flex justify-between text-[9px] font-semibold text-text-secondary">
+                        <span>{genre}</span>
+                        <span>%{percent}</span>
+                      </div>
+                      <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                        <div style={{ width: `${percent}%` }} className="h-full bg-violet-500" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Main Panel Content Area (Sidebar + Grid) */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
 
@@ -274,7 +372,7 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
         <div className="w-full md:w-60 border-b md:border-b-0 md:border-r border-border bg-black/5 flex flex-col h-auto md:h-full">
           {/* Main system collections */}
           <div className="p-4 space-y-1.5 overflow-y-auto max-h-[220px] md:max-h-none md:flex-1">
-            <p className="text-[10px] font-extrabold tracking-widest text-text-secondary uppercase px-2 mb-2">
+            <p className="text-[10px] font-extrabold tracking-widest text-text-secondary uppercase px-2 mb-2 font-mono">
               Koleksiyonlar
             </p>
 
@@ -324,6 +422,40 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
             >
               <FolderPlus className="w-4 h-4 text-violet-400" /> Koleksiyon Oluştur
             </button>
+
+            {/* Bookmarks Section */}
+            {bookmarks.length > 0 && (
+              <div className="pt-6 space-y-1.5">
+                <p className="text-[10px] font-extrabold tracking-widest text-text-secondary uppercase px-2 mb-2 font-mono flex items-center gap-1.5">
+                  <Bookmark className="w-3.5 h-3.5 text-violet-400" /> Yer İmleri ({bookmarks.length})
+                </p>
+                <div className="max-h-[140px] overflow-y-auto space-y-1">
+                  {bookmarks.map((b) => {
+                    const linkedManga = mangas.find(m => m.id === b.mangaId);
+                    return (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          if (linkedManga) {
+                            onSelectManga(linkedManga);
+                          }
+                        }}
+                        className="p-2 rounded-xl bg-black/10 hover:bg-white/5 border border-border/5 text-[10px] text-text-secondary hover:text-text-primary cursor-pointer flex flex-col gap-0.5 transition-all"
+                      >
+                        <span className="font-bold truncate text-violet-400">{linkedManga?.title || "Bilinmeyen Manga"}</span>
+                        <div className="flex justify-between items-center text-[9px] text-text-secondary/80 mt-0.5 font-mono">
+                          <span>Sayfa {b.pageNumber}</span>
+                          <span>{b.createdAt}</span>
+                        </div>
+                        {b.note && (
+                          <span className="text-[9px] italic text-text-secondary/70 truncate mt-0.5">"{b.note}"</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -428,6 +560,13 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
 
+                      {/* Offline Cache indicator badge */}
+                      {manga.isCachedOffline && (
+                        <span className="absolute top-2.5 left-2.5 p-1 rounded-md bg-emerald-500 text-white text-[8px] font-extrabold uppercase font-mono shadow-sm">
+                          Çevrimdışı
+                        </span>
+                      )}
+
                       {/* Interactive Float Heart button */}
                       {viewMode === "grid" && (
                         <button
@@ -461,22 +600,14 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
                         <p className="text-[10px] text-text-secondary truncate mt-0.5">{manga.author}</p>
                       </div>
 
-                      {/* Display page counts or progress bar if in reading */}
-                      <div className="mt-2.5">
+                      {/* Display page progress percentage */}
+                      <div className="mt-2.5 space-y-1.5">
                         <div className="flex justify-between items-center text-[9px] text-text-secondary font-semibold font-mono">
-                          <span>Sayfa</span>
-                          <span>{manga.totalPages || 1}</span>
+                          <span>Sayfa {manga.lastReadPage || 1}/{manga.totalPages || 12}</span>
+                          <span>%{manga.readProgress || 0}</span>
                         </div>
-                        {/* Interactive customized rating star block */}
-                        <div className="flex items-center gap-0.5 mt-1.5">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <span
-                              key={i}
-                              className={`w-2.5 h-2.5 rounded-full ${
-                                i < (manga.rating || 5) ? "bg-amber-500" : "bg-white/10"
-                              }`}
-                            />
-                          ))}
+                        <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                          <div style={{ width: `${manga.readProgress || 0}%` }} className="h-full bg-violet-500" />
                         </div>
                       </div>
                     </div>
@@ -622,7 +753,7 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
                   </div>
 
                   <div className="flex gap-4 items-center mt-3 font-mono text-[10px] text-text-secondary">
-                    <span>Cilt Boyutu: {selectedMangaDetail.fileSize || "Bilinmiyor"}</span>
+                    <span>Boyut: {selectedMangaDetail.fileSize || "Bilinmiyor"}</span>
                     <span>Sayfa Sayısı: {selectedMangaDetail.totalPages || 0}</span>
                   </div>
                 </div>
@@ -631,14 +762,14 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
               {/* Body */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 <div className="space-y-1">
-                  <h4 className="text-[10px] font-extrabold text-text-secondary uppercase tracking-widest">Hikaye Özeti</h4>
+                  <h4 className="text-[10px] font-extrabold text-text-secondary uppercase tracking-widest font-mono">Hikaye Özeti</h4>
                   <p className="text-xs text-text-primary leading-relaxed">{selectedMangaDetail.synopsis}</p>
                 </div>
 
                 {/* Tags */}
-                {selectedMangaDetail.tags.length > 0 && (
+                {selectedMangaDetail.tags && selectedMangaDetail.tags.length > 0 && (
                   <div className="space-y-1.5">
-                    <h4 className="text-[10px] font-extrabold text-text-secondary uppercase tracking-widest">Etiketler</h4>
+                    <h4 className="text-[10px] font-extrabold text-text-secondary uppercase tracking-widest font-mono">Etiketler</h4>
                     <div className="flex flex-wrap gap-1.5">
                       {selectedMangaDetail.tags.map(t => (
                         <span key={t} className="px-2 py-0.5 rounded-lg bg-violet-500/5 text-violet-400/90 text-[10px] font-semibold">
@@ -648,6 +779,30 @@ export const MangaDashboard: React.FC<MangaDashboardProps> = ({ onSelectManga })
                     </div>
                   </div>
                 )}
+
+                {/* Offline Mode Sync banner */}
+                <div className="p-3 rounded-2xl bg-black/20 border border-border flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-2.5 h-2.5 rounded-full ${selectedMangaDetail.isCachedOffline ? "bg-emerald-500" : "bg-amber-500 animate-pulse"}`} />
+                    <div className="text-[10px]">
+                      <p className="font-bold text-text-primary">{selectedMangaDetail.isCachedOffline ? "Çevrimdışı Kullanıma Hazır" : "Yerel Belleğe Önbelleklenebilir"}</p>
+                      <p className="text-text-secondary">IndexedDB ve LocalStorage ile internet olmadan okuyabilirsiniz.</p>
+                    </div>
+                  </div>
+                  {!selectedMangaDetail.isCachedOffline && (
+                    <button
+                      onClick={() => {
+                        const updated = mangas.map(m => m.id === selectedMangaDetail.id ? { ...m, isCachedOffline: true } : m);
+                        MangaStorageService.saveMangas(updated);
+                        setMangas(updated);
+                        setSelectedMangaDetail({ ...selectedMangaDetail, isCachedOffline: true });
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 text-[10px] font-bold border border-violet-500/30 transition-all"
+                    >
+                      İndir
+                    </button>
+                  )}
+                </div>
 
                 {/* Collection Management inside details */}
                 <div className="p-3.5 rounded-2xl bg-black/20 border border-border">

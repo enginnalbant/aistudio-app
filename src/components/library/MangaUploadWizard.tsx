@@ -12,22 +12,13 @@ import {
   ArrowLeft,
   RefreshCw,
   FolderOpen,
-  X
+  X,
+  Globe,
+  Database
 } from "lucide-react";
 import JSZip from "jszip";
 import { Manga, MangaChapter, ReaderSettings } from "./mangaTypes";
 import { MangaStorageService } from "./mangaStorageService";
-
-// Safe dynamic PDF.js imports for PDF thumbnail generation
-let pdfjsLib: any = null;
-try {
-  pdfjsLib = require("pdfjs-dist");
-  if (pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-  }
-} catch (e) {
-  // Silent catch for build environments
-}
 
 interface MangaUploadWizardProps {
   onSuccess: (manga: Manga) => void;
@@ -53,6 +44,7 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
   const [newTag, setNewTag] = useState<string>("");
   const [coverUrl, setCoverUrl] = useState<string>("");
   const [pagesCount, setPagesCount] = useState<number>(0);
+  const [pubYear, setPubYear] = useState<number>(2026);
   const [isAiExtracting, setIsAiExtracting] = useState<boolean>(false);
 
   // Local reader setting override logic inside wizard
@@ -100,16 +92,15 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
 
     setFile(selectedFile);
     setError(null);
-    // Suggest title based on clean file name
     const cleanTitle = selectedFile.name
-      .replace(/\.[^/.]+$/, "") // strip extension
-      .replace(/[_-]/g, " ") // replace underscores/dashes with spaces
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[_-]/g, " ")
       .trim();
     setTitle(cleanTitle);
     setStep(2);
   };
 
-  // Google Drive Simulation
+  // Google Drive Simulation with complete Offline Cache trigger
   const handleGoogleDriveSelect = (mangaName: string, size: string) => {
     const dummyFile = new File(["dummyContent"], `${mangaName}.cbz`, { type: "application/x-cbz" });
     setFile(dummyFile);
@@ -133,7 +124,6 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
         const zip = new JSZip();
         const loadedZip = await zip.loadAsync(file);
 
-        // Find all image files
         const imageExtensions = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
         const imageFiles = Object.keys(loadedZip.files).filter(path => {
           const lowerPath = path.toLowerCase();
@@ -144,11 +134,9 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
           throw new Error("Arşiv içerisinde hiç geçerli resim dosyası (.png, .jpg, .webp) bulunamadı.");
         }
 
-        // Sort images alphabetically
         imageFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
         setPagesCount(imageFiles.length);
 
-        // Extract first page as cover
         setProcessingStatus("İlk sayfa kapak görseli olarak ayıklanıyor...");
         const firstImagePath = imageFiles[0];
         const firstImageFile = loadedZip.files[firstImagePath];
@@ -165,7 +153,7 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
 
       } else if (fileName.endsWith(".pdf")) {
         setProcessingStatus("PDF belgesi taranıyor...");
-        const estPages = Math.max(12, Math.floor(file.size / (1024 * 300))); // roughly 300kb per page
+        const estPages = Math.max(12, Math.floor(file.size / (1024 * 300)));
         setPagesCount(estPages);
 
         setProcessingStatus("Kapak şablonu oluşturuluyor...");
@@ -239,7 +227,7 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
     }
   };
 
-  // Automated Google Gemini AI extraction through `/api/books/extract-ai` endpoint
+  // Automated Google Gemini AI extraction with Anilist/MAL Search DB query simulation
   const triggerAiMetadataExtraction = async (fileName: string) => {
     setIsAiExtracting(true);
     try {
@@ -257,27 +245,32 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
         setGenres(metadata.category ? [metadata.category] : ["Manga"]);
         setSynopsis(metadata.description || "Kişisel kütüphanenize yüklenen manga serisi.");
         setTags(metadata.tags || []);
+        setPubYear(metadata.year || 2026);
+        if (metadata.totalPages) {
+          setPagesCount(metadata.totalPages);
+        }
       } else {
-        const lowerName = fileName.toLowerCase();
-        setAuthor("Yapay Zeka");
-        setArtist("Yapay Zeka");
-        setGenres(["Manga"]);
-        setSynopsis("Dosya adından otomatik olarak oluşturuldu. APEX OS manga arşivi.");
-
-        const inferredTags = ["manga", "okuma"];
-        if (lowerName.includes("action") || lowerName.includes("savaş")) inferredTags.push("aksiyon");
-        if (lowerName.includes("adventure") || lowerName.includes("macera")) inferredTags.push("macera");
-        setTags(inferredTags);
+        fallbackExtraction(fileName);
       }
     } catch (e) {
-      setAuthor("Bilinmeyen Çizer");
-      setArtist("Bilinmeyen Çizer");
-      setGenres(["Genel"]);
-      setSynopsis("Sanal kütüphanenize başarıyla aktarılan manga belgesi.");
-      setTags(["manga", "kişisel"]);
+      fallbackExtraction(fileName);
     } finally {
       setIsAiExtracting(false);
     }
+  };
+
+  const fallbackExtraction = (fileName: string) => {
+    const lowerName = fileName.toLowerCase();
+    setAuthor("Yapay Zeka");
+    setArtist("Yapay Zeka");
+    setGenres(["Manga"]);
+    setSynopsis("Dosya adından otomatik olarak oluşturuldu. APEX OS manga arşivi.");
+    setPubYear(2025);
+
+    const inferredTags = ["manga", "okuma"];
+    if (lowerName.includes("action") || lowerName.includes("savaş")) inferredTags.push("aksiyon");
+    if (lowerName.includes("adventure") || lowerName.includes("macera")) inferredTags.push("macera");
+    setTags(inferredTags);
   };
 
   const handleAddTag = () => {
@@ -322,7 +315,7 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
       coverUrl: coverUrl || "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=400",
       genres: genres.length > 0 ? genres : ["Genel"],
       tags,
-      year: new Date().getFullYear(),
+      year: pubYear || new Date().getFullYear(),
       rating: 5,
       favorite: false,
       addedAt: new Date().toLocaleDateString("tr-TR"),
@@ -331,14 +324,15 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
       fileSize: sizeStr,
       totalPages: pagesCount || 1,
       totalChapters: 1,
-      status: "Okunuyor"
+      status: "Okunuyor",
+      readProgress: 0,
+      lastReadPage: 1,
+      isCachedOffline: true // auto-save local download to mock IndexDB caching
     };
 
-    // Save using persistent storage engine
     const currentMangas = MangaStorageService.getMangas();
     MangaStorageService.saveMangas([...currentMangas, newManga]);
 
-    // Save corresponding chapter in storage
     const initialChapter: MangaChapter = {
       id: `chapter-${newManga.id}-1`,
       mangaId: newManga.id,
@@ -351,14 +345,12 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
     const currentChapters = MangaStorageService.getChapters();
     MangaStorageService.saveChapters([...currentChapters, initialChapter]);
 
-    // Save reading mode setting
     const currentSettings = MangaStorageService.getReaderSettings();
     MangaStorageService.saveReaderSettings({
       ...currentSettings,
       readingMode
     });
 
-    // Simulate short haptic success effect if in responsive mode
     if (window.navigator && window.navigator.vibrate) {
       window.navigator.vibrate([100, 50, 100]);
     }
@@ -374,7 +366,6 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className="relative w-full max-w-2xl overflow-hidden shadow-2xl rounded-3xl bg-bg-card border border-border backdrop-blur-xl max-h-[90vh] flex flex-col"
       >
-        {/* Banner Glow */}
         <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
 
         {/* Header */}
@@ -384,7 +375,7 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-text-primary">Akıllı Manga Sihirbazı</h3>
+              <h3 className="text-lg font-bold text-text-primary font-display">Akıllı Manga Sihirbazı</h3>
               <p className="text-xs text-text-secondary">Yapay zeka destekli arşiv tarama ve içe aktarma</p>
             </div>
           </div>
@@ -505,6 +496,9 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 text-xs text-emerald-400 font-semibold mb-2">
+                      <Database className="w-4 h-4" /> Google Drive Akıllı Çevrimdışı Önbellek Aktif
+                    </div>
                     <p className="text-xs text-text-secondary">Google Drive kütüphanenizden taranan son arşivler:</p>
                     <div className="grid gap-3">
                       {[
@@ -584,7 +578,9 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
                   <div className="p-3.5 rounded-2xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <RefreshCw className="w-4 h-4 text-violet-400 animate-spin" />
-                      <span className="text-xs text-violet-300 font-medium">Yapay Zeka kapak ve meta verileri analiz ediyor...</span>
+                      <span className="text-xs text-violet-300 font-medium flex items-center gap-1">
+                        <Globe className="w-3.5 h-3.5" /> AniList & MyAnimeList veritabanlarından akıllı metaveriler aranıyor...
+                      </span>
                     </div>
                   </div>
                 )}
@@ -608,14 +604,14 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
                     </div>
 
                     <div className="text-center">
-                      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-black/20 border border-border text-text-secondary">
+                      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-black/20 border border-border text-text-secondary font-mono">
                         {pagesCount} Sayfa Tespit Edildi
                       </span>
                     </div>
 
                     {/* Reading Mode */}
                     <div className="w-full space-y-2">
-                      <label className="text-xs font-bold text-text-secondary">OKUMA YÖNÜ</label>
+                      <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest font-mono">OKUMA YÖNÜ</label>
                       <div className="grid grid-cols-3 gap-1 p-1 bg-black/20 rounded-xl border border-border">
                         {(["RTL", "LTR", "WEBTOON"] as ReaderSettings["readingMode"][]).map((mode) => (
                           <button
@@ -662,12 +658,12 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-text-secondary uppercase">Artist</label>
+                        <label className="text-xs font-bold text-text-secondary uppercase">Yayın Yılı</label>
                         <input
-                          type="text"
-                          value={artist}
-                          onChange={(e) => setArtist(e.target.value)}
-                          placeholder="Yuki Tanaka"
+                          type="number"
+                          value={pubYear}
+                          onChange={(e) => setPubYear(Number(e.target.value))}
+                          placeholder="2026"
                           className="w-full px-4 py-2.5 rounded-xl bg-black/20 border border-border text-sm text-text-primary focus:border-violet-500 focus:outline-none transition-all"
                         />
                       </div>

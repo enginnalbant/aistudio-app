@@ -117,6 +117,7 @@ export const Dock: React.FC<DockProps> = ({
     { id: 'notes-passwords', title: t('notes.passwords', 'Parola Kasası'), category: 'notes', icon: <Key size={18} />, color: 'from-rose-500 to-pink-600' },
     { id: 'notes-bookmarks', title: t('notes.bookmarks', 'Yer İmleri'), category: 'notes', icon: <Bookmark size={18} />, color: 'from-blue-400 to-indigo-500' },
     { id: 'notes-books', title: t('notes.books', 'Okuma Listesi'), category: 'notes', icon: <BookOpen size={18} />, color: 'from-teal-400 to-cyan-600' },
+    { id: 'library-manga', title: t('nav.manga', 'Manga Kütüphanesi'), category: 'notes', icon: <BookOpen size={18} />, color: 'from-purple-500 to-indigo-600' },
 
     // Tedarik & Stok
     { id: 'purchasing-dashboard', title: t('nav.purchasing', 'Satınalma'), category: 'inventory', icon: <ShoppingBag size={18} />, color: 'from-amber-500 to-orange-600' },
