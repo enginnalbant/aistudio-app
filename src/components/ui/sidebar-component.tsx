@@ -208,7 +208,7 @@ function getSidebarContent(activeSection: string): SidebarContent {
         {
           title: "Genel",
           items: [
-            { id: 'library-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'library-dashboard' },
+            { id: 'library-manga-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'library-manga-dashboard' },
           ],
         },
         {
@@ -345,7 +345,7 @@ function IconNavigation({
   const navItems = [
     { id: "home", icon: <LayoutDashboard size={18} />, label: "Ana Sayfa", moduleId: 'home-dashboard' },
     { id: "finance", icon: <Wallet size={18} />, label: "Kişisel Finans", moduleId: 'finance-dashboard' },
-    { id: "library", icon: <Library size={18} />, label: "Kütüphane", moduleId: 'library-dashboard' },
+    { id: "library", icon: <Library size={18} />, label: "Kütüphane", moduleId: 'library-mangas' },
     { id: "notes", icon: <NotebookPen size={18} />, label: "Notlarım", moduleId: 'notes-dashboard' },
     { id: "bulletin", icon: <Rss size={18} />, label: "Bülten", moduleId: 'bulletin-dashboard' },
   ];

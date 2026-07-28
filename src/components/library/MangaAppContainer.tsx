@@ -3,7 +3,11 @@ import { Manga } from "./mangaTypes";
 import { MangaDashboard } from "./MangaDashboard";
 import { MangaReader } from "./MangaReader";
 
-export const MangaAppContainer: React.FC = () => {
+interface MangaAppContainerProps {
+  activeModule?: string;
+}
+
+export const MangaAppContainer: React.FC<MangaAppContainerProps> = ({ activeModule }) => {
   const [selectedManga, setSelectedManga] = useState<Manga | null>(null);
 
   if (selectedManga) {
@@ -17,6 +21,7 @@ export const MangaAppContainer: React.FC = () => {
 
   return (
     <MangaDashboard
+      activeModule={activeModule}
       onSelectManga={(manga) => setSelectedManga(manga)}
     />
   );

@@ -258,8 +258,8 @@ function AppLayout() {
                   <ReconAnalytics />
                 ) : activeModule === 'library-ebooks' ? (
                   <NotesBooks />
-                ) : activeModule.startsWith('library-manga') ? (
-                  <MangaAppContainer />
+                ) : (activeModule.startsWith('library-manga') || activeModule === 'library-mangas' || activeModule === 'library-dashboard') ? (
+                  <MangaAppContainer activeModule={activeModule} />
                 ) : activeModule.startsWith('library-') ? (
                   <ComingSoon 
                     title={activeModule.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
