@@ -142,7 +142,7 @@ export const FinanceStatus = () => {
   const [simExtraSavings, setSimExtraSavings] = useState<number>(0); // Ek tasarruf miktarı (₺)
   const [simInflationShock, setSimInflationShock] = useState<number>(0); // Enflasyon Şoku (%)
   const [simEmergencyShock, setSimEmergencyShock] = useState<number>(0); // Beklenmedik Gider (₺)
-  const [startingReserve, setStartingReserve] = useLocalStorage<number>('finance_starting_reserve_v2', 250000); // Başlangıç Varlık / Birikim Kalkanı
+  const [startingReserve, setStartingReserve] = useLocalStorage<number>('finance_starting_reserve_v2', 0); // Başlangıç Varlık / Birikim Kalkanı - Temiz bütçe başlangıcı için 0 yapıldı
 
   // 1. Generate Timeline Array (25 Months)
   const timelineMonths = useMemo(() => {
@@ -321,7 +321,7 @@ export const FinanceStatus = () => {
       const purchaseSum = purchases
         .filter(p => p.scheduledMonth === month.yearMonthStr)
         .reduce((sum, p) => sum + Number(p.price || 0), 0);
-      const investAlloc = 3000; // Standard simulated savings allocation
+      const investAlloc = 0; // Standard simulated savings allocation has been removed to start with absolute zero budget
       const budgetAllocationsSum = purchaseSum + investAlloc;
 
       const netCashFlowBeforeBudgets = baseIncomeSum - standardOutflow;
