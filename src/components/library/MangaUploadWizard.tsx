@@ -16,7 +16,7 @@ import {
   Globe,
   Database
 } from "lucide-react";
-import JSZip from "jszip";
+import * as JSZip from "jszip";
 import { Manga, MangaChapter, ReaderSettings } from "./mangaTypes";
 import { MangaStorageService } from "./mangaStorageService";
 
@@ -121,7 +121,8 @@ export const MangaUploadWizard: React.FC<MangaUploadWizardProps> = ({ onSuccess,
 
       if (fileName.endsWith(".zip") || fileName.endsWith(".cbz")) {
         setProcessingStatus("Zip/Cbz arşivi açılıyor ve sayfalar sıralanıyor...");
-        const zip = new JSZip();
+        const ZipConstructor = (JSZip as any).default || JSZip;
+        const zip = new ZipConstructor();
         const loadedZip = await zip.loadAsync(file);
 
         const imageExtensions = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
