@@ -38,6 +38,7 @@ interface Income {
   category: string;
   date: string;
   status: 'Tamamlandı' | 'Beklemede';
+  recurrence?: string;
 }
 
 interface Expense {
@@ -47,6 +48,7 @@ interface Expense {
   category: string;
   date: string;
   status: 'Gerçekleşti' | 'Planlı';
+  recurrence?: string;
 }
 
 interface Investment {
@@ -193,99 +195,251 @@ export const FinanceStatus = () => {
     return 3000;
   };
 
+  // Helper to determine if a transaction is active in a target month
+  const isTxActiveInMonth = (txDateStr: string, recurrence: string | undefined, targetYearMonthStr: string) => {
+    if (!txDateStr) return false;
+    const [txYear, txMonth] = txDateStr.split('-').map(Number);
+    const [tgtYear, tgtMonth] = targetYearMonthStr.split('-').map(Number);
+
+    const txDateNum = txYear * 12 + (txMonth - 1);
+    const tgtDateNum = tgtYear * 12 + (tgtMonth - 1);
+
+    if (tgtDateNum < txDateNum) return false;
+    if (tgtDateNum === txDateNum) return true;
+
+    const rec = recurrence || 'Tek Seferlik';
+    if (rec === 'Tek Seferlik') return false;
+    if (rec === 'Aylık' || rec === 'Haftalık') return true;
+    if (rec === 'Yıllık') {
+      return (tgtMonth - 1) === (txMonth - 1);
+    }
+    return false;
+  };
+
   // 2. Step-by-Step Cashflow Simulation Engine (Generates data for all 25 months relative to each other)
   const monthlySimulatedData = useMemo(() => {
     const dataMap: Record<string, any> = {};
-    let runningBalance = currentSavingsTotal;
 
-    // We simulate step by step from -12 to +12 months to accumulate realistic starting balances
-    timelineMonths.forEach((month) => {
-      const isPast = month.offset < 0;
-      const isCurrent = month.offset === 0;
+    // First, let's map out the debts remaining balances at offset = 0 (current month)
+    const initialDebtRemaining: Record<string, number> = {};
+    debts.forEach(d => {
+      if (d.status !== 'Ödendi') {
+        initialDebtRemaining[d.id] = Number(d.remainingAmount ?? d.totalAmount ?? 0);
+      }
+    });
 
-      // Filter incomes for this specific month
-      const monthIncomes = incomes.filter(inc => {
-        if (!inc.date) return false;
-        return inc.date.startsWith(month.yearMonthStr);
+    // We will simulate forward from offset 0 to 12
+    const forwardBalances: Record<string, { start: number; end: number; net: number }> = {};
+    let currentBalance = currentSavingsTotal;
+
+    // Track debt remaining balances through forward months
+    const projectedDebtRemaining: Record<string, Record<number, number>> = {};
+    // Initialize for month 0
+    projectedDebtRemaining[0] = { ...initialDebtRemaining };
+
+    // Let's also record the dynamic payoff month for each debt
+    const dynamicDebtPayoffs: Record<string, { yearMonthStr: string; offset: number; monthName: string }> = {};
+
+    // Helper to calculate details for any given month
+    const calculateMonthDetails = (month: typeof timelineMonths[0], offset: number, debtBalances: Record<string, number>) => {
+      // Find matching incomes
+      let monthIncomes = incomes.filter(inc => isTxActiveInMonth(inc.date, inc.recurrence, month.yearMonthStr));
+      let baseIncomeSum = monthIncomes.reduce((sum, inc) => {
+        const mult = inc.recurrence === 'Haftalık' ? 4 : 1;
+        return sum + Number(inc.amount || 0) * mult;
+      }, 0);
+
+      // If user has no incomes entered, provide a helpful baseline salary so they have a nice mockup
+      if (baseIncomeSum === 0) {
+        baseIncomeSum = offset < 0 ? 35000 : 38000 + (offset * 500);
+        monthIncomes = [{
+          id: 'mock-inc-1',
+          title: 'Simüle Maaş Geliri (Referans)',
+          amount: baseIncomeSum,
+          category: 'Maaş',
+          date: `${month.yearMonthStr}-15`,
+          status: 'Tamamlandı'
+        }];
+      }
+
+      // Find matching expenses
+      let monthExpenses = expenses.filter(exp => isTxActiveInMonth(exp.date, exp.recurrence, month.yearMonthStr));
+      let baseExpenseSum = monthExpenses.reduce((sum, exp) => {
+        const mult = exp.recurrence === 'Haftalık' ? 4 : 1;
+        return sum + Number(exp.amount || 0) * mult;
+      }, 0);
+
+      if (baseExpenseSum === 0) {
+        baseExpenseSum = offset < 0 ? 20000 : 22000 + (offset * 300);
+        monthExpenses = [{
+          id: 'mock-exp-1',
+          title: 'Simüle Sabit Giderler (Referans)',
+          amount: baseExpenseSum,
+          category: 'Barınma',
+          date: `${month.yearMonthStr}-05`,
+          status: 'Gerçekleşti'
+        }];
+      }
+
+      // Subscriptions (Active digital services)
+      const activeSubs = subscriptions.filter(s => s.status === 'Aktif');
+      const subSum = activeSubs.reduce((sum, s) => {
+        const mult = s.billingCycle === 'Haftalık' ? 4 : (s.billingCycle === 'Yıllık' ? 0.083 : 1);
+        return sum + Number(s.amount || 0) * mult;
+      }, 0);
+
+      // Debt payments for this month
+      const activeDebtsList: typeof debts = [];
+      let debtSum = 0;
+
+      debts.forEach(d => {
+        if (d.status === 'Ödendi') return;
+
+        // For past months, assume payment is made if status is ongoing
+        if (offset < 0) {
+          activeDebtsList.push(d);
+          debtSum += Number(d.paymentAmount || 0);
+        } else {
+          // For current and future months, check projected remaining balance
+          const rem = debtBalances[d.id];
+          if (rem !== undefined && rem > 0) {
+            const pay = Math.min(Number(d.paymentAmount || 0), rem);
+            debtSum += pay;
+            activeDebtsList.push({
+              ...d,
+              paymentAmount: pay,
+              remainingAmount: rem - pay
+            });
+          }
+        }
       });
 
-      // Filter expenses for this specific month
-      const monthExpenses = expenses.filter(exp => {
-        if (!exp.date) return false;
-        return exp.date.startsWith(month.yearMonthStr);
-      });
-
-      // Calculate base incomes (Actual entered or simulated baseline)
-      const baseIncomeSum = monthIncomes.length > 0
-        ? monthIncomes.reduce((sum, i) => sum + Number(i.amount || 0), 0)
-        : (isPast ? 35000 : 38000 + (month.offset * 500)); // Dynamic baseline scaling
-
-      // Calculate base expenses
-      const baseExpenseSum = monthExpenses.length > 0
-        ? monthExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0)
-        : (isPast ? 20000 : 22000 + (month.offset * 300));
-
-      // Subscriptions (Active ones apply)
-      const subSum = subscriptions
-        .filter(s => s.status === 'Aktif')
-        .reduce((sum, s) => sum + Number(s.amount || 0), 0);
-
-      // Debts (Active debts apply based on whether they are still unpaid by this month index)
-      const activeDebtsForMonth = debts.filter(d => {
-        if (d.status === 'Ödendi') return false;
-        // Estimate remaining months. If remaining is 0, we check if payment is needed
-        const totalRem = Number(d.remainingAmount || d.totalAmount || 0);
-        const monthlyTaksit = Number(d.paymentAmount || 0);
-        if (monthlyTaksit <= 0) return false;
-        const totalMonthsToPay = Math.ceil(totalRem / monthlyTaksit);
-        // If this month is within the paying horizon (from offset 0 to totalMonthsToPay)
-        return month.offset >= 0 && month.offset < totalMonthsToPay;
-      });
-      const debtSum = activeDebtsForMonth.reduce((sum, d) => sum + Number(d.paymentAmount || 0), 0);
-
-      // Total standard outflow
+      // Total regular outflow
       const standardOutflow = baseExpenseSum + subSum + debtSum;
 
-      // Optional Budgets (Yatırım, Birikim ve Satın Alma Bütçesi)
-      const purchaseSum = getPurchaseBudgetForMonth(month.yearMonthStr);
-      const investAlloc = getInvestmentAllocation();
+      // Optional Budgets (Investments, savings, planned purchases)
+      const purchaseSum = purchases
+        .filter(p => p.scheduledMonth === month.yearMonthStr)
+        .reduce((sum, p) => sum + Number(p.price || 0), 0);
+      const investAlloc = 3000; // Standard simulated savings allocation
       const budgetAllocationsSum = purchaseSum + investAlloc;
 
-      // Cash Flow Result
       const netCashFlowBeforeBudgets = baseIncomeSum - standardOutflow;
       const netCashFlowWithBudgets = netCashFlowBeforeBudgets - budgetAllocationsSum;
-
       const activeNetCashFlow = includeBudgets ? netCashFlowWithBudgets : netCashFlowBeforeBudgets;
 
-      // Accumulate balance forward
-      const startBalance = runningBalance;
-      runningBalance += activeNetCashFlow;
-      const endBalance = runningBalance;
-
-      dataMap[month.yearMonthStr] = {
-        month,
-        startBalance,
-        incomesList: monthIncomes.length > 0 ? monthIncomes : [{ id: 'mock-1', title: 'Maaş ve Diğer Gelirler', amount: baseIncomeSum, category: 'Maaş', date: `${month.yearMonthStr}-01`, status: 'Tamamlandı' }],
-        expensesList: monthExpenses.length > 0 ? monthExpenses : [
-          { id: 'mock-e1', title: 'Sabit Giderler', amount: baseExpenseSum, category: 'Barınma', date: `${month.yearMonthStr}-01`, status: 'Gerçekleşti' }
-        ],
-        subscriptionsSum: subSum,
-        activeDebtsList: activeDebtsForMonth,
+      return {
+        monthIncomes,
+        baseIncomeSum,
+        monthExpenses,
+        baseExpenseSum,
+        subSum,
+        activeDebtsList,
         debtSum,
         purchaseSum,
         investAlloc,
-        baseIncomeSum,
         standardOutflow,
         budgetAllocationsSum,
         netCashFlowBeforeBudgets,
         netCashFlowWithBudgets,
-        activeNetCashFlow,
-        endBalance
+        activeNetCashFlow
       };
-    });
+    };
+
+    // Forward simulation (0 to 12)
+    let tempDebts = { ...initialDebtRemaining };
+    for (let o = 0; o <= 12; o++) {
+      const month = timelineMonths.find(m => m.offset === o);
+      if (!month) continue;
+
+      // Calculate details
+      const details = calculateMonthDetails(month, o, tempDebts);
+
+      // Update remaining debt balances for the next month
+      const nextDebts = { ...tempDebts };
+      debts.forEach(d => {
+        if (d.status === 'Ödendi') return;
+        const rem = tempDebts[d.id];
+        if (rem !== undefined && rem > 0) {
+          const pay = Math.min(Number(d.paymentAmount || 0), rem);
+          nextDebts[d.id] = Math.max(0, rem - pay);
+          if (nextDebts[d.id] === 0 && !dynamicDebtPayoffs[d.id]) {
+            dynamicDebtPayoffs[d.id] = {
+              yearMonthStr: month.yearMonthStr,
+              offset: o,
+              monthName: `${month.monthName} ${month.year}`
+            };
+          }
+        }
+      });
+      tempDebts = nextDebts;
+      projectedDebtRemaining[o + 1] = { ...tempDebts };
+
+      // Balance tracking
+      const startBal = currentBalance;
+      currentBalance += details.activeNetCashFlow;
+      const endBal = currentBalance;
+
+      forwardBalances[month.yearMonthStr] = { start: startBal, end: endBal, net: details.activeNetCashFlow };
+
+      dataMap[month.yearMonthStr] = {
+        month,
+        startBalance: startBal,
+        endBalance: endBal,
+        incomesList: details.monthIncomes,
+        expensesList: details.monthExpenses,
+        subscriptionsSum: details.subSum,
+        activeDebtsList: details.activeDebtsList,
+        debtSum: details.debtSum,
+        purchaseSum: details.purchaseSum,
+        investAlloc: details.investAlloc,
+        baseIncomeSum: details.baseIncomeSum,
+        standardOutflow: details.standardOutflow,
+        budgetAllocationsSum: details.budgetAllocationsSum,
+        netCashFlowBeforeBudgets: details.netCashFlowBeforeBudgets,
+        netCashFlowWithBudgets: details.netCashFlowWithBudgets,
+        activeNetCashFlow: details.activeNetCashFlow
+      };
+    }
+
+    // Backward simulation (-1 to -12)
+    let backwardBalance = currentSavingsTotal;
+    for (let o = -1; o >= -12; o--) {
+      const month = timelineMonths.find(m => m.offset === o);
+      if (!month) continue;
+
+      const details = calculateMonthDetails(month, o, {});
+
+      // For backward, we subtract the net flow to find previous starting balance
+      const endBal = backwardBalance;
+      backwardBalance -= details.activeNetCashFlow;
+      const startBal = backwardBalance;
+
+      dataMap[month.yearMonthStr] = {
+        month,
+        startBalance: startBal,
+        endBalance: endBal,
+        incomesList: details.monthIncomes,
+        expensesList: details.monthExpenses,
+        subscriptionsSum: details.subSum,
+        activeDebtsList: details.activeDebtsList,
+        debtSum: details.debtSum,
+        purchaseSum: details.purchaseSum,
+        investAlloc: details.investAlloc,
+        baseIncomeSum: details.baseIncomeSum,
+        standardOutflow: details.standardOutflow,
+        budgetAllocationsSum: details.budgetAllocationsSum,
+        netCashFlowBeforeBudgets: details.netCashFlowBeforeBudgets,
+        netCashFlowWithBudgets: details.netCashFlowWithBudgets,
+        activeNetCashFlow: details.activeNetCashFlow
+      };
+    }
+
+    // We can attach the dynamic payoffs helper to the returned map
+    dataMap._dynamicDebtPayoffs = dynamicDebtPayoffs;
 
     return dataMap;
-  }, [incomes, expenses, currentSavingsTotal, subscriptions, debts, purchases, includeBudgets]);
+  }, [incomes, expenses, currentSavingsTotal, subscriptions, debts, purchases, includeBudgets, timelineMonths]);
 
   // Current selected month simulated metrics
   const activeMonthData = useMemo(() => {
@@ -312,18 +466,29 @@ export const FinanceStatus = () => {
   // 3. Giderlerin Ne Zaman ve Ne Kadarının Biteceği (Expense Termination Engine)
   const expenseTerminationSchedule = useMemo(() => {
     const list: any[] = [];
-    const todayOffset = 0; // July 2026 is today (offset 0)
+    const payoffs = monthlySimulatedData._dynamicDebtPayoffs || {};
 
     debts.forEach((debt) => {
       if (debt.status === 'Ödendi') return;
-      const remaining = Number(debt.remainingAmount || debt.totalAmount || 0);
+      const payoffInfo = payoffs[debt.id];
       const monthlyPay = Number(debt.paymentAmount || 0);
+      const remaining = Number(debt.remainingAmount || debt.totalAmount || 0);
       if (monthlyPay <= 0) return;
 
-      const monthsLeft = Math.ceil(remaining / monthlyPay);
-      const targetMonthObj = timelineMonths.find(m => m.offset === monthsLeft);
-
-      if (monthsLeft > 0 && monthsLeft <= 12) {
+      if (payoffInfo) {
+        list.push({
+          id: `term-debt-${debt.id}`,
+          title: debt.title,
+          type: 'Borç / Kredi',
+          monthlyAmount: monthlyPay,
+          remainingAmount: remaining,
+          monthsRemaining: payoffInfo.offset,
+          endingMonthName: payoffInfo.monthName,
+          dateStr: payoffInfo.yearMonthStr
+        });
+      } else {
+        const monthsLeft = Math.ceil(remaining / monthlyPay);
+        const targetMonthObj = timelineMonths.find(m => m.offset === monthsLeft);
         list.push({
           id: `term-debt-${debt.id}`,
           title: debt.title,
@@ -352,7 +517,7 @@ export const FinanceStatus = () => {
     });
 
     return list.sort((a, b) => a.monthsRemaining - b.monthsRemaining);
-  }, [debts, subscriptions, timelineMonths]);
+  }, [debts, subscriptions, timelineMonths, monthlySimulatedData]);
 
   // Total amount of expenses that will end over the next 12 months
   const totalUpcomingFreedBudget = useMemo(() => {
