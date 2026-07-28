@@ -255,7 +255,7 @@ function AppLayout() {
                   <ReconAnalytics />
                 ) : activeModule === 'library-ebooks' ? (
                   <NotesBooks />
-                ) : (activeModule.startsWith('library-manga') || activeModule === 'library-mangas') ? (
+                ) : (activeModule.startsWith('library-manga') || activeModule === 'library-mangas' || activeModule === 'library-dashboard') ? (
                   <MangaAppContainer activeModule={activeModule} />
                 ) : activeModule.startsWith('library-') ? (
                   <ComingSoon 
