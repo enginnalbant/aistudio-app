@@ -25,7 +25,8 @@ import {
   DollarSign,
   HelpCircle,
   MessageSquare,
-  CheckCircle2
+  CheckCircle2,
+  X
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -107,16 +108,23 @@ interface PlannedPurchase {
 
 export const FinanceStatus = () => {
   // Pull data from local storages
-  const [incomes] = useLocalStorage<Income[]>('finance_incomes', []);
-  const [expenses] = useLocalStorage<Expense[]>('finance_expenses', []);
-  const [investments] = useLocalStorage<Investment[]>('finance_investments', []);
-  const [debts] = useLocalStorage<Debt[]>('finance_debts', []);
-  const [subscriptions] = useLocalStorage<Subscription[]>('finance_subscriptions', []);
-  const [savings] = useLocalStorage<SavingGoal[]>('finance_savings', []);
+  const [incomes, setIncomes] = useLocalStorage<Income[]>('finance_incomes', []);
+  const [expenses, setExpenses] = useLocalStorage<Expense[]>('finance_expenses', []);
+  const [investments, setInvestments] = useLocalStorage<Investment[]>('finance_investments', []);
+  const [debts, setDebts] = useLocalStorage<Debt[]>('finance_debts', []);
+  const [subscriptions, setSubscriptions] = useLocalStorage<Subscription[]>('finance_subscriptions', []);
+  const [savings, setSavings] = useLocalStorage<SavingGoal[]>('finance_savings', []);
   const [purchases, setPurchases] = useLocalStorage<PlannedPurchase[]>('finance_purchases', []);
 
   // Budget Inclusion Options
   const [includeBudgets, setIncludeBudgets] = useState<boolean>(true);
+
+  // New purchase target wizard state
+  const [isNewTargetOpen, setIsNewTargetOpen] = useState(false);
+  const [newTargetTitle, setNewTargetTitle] = useState('');
+  const [newTargetPrice, setNewTargetPrice] = useState(100000);
+  const [newTargetMonth, setNewTargetMonth] = useState('2026-12');
+  const [newTargetPriority, setNewTargetPriority] = useState<'Acil' | 'Orta' | 'İsteğe Bağlı'>('Orta');
 
   // Time anchor: simulated current date is 2026-07 (July 2026) to align with baseline demo data
   const baseYear = 2026;
@@ -129,6 +137,12 @@ export const FinanceStatus = () => {
   const [chatInput, setChatInput] = useState<string>('');
   const [chatAnswer, setChatAnswer] = useState<string>('');
   const [isTyping, setIsTyping] = useState<boolean>(false);
+
+  // Interactive Simulation sliders state
+  const [simExtraSavings, setSimExtraSavings] = useState<number>(0); // Ek tasarruf miktarı (₺)
+  const [simInflationShock, setSimInflationShock] = useState<number>(0); // Enflasyon Şoku (%)
+  const [simEmergencyShock, setSimEmergencyShock] = useState<number>(0); // Beklenmedik Gider (₺)
+  const [startingReserve, setStartingReserve] = useLocalStorage<number>('finance_starting_reserve_v2', 250000); // Başlangıç Varlık / Birikim Kalkanı
 
   // 1. Generate Timeline Array (25 Months)
   const timelineMonths = useMemo(() => {
@@ -172,15 +186,17 @@ export const FinanceStatus = () => {
     return timelineMonths.find(m => m.offset === selectedOffset) || timelineMonths[12];
   }, [timelineMonths, selectedOffset]);
 
-  // Current savings metric (anapara/birikimler)
+  // Current savings metric (anapara/birikimler) using user-defined starting capital
   const currentSavingsTotal = useMemo(() => {
     const totalInv = investments
       .filter(i => i.status === 'Aktif')
       .reduce((sum, i) => sum + Number(i.currentAmount || i.initialAmount || 0), 0);
     const totalSav = savings
       .reduce((sum, s) => sum + Number(s.currentAmount || 0), 0);
-    return totalInv + totalSav;
-  }, [investments, savings]);
+
+    // Base savings = investments + target savings + customizable Starting Reserve
+    return totalInv + totalSav + startingReserve;
+  }, [investments, savings, startingReserve]);
 
   // Get cumulative planned purchase budget scheduled for any specific month
   const getPurchaseBudgetForMonth = (yearMonthStr: string) => {
@@ -281,12 +297,21 @@ export const FinanceStatus = () => {
         }];
       }
 
+      // Apply Interactive Simulation Inflation Shock to future months
+      if (offset > 0 && simInflationShock > 0) {
+        baseExpenseSum = Math.round(baseExpenseSum * (1 + simInflationShock / 100));
+      }
+
       // Subscriptions (Active digital services)
       const activeSubs = subscriptions.filter(s => s.status === 'Aktif');
-      const subSum = activeSubs.reduce((sum, s) => {
+      let subSum = activeSubs.reduce((sum, s) => {
         const mult = s.billingCycle === 'Haftalık' ? 4 : (s.billingCycle === 'Yıllık' ? 0.083 : 1);
         return sum + Number(s.amount || 0) * mult;
       }, 0);
+
+      if (offset > 0 && simInflationShock > 0) {
+        subSum = Math.round(subSum * (1 + simInflationShock / 100));
+      }
 
       // Debt payments for this month
       const activeDebtsList: typeof debts = [];
@@ -375,12 +400,25 @@ export const FinanceStatus = () => {
       tempDebts = nextDebts;
       projectedDebtRemaining[o + 1] = { ...tempDebts };
 
+      // Apply Interactive Simulation parameter modifiers
+      let monthlyNetFlow = details.activeNetCashFlow;
+
+      // If o === 0, apply current month emergency shock once
+      if (o === 0 && simEmergencyShock > 0) {
+        monthlyNetFlow -= simEmergencyShock;
+      }
+
+      // If o > 0, apply extra positive savings simulation rate
+      if (o > 0 && simExtraSavings > 0) {
+        monthlyNetFlow += simExtraSavings;
+      }
+
       // Balance tracking
       const startBal = currentBalance;
-      currentBalance += details.activeNetCashFlow;
+      currentBalance += monthlyNetFlow;
       const endBal = currentBalance;
 
-      forwardBalances[month.yearMonthStr] = { start: startBal, end: endBal, net: details.activeNetCashFlow };
+      forwardBalances[month.yearMonthStr] = { start: startBal, end: endBal, net: monthlyNetFlow };
 
       dataMap[month.yearMonthStr] = {
         month,
@@ -473,7 +511,10 @@ export const FinanceStatus = () => {
       const payoffInfo = payoffs[debt.id];
       const monthlyPay = Number(debt.paymentAmount || 0);
       const remaining = Number(debt.remainingAmount || debt.totalAmount || 0);
+      const totalAmt = Number(debt.totalAmount || debt.remainingAmount || 1);
       if (monthlyPay <= 0) return;
+
+      const paidPct = Math.min(100, Math.round(((totalAmt - remaining) / totalAmt) * 100));
 
       if (payoffInfo) {
         list.push({
@@ -482,6 +523,8 @@ export const FinanceStatus = () => {
           type: 'Borç / Kredi',
           monthlyAmount: monthlyPay,
           remainingAmount: remaining,
+          totalAmount: totalAmt,
+          paidPercentage: paidPct,
           monthsRemaining: payoffInfo.offset,
           endingMonthName: payoffInfo.monthName,
           dateStr: payoffInfo.yearMonthStr
@@ -495,6 +538,8 @@ export const FinanceStatus = () => {
           type: 'Borç / Kredi',
           monthlyAmount: monthlyPay,
           remainingAmount: remaining,
+          totalAmount: totalAmt,
+          paidPercentage: paidPct,
           monthsRemaining: monthsLeft,
           endingMonthName: targetMonthObj ? `${targetMonthObj.monthName} ${targetMonthObj.year}` : `${monthsLeft} ay sonra`,
           dateStr: targetMonthObj?.yearMonthStr
@@ -510,6 +555,8 @@ export const FinanceStatus = () => {
         type: 'Dijital Abonelik',
         monthlyAmount: Number(sub.amount || 0),
         remainingAmount: 0,
+        totalAmount: Number(sub.amount || 0),
+        paidPercentage: 50,
         monthsRemaining: 3, // Mocked 3 months to cancellation
         endingMonthName: 'Ekim 2026',
         dateStr: '2026-10'
@@ -518,6 +565,21 @@ export const FinanceStatus = () => {
 
     return list.sort((a, b) => a.monthsRemaining - b.monthsRemaining);
   }, [debts, subscriptions, timelineMonths, monthlySimulatedData]);
+
+  const handleAddNewTarget = () => {
+    if (!newTargetTitle.trim() || !newTargetPrice) return;
+    const newTarget: PlannedPurchase = {
+      id: `p-${Date.now()}`,
+      title: newTargetTitle,
+      price: Number(newTargetPrice),
+      category: 'Satınalma Planlama',
+      priority: newTargetPriority,
+      scheduledMonth: newTargetMonth
+    };
+    setPurchases(prev => [...(prev || []), newTarget]);
+    setIsNewTargetOpen(false);
+    setNewTargetTitle('');
+  };
 
   // Total amount of expenses that will end over the next 12 months
   const totalUpcomingFreedBudget = useMemo(() => {
@@ -594,22 +656,33 @@ export const FinanceStatus = () => {
         </div>
 
         {/* Global Inclusion Toggle Controls */}
-        <div className="flex items-center gap-3 bg-neutral-800/5 dark:bg-white/[0.02] border border-black/5 dark:border-white/5 p-2 rounded-2xl self-stretch md:self-auto justify-between">
-          <div className="flex items-center gap-2">
-            <ShoppingBag size={16} className="text-ai-bright font-medium" />
-            <div className="flex flex-col">
-              <span className="text-[10px] text-text-primary font-bold">Yatırım & Satın Alma Bütçesi</span>
-              <span className="text-[9px] text-text-secondary">Hesaplamaya dahil et</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          {/* Target Creator Button */}
           <button
-            onClick={() => setIncludeBudgets(!includeBudgets)}
-            className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-1 shrink-0 ${
-              includeBudgets ? 'bg-focus-neon' : 'bg-neutral-800/20 dark:bg-white/10'
-            }`}
+            onClick={() => setIsNewTargetOpen(true)}
+            className="flex items-center gap-2 bg-skel-space hover:bg-white/5 border border-white/10 px-3.5 py-2 rounded-2xl text-xs font-bold text-text-primary transition-all active:scale-95 cursor-pointer"
           >
-            <div className="w-4 h-4 rounded-full bg-white transition-transform transform translate-x-0 dark:translate-x-0" style={{ transform: includeBudgets ? 'translateX(24px)' : 'translateX(0)' }} />
+            <Target size={15} className="text-focus-neon" />
+            <span>Yeni Hedef/Plan Ekle</span>
           </button>
+
+          <div className="flex items-center gap-3 bg-neutral-800/5 dark:bg-white/[0.02] border border-black/5 dark:border-white/5 p-2 rounded-2xl self-stretch md:self-auto justify-between flex-1 md:flex-initial">
+            <div className="flex items-center gap-2">
+              <ShoppingBag size={16} className="text-ai-bright font-medium" />
+              <div className="flex flex-col">
+                <span className="text-[10px] text-text-primary font-bold">Yatırım & Satın Alma Bütçesi</span>
+                <span className="text-[9px] text-text-secondary">Hesaplamaya dahil et</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setIncludeBudgets(!includeBudgets)}
+              className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-1 shrink-0 ${
+                includeBudgets ? 'bg-focus-neon' : 'bg-neutral-800/20 dark:bg-white/10'
+              }`}
+            >
+              <div className="w-4 h-4 rounded-full bg-white transition-transform transform translate-x-0 dark:translate-x-0" style={{ transform: includeBudgets ? 'translateX(24px)' : 'translateX(0)' }} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -636,7 +709,9 @@ export const FinanceStatus = () => {
           </div>
           <div className="mt-4 pt-2 border-t border-black/5 dark:border-white/5 flex justify-between items-center text-xs font-mono">
             <span className="text-text-secondary">Dönem Kapanışı</span>
-            <span className="text-text-primary font-bold">₺{(monthlySimulatedData['2026-01']?.endBalance || 240000).toLocaleString('tr-TR')}</span>
+            <span className="text-text-primary font-bold">
+              ₺{Math.round(monthlySimulatedData['2026-01']?.endBalance || 240000).toLocaleString('tr-TR')}
+            </span>
           </div>
         </motion.div>
 
@@ -662,7 +737,9 @@ export const FinanceStatus = () => {
           </div>
           <div className="mt-4 pt-2 border-t border-black/5 dark:border-white/5 flex justify-between items-center text-xs font-mono">
             <span className="text-text-secondary">Eldeki Nakit</span>
-            <span className="text-focus-neon font-bold">₺{currentSavingsTotal.toLocaleString('tr-TR')}</span>
+            <span className="text-focus-neon font-bold">
+              ₺{Math.round(monthlySimulatedData['2026-07']?.endBalance || currentSavingsTotal).toLocaleString('tr-TR')}
+            </span>
           </div>
         </motion.div>
 
@@ -687,9 +764,96 @@ export const FinanceStatus = () => {
           </div>
           <div className="mt-4 pt-2 border-t border-black/5 dark:border-white/5 flex justify-between items-center text-xs font-mono">
             <span className="text-text-secondary">Tahmini Birikim</span>
-            <span className="text-ai-bright font-bold">₺{Math.round(monthlySimulatedData['2027-01']?.endBalance || 420000).toLocaleString('tr-TR')}</span>
+            <span className="text-ai-bright font-bold">
+              ₺{Math.round(monthlySimulatedData['2027-01']?.endBalance || 420000).toLocaleString('tr-TR')}
+            </span>
           </div>
         </motion.div>
+      </div>
+
+      {/* INTERACTIVE SIMULATION PARAMETER CONTROL BOARD */}
+      <div className="bg-gradient-to-r from-neutral-800/5 to-transparent dark:from-white/[0.02] dark:to-transparent border border-black/5 dark:border-white/5 p-5 rounded-3xl space-y-4">
+        <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/5 pb-2.5">
+          <Sparkles className="text-focus-neon animate-pulse shrink-0" size={18} />
+          <div>
+            <h3 className="text-xs font-black text-text-primary uppercase tracking-wider">İnteraktif Parametrik Finansal Simülasyon Stüdyosu</h3>
+            <p className="text-[10px] text-text-secondary">Enflasyon dalgalanmaları veya beklenmedik acil durum harcamalarının 25 aylık nakit yol haritanıza etkisini gerçek zamanlı simüle edin.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-xs">
+          {/* Slider 0: Başlangıç Nakit Birikimi */}
+          <div className="space-y-2">
+            <div className="flex justify-between font-bold text-text-secondary">
+              <span>Başlangıç Varlık / Birikim Kalkanı</span>
+              <span className="font-mono text-focus-main">₺{startingReserve.toLocaleString('tr-TR')}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1000000"
+              step="10000"
+              value={startingReserve}
+              onChange={(e) => setStartingReserve(Number(e.target.value))}
+              className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-focus-main"
+            />
+            <span className="text-[9px] text-text-secondary block">Mevcut nakit birikiminiz ve finansal tampon kalkanınız.</span>
+          </div>
+
+          {/* Slider 1: Aylık Ek Tasarruf Oranı */}
+          <div className="space-y-2">
+            <div className="flex justify-between font-bold text-text-secondary">
+              <span>Aylık Ekstra Birikim</span>
+              <span className="font-mono text-focus-neon">+₺{simExtraSavings.toLocaleString('tr-TR')}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="20000"
+              step="500"
+              value={simExtraSavings}
+              onChange={(e) => setSimExtraSavings(Number(e.target.value))}
+              className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-focus-neon"
+            />
+            <span className="text-[9px] text-text-secondary block">Maaş dışındaki her ay biriktirilen ilave tasarruf.</span>
+          </div>
+
+          {/* Slider 2: Yıllık Enflasyon Şoku */}
+          <div className="space-y-2">
+            <div className="flex justify-between font-bold text-text-secondary">
+              <span>Yıllık Enflasyon Şoku (Gelecek)</span>
+              <span className="font-mono text-red-400">%{simInflationShock}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="50"
+              step="5"
+              value={simInflationShock}
+              onChange={(e) => setSimInflationShock(Number(e.target.value))}
+              className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-400"
+            />
+            <span className="text-[9px] text-text-secondary block">Gelecek aylarda sabit ve dijital giderlerin artış oranı.</span>
+          </div>
+
+          {/* Slider 3: Beklenmedik Gider Şoku */}
+          <div className="space-y-2">
+            <div className="flex justify-between font-bold text-text-secondary">
+              <span>Beklenmedik Acil Gider (Şimdi)</span>
+              <span className="font-mono text-orange-400">₺{simEmergencyShock.toLocaleString('tr-TR')}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="50000"
+              step="1000"
+              value={simEmergencyShock}
+              onChange={(e) => setSimEmergencyShock(Number(e.target.value))}
+              className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-400"
+            />
+            <span className="text-[9px] text-text-secondary block">Bu ay gerçekleşen tek seferlik tıbbi/teknik acil harcama.</span>
+          </div>
+        </div>
       </div>
 
       {/* 25-MONTHS HORIZONTAL ANIMATED TIMELINE SLIDER */}
@@ -814,15 +978,29 @@ export const FinanceStatus = () => {
 
               {/* Sub-list of incomes for detail */}
               <div className="pl-11 border-l border-black/5 dark:border-white/5 space-y-2 pt-1">
-                {activeMonthData.incomesList.map((inc: any, i: number) => (
-                  <div key={inc.id || i} className="flex justify-between items-center text-xs text-text-secondary">
-                    <span className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-focus-neon rounded-full" />
-                      {inc.title}
-                    </span>
-                    <span className="font-mono font-bold text-text-primary dark:text-white">₺{Number(inc.amount).toLocaleString('tr-TR')}</span>
-                  </div>
-                ))}
+                {activeMonthData.incomesList.map((inc: any, i: number) => {
+                  const isPending = inc.status === 'Beklemede';
+                  return (
+                    <div key={inc.id || i} className="flex justify-between items-center text-xs text-text-secondary">
+                      <span className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-focus-neon rounded-full" />
+                        <span>{inc.title}</span>
+                        {isPending && !inc.isDynamic && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIncomes(prev => prev.map(item => item.id === inc.id ? { ...item, status: 'Tamamlandı' } : item));
+                            }}
+                            className="text-[8px] font-bold bg-focus-neon/15 hover:bg-focus-neon text-focus-neon hover:text-black border border-focus-neon/20 px-1.5 py-0.2 rounded-full cursor-pointer"
+                          >
+                            Tamamla ✓
+                          </button>
+                        )}
+                      </span>
+                      <span className="font-mono font-bold text-text-primary dark:text-white">₺{Number(inc.amount).toLocaleString('tr-TR')}</span>
+                    </div>
+                  );
+                })}
               </div>
             </motion.div>
 
@@ -848,15 +1026,29 @@ export const FinanceStatus = () => {
 
               {/* Detailed Expenses Breakdown */}
               <div className="pl-11 border-l border-black/5 dark:border-white/5 space-y-2 pt-1">
-                {activeMonthData.expensesList.slice(0, 3).map((exp: any, i: number) => (
-                  <div key={exp.id || i} className="flex justify-between items-center text-xs text-text-secondary">
-                    <span className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />
-                      {exp.title}
-                    </span>
-                    <span className="font-mono">-₺{Number(exp.amount).toLocaleString('tr-TR')}</span>
-                  </div>
-                ))}
+                {activeMonthData.expensesList.slice(0, 3).map((exp: any, i: number) => {
+                  const isPlanned = exp.status === 'Planlı';
+                  return (
+                    <div key={exp.id || i} className="flex justify-between items-center text-xs text-text-secondary">
+                      <span className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />
+                        <span>{exp.title}</span>
+                        {isPlanned && !exp.isDynamic && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExpenses(prev => prev.map(item => item.id === exp.id ? { ...item, status: 'Gerçekleşti' } : item));
+                            }}
+                            className="text-[8px] font-bold bg-crit-vivid/15 hover:bg-crit-vivid text-crit-vivid hover:text-white border border-crit-vivid/20 px-1.5 py-0.2 rounded-full cursor-pointer"
+                          >
+                            Öde ✓
+                          </button>
+                        )}
+                      </span>
+                      <span className="font-mono">-₺{Number(exp.amount).toLocaleString('tr-TR')}</span>
+                    </div>
+                  );
+                })}
 
                 {/* Display Subscriptions & Debts inside active ledger */}
                 {activeMonthData.subscriptionsSum > 0 && (
@@ -995,21 +1187,37 @@ export const FinanceStatus = () => {
             </div>
 
             {expenseTerminationSchedule.length > 0 ? (
-              <div className="space-y-3.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
-                {expenseTerminationSchedule.slice(0, 4).map((item) => (
-                  <div key={item.id} className="p-3 bg-neutral-800/10 dark:bg-black/25 border border-black/5 dark:border-white/5 rounded-xl flex justify-between items-center">
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-1.5 rounded-lg bg-orange-400/10 text-orange-400 text-xs shrink-0">
-                        <TrendingDown size={14} />
+              <div className="space-y-3.5 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin">
+                {expenseTerminationSchedule.slice(0, 5).map((item) => (
+                  <div key={item.id} className="p-3 bg-neutral-800/10 dark:bg-black/25 border border-black/5 dark:border-white/5 rounded-xl space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-orange-400/10 text-orange-400 text-xs shrink-0">
+                          <TrendingDown size={14} />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-text-primary dark:text-white block truncate w-32 md:w-44">{item.title}</span>
+                          <span className="text-[10px] text-text-secondary">{item.endingMonthName} ({item.monthsRemaining} ay kaldı)</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-xs font-bold text-text-primary dark:text-white block truncate w-32 md:w-44">{item.title}</span>
-                        <span className="text-[10px] text-text-secondary">{item.endingMonthName} ({item.monthsRemaining} ay kaldı)</span>
+                      <div className="text-right shrink-0">
+                        <span className="text-xs font-mono font-bold text-focus-neon block">₺{item.monthlyAmount.toLocaleString('tr-TR')} / ay</span>
+                        <span className="text-[9px] text-text-secondary uppercase">Bütçeye İade</span>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xs font-mono font-bold text-focus-neon block">₺{item.monthlyAmount.toLocaleString('tr-TR')} / ay</span>
-                      <span className="text-[9px] text-text-secondary uppercase">Bütçeye İade</span>
+
+                    {/* Interactive Taksit Progress Bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[9px] text-text-secondary font-mono">
+                        <span>Borç Ödeme İlerlemesi</span>
+                        <span>%{item.paidPercentage} Ödendi</span>
+                      </div>
+                      <div className="w-full bg-neutral-800 dark:bg-white/5 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-focus-neon h-full rounded-full transition-all duration-500"
+                          style={{ width: `${item.paidPercentage}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1055,11 +1263,14 @@ export const FinanceStatus = () => {
 
           {/* Analysis Card 1 */}
           <div className="p-5 rounded-2xl bg-neutral-800/10 dark:bg-black/40 border border-black/5 dark:border-white/5 space-y-3 hover:border-black/10 hover:dark:border-white/10 transition-colors">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-focus-neon/15 text-focus-neon flex items-center justify-center font-bold text-xs">
-                <CheckCircle2 size={14} />
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-focus-neon/15 text-focus-neon flex items-center justify-center font-bold text-xs">
+                  <CheckCircle2 size={14} />
+                </div>
+                <h4 className="font-bold text-text-primary dark:text-white text-xs uppercase tracking-wider">Satın Alma Planlama Analizi</h4>
               </div>
-              <h4 className="font-bold text-text-primary dark:text-white text-xs uppercase tracking-wider">Satın Alma Planlama Analizi</h4>
+              <span className="text-[9px] bg-focus-neon/10 text-focus-neon px-2 py-0.5 rounded font-mono">Dinamik</span>
             </div>
             <p className="text-xs text-text-secondary leading-relaxed">
               Mevcut satın alma bütçenizi dahil ettiğimizde, {activeMonth.monthName} ayındaki toplam birikim havuzunuz <strong>₺{Math.round(activeMonthData.endBalance).toLocaleString('tr-TR')}</strong> seviyesinde kararlı görünmektedir. Acil ihtiyaçlarınızı önceliklendirin.
@@ -1068,11 +1279,14 @@ export const FinanceStatus = () => {
 
           {/* Analysis Card 2 */}
           <div className="p-5 rounded-2xl bg-neutral-800/10 dark:bg-black/40 border border-black/5 dark:border-white/5 space-y-3 hover:border-black/10 hover:dark:border-white/10 transition-colors">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-orange-400/15 text-orange-400 flex items-center justify-center font-bold text-xs">
-                <AlertTriangle size={14} />
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-400/15 text-orange-400 flex items-center justify-center font-bold text-xs">
+                  <AlertTriangle size={14} />
+                </div>
+                <h4 className="font-bold text-text-primary dark:text-white text-xs uppercase tracking-wider">Gider Sızıntıları ve Öngörüler</h4>
               </div>
-              <h4 className="font-bold text-text-primary dark:text-white text-xs uppercase tracking-wider">Gider Sızıntıları ve Öngörüler</h4>
+              <span className="text-[9px] bg-orange-400/10 text-orange-400 px-2 py-0.5 rounded font-mono">Uyarı</span>
             </div>
             <p className="text-xs text-text-secondary leading-relaxed">
               Abonelikleriniz ve borç taksitleriniz bütçenizin <strong>%{(activeMonthData.baseIncomeSum > 0 ? ((activeMonthData.standardOutflow / activeMonthData.baseIncomeSum) * 100).toFixed(0) : '0')}%</strong>'lik kısmını oluşturuyor. Önümüzdeki 4. ayda biten borçla birlikte bütçeniz rahat bir nefes alacaktır.
@@ -1081,11 +1295,14 @@ export const FinanceStatus = () => {
 
           {/* Analysis Card 3 */}
           <div className="p-5 rounded-2xl bg-neutral-800/10 dark:bg-black/40 border border-black/5 dark:border-white/5 space-y-3 hover:border-black/10 hover:dark:border-white/10 transition-colors">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-ai-bright/15 text-ai-bright flex items-center justify-center font-bold text-xs">
-                <Zap size={14} />
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-ai-bright/15 text-ai-bright flex items-center justify-center font-bold text-xs">
+                  <Zap size={14} />
+                </div>
+                <h4 className="font-bold text-text-primary dark:text-white text-xs uppercase tracking-wider">Yatırım & Tasarruf Tavsiyeleri</h4>
               </div>
-              <h4 className="font-bold text-text-primary dark:text-white text-xs uppercase tracking-wider">Yatırım & Tasarruf Tavsiyeleri</h4>
+              <span className="text-[9px] bg-ai-bright/10 text-ai-bright px-2 py-0.5 rounded font-mono">Tavsiye</span>
             </div>
             <p className="text-xs text-text-secondary leading-relaxed">
               Aylık kümülatif serbest bakiye birikimlerinizi enflasyon karşısında korumak amacıyla, düzenli olarak %15 oranında değerli metallere veya endeks fonlarına yönlendirmeniz finansal özgürlüğünüzü hızlandıracaktır.
@@ -1096,9 +1313,50 @@ export const FinanceStatus = () => {
 
         {/* INTERACTIVE Q&A SPECIAL MODULE WITH CHAT SIMULATION */}
         <div className="p-4 md:p-5 rounded-2xl bg-neutral-800/5 dark:bg-white/[0.02] border border-black/5 dark:border-white/5 space-y-4">
-          <div className="flex items-center gap-2">
-            <MessageSquare size={16} className="text-ai-bright" />
-            <h4 className="text-xs font-bold text-text-primary dark:text-white uppercase tracking-wider">APEX AI Finansal Danışmanı ile Konuş</h4>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <MessageSquare size={16} className="text-ai-bright" />
+              <h4 className="text-xs font-bold text-text-primary dark:text-white uppercase tracking-wider">APEX AI Finansal Danışmanı ile Konuş</h4>
+            </div>
+
+            {/* Create Report Button */}
+            <button
+              onClick={() => {
+                const docText = `
+                ====================================================
+                     APEX DOCK AKILLI FİNANSAL ANALİZ VE RAPORU
+                ====================================================
+                Rapor Tarihi: Temmuz 2026 (Aktif Dönem)
+                Başlangıç Birikim Kalkanı: ₺${startingReserve.toLocaleString('tr-TR')}
+
+                GELİR-GİDER DURUMU:
+                - Bu Ay Maaş/Gelir: ₺${Math.round(activeMonthData.baseIncomeSum).toLocaleString('tr-TR')}
+                - Bu Ay Sabit Giderler & Borçlar: ₺${Math.round(activeMonthData.standardOutflow).toLocaleString('tr-TR')}
+                - Bu Ay Net Nakit Akışı: ₺${Math.round(activeMonthData.activeNetCashFlow).toLocaleString('tr-TR')}
+                - Dönem Sonu Tahmini Bakiye: ₺${Math.round(activeMonthData.endBalance).toLocaleString('tr-TR')}
+
+                ÖZGÜRLEŞEN BÜTÇE:
+                - Gelecek 12 Ayda Özgürleşen Toplam Tutar: ₺${totalUpcomingFreedBudget.toLocaleString('tr-TR')} / ay
+
+                YAPAY ZEKA STRATEJİK ÖNERİLERİ:
+                1. Borçlarınız bittikten sonra bütçenize eklenecek aylık can suyunu derhal endeks fonlarına yönlendirin.
+                2. Acil durum yedek akçenizi 6 aylık harcamanızı karşılayacak seviyede koruyun.
+                3. Keyfi dijital aboneliklerinizi kontrol edip azaltın.
+                ====================================================
+                `;
+                const element = document.createElement("a");
+                const file = new Blob([docText], {type: 'text/plain'});
+                element.href = URL.createObjectURL(file);
+                element.download = `APEX_Finansal_Rapor_${activeMonth.yearMonthStr}.txt`;
+                document.body.appendChild(element);
+                element.click();
+                document.body.removeChild(element);
+              }}
+              className="flex items-center gap-1.5 text-[10px] font-bold bg-skel-space hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-xl text-text-primary transition-all cursor-pointer"
+            >
+              <Info size={12} className="text-focus-neon" />
+              <span>Finansal Analiz Raporu Oluştur (.txt)</span>
+            </button>
           </div>
 
           {/* Predefined Questions Fast-Action Pill Buttons */}
@@ -1164,6 +1422,79 @@ export const FinanceStatus = () => {
         </div>
 
       </div>
+
+      {/* NEW INVESTMENT & PURCHASE TARGET CREATION MODAL */}
+      <AnimatePresence>
+        {isNewTargetOpen && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-pure-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col"
+            >
+              <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
+                <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
+                   <Target size={16} className="text-focus-neon"/> Yeni Hedef & Satın Alma Bütçesi Planı
+                </h2>
+                <button onClick={() => setIsNewTargetOpen(false)} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-text-secondary hover:text-white"><X size={16} /></button>
+              </div>
+              <div className="p-5 space-y-4 text-xs">
+                <div>
+                  <label className="block font-bold text-text-secondary mb-1">Hedef / Satın Alma Başlığı</label>
+                  <input
+                    type="text" placeholder="Örn: Yıl Sonu Araba Peşinatı, Yeni Laptop, Tatil Bütçesi..." value={newTargetTitle}
+                    onChange={(e) => setNewTargetTitle(e.target.value)}
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-focus-neon/50"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-text-secondary mb-1">Fiyat / Tahsis Edilen Bütçe (₺)</label>
+                    <input
+                      type="number" placeholder="0" value={newTargetPrice}
+                      onChange={(e) => setNewTargetPrice(Number(e.target.value))}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-text-secondary mb-1">Hedeflenen Ay (Simülasyon)</label>
+                    <select
+                      value={newTargetMonth}
+                      onChange={(e) => setNewTargetMonth(e.target.value)}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white font-mono"
+                    >
+                      {timelineMonths.map(m => (
+                        <option key={m.yearMonthStr} value={m.yearMonthStr}>{m.monthName} {m.year}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-text-secondary mb-1">Aciliyet Seviyesi</label>
+                  <select
+                    value={newTargetPriority}
+                    onChange={(e) => setNewTargetPriority(e.target.value as any)}
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
+                  >
+                    <option value="Acil">Acil (Ertelenemez)</option>
+                    <option value="Orta">Orta (Dengeli)</option>
+                    <option value="İsteğe Bağlı">İsteğe Bağlı (Keyfi)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end gap-2 text-xs font-bold">
+                <button onClick={() => setIsNewTargetOpen(false)} className="px-4 py-2 text-text-secondary hover:text-white">İptal</button>
+                <button onClick={handleAddNewTarget} className="px-5 py-2 bg-focus-neon text-black rounded-xl hover:bg-focus-neon/90">
+                  Planla ✓
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

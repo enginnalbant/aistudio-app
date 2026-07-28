@@ -699,14 +699,28 @@ export const FinanceExpenses = () => {
                         </div>
                       </div>
 
-                      {/* Simple visual status checkmark */}
-                      <span className={`p-1.5 rounded-lg border ${
-                        expense.status === 'Gerçekleşti' 
-                          ? 'bg-crit-vivid/10 text-crit-vivid border-crit-vivid/20' 
-                          : 'bg-nrg-sun/10 text-nrg-sun border-nrg-sun/20'
-                      }`}>
-                        {expense.status === 'Gerçekleşti' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                      </span>
+                      {/* Quick complete button or visual status badge */}
+                      {expense.status === 'Planlı' && !expense.isDynamic ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpenses(prev => prev.map(item => item.id === expense.id ? { ...item, status: 'Gerçekleşti' } : item));
+                          }}
+                          className="p-1.5 rounded-lg border bg-nrg-sun/10 text-nrg-sun border-nrg-sun/20 hover:bg-crit-vivid hover:text-white hover:border-crit-vivid transition-all cursor-pointer"
+                          title="Gideri Gerçekleşti Olarak İşaretle"
+                        >
+                          <Clock size={12} />
+                        </button>
+                      ) : (
+                        <span className={`p-1.5 rounded-lg border ${
+                          expense.status === 'Gerçekleşti'
+                            ? 'bg-crit-vivid/10 text-crit-vivid border-crit-vivid/20'
+                            : 'bg-nrg-sun/10 text-nrg-sun border-nrg-sun/20'
+                        }`}>
+                          {expense.status === 'Gerçekleşti' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );

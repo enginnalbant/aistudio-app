@@ -175,6 +175,9 @@ export const FinanceDashboard = () => {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [showHealthScoreDetails, setShowHealthScoreDetails] = useState(false);
 
+  // Smart Interactive Calendar state
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<number>(new Date().getDate());
+
   // Interactive Drilldown State
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTitle, setDrawerTitle] = useState('');
@@ -748,6 +751,59 @@ export const FinanceDashboard = () => {
     return alertsList;
   }, [monthlyIncome, monthlyExpense, subscriptions, savings, savingsRate, isDatabaseEmpty]);
 
+  // --- DYNAMIC CALENDAR ACTIVITIES COMPILATION ---
+  const getDayFromDateString = (dateStr: string) => {
+    if (!dateStr) return 1;
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return 1;
+    return parseInt(parts[2], 10) || 1;
+  };
+
+  const calendarDayActivities = useMemo(() => {
+    const map: Record<number, { incomes: any[]; expenses: any[]; debts: any[]; subscriptions: any[]; totalIn: number; totalOut: number }> = {};
+    for (let d = 1; d <= 31; d++) {
+      map[d] = { incomes: [], expenses: [], debts: [], subscriptions: [], totalIn: 0, totalOut: 0 };
+    }
+
+    incomes.forEach(i => {
+      const day = getDayFromDateString(i.date);
+      if (map[day]) {
+        map[day].incomes.push(i);
+        if (i.status === 'Tamamlandı') map[day].totalIn += Number(i.amount || 0);
+      }
+    });
+
+    expenses.forEach(e => {
+      const day = getDayFromDateString(e.date);
+      if (map[day]) {
+        map[day].expenses.push(e);
+        if (e.status === 'Gerçekleşti') map[day].totalOut += Number(e.amount || 0);
+      }
+    });
+
+    debts.forEach(d => {
+      const day = getDayFromDateString(d.nextPaymentDate);
+      if (map[day]) {
+        map[day].debts.push(d);
+        if (d.status === 'Devam Ediyor') map[day].totalOut += Number(d.paymentAmount || 0);
+      }
+    });
+
+    subscriptions.forEach(s => {
+      const day = getDayFromDateString(s.nextBillingDate);
+      if (map[day]) {
+        map[day].subscriptions.push(s);
+        if (s.status === 'Aktif') map[day].totalOut += Number(s.amount || 0);
+      }
+    });
+
+    return map;
+  }, [incomes, expenses, debts, subscriptions]);
+
+  const selectedDayDetails = useMemo(() => {
+    return calendarDayActivities[selectedCalendarDay] || { incomes: [], expenses: [], debts: [], subscriptions: [], totalIn: 0, totalOut: 0 };
+  }, [calendarDayActivities, selectedCalendarDay]);
+
   // --- UPCOMING PAYMENTS ---
   const upcomingPayments = useMemo(() => {
     const list: any[] = [];
@@ -946,6 +1002,200 @@ export const FinanceDashboard = () => {
           <span className="text-[9px] text-text-secondary mt-3 block italic">
             * Isı derecesi arttıkça yapılan harcama ve nakit çıkış adedi yükselmektedir.
           </span>
+        </div>
+      </div>
+
+      {/* --- SMART DYNAMIC PAYMENT CALENDAR WIDGET --- */}
+      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
+        <div className="flex justify-between items-center border-b border-white/5 pb-3">
+          <div className="flex items-center gap-2 text-focus-neon">
+            <Calendar size={18} className="animate-pulse" />
+            <h3 className="text-sm font-black text-text-primary uppercase tracking-wider">İnteraktif Aylık Ödeme & Gelir Takvimi</h3>
+          </div>
+          <span className="text-[10px] text-text-secondary font-mono">Bugün: Ayın {new Date().getDate()}. Günü</span>
+        </div>
+
+        {/* 31-Day Grid Track */}
+        <div className="flex gap-2 overflow-x-auto pb-3 custom-scrollbar">
+          {Array.from({ length: 31 }, (_, i) => i + 1).map(day => {
+            const dayData = calendarDayActivities[day] || { incomes: [], expenses: [], debts: [], subscriptions: [], totalIn: 0, totalOut: 0 };
+            const hasActivity = dayData.incomes.length > 0 || dayData.expenses.length > 0 || dayData.debts.length > 0 || dayData.subscriptions.length > 0;
+            const isSelected = selectedCalendarDay === day;
+
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => {
+                  setSelectedCalendarDay(day);
+                  triggerConfettiBurst();
+                }}
+                className={`flex-shrink-0 w-11 h-14 rounded-xl flex flex-col items-center justify-between py-1.5 transition-all border ${
+                  isSelected
+                    ? 'bg-focus-neon/20 border-focus-neon text-focus-neon font-black scale-105 shadow-md shadow-focus-neon/5'
+                    : hasActivity
+                    ? 'bg-white/[0.03] border-white/10 text-white'
+                    : 'bg-white/[0.005] border-transparent text-text-secondary/50'
+                }`}
+              >
+                <span className="text-[8px] opacity-50 uppercase font-black">Gün</span>
+                <span className="text-sm font-mono font-black">{day}</span>
+                <div className="flex gap-0.5 justify-center">
+                  {dayData.incomes.length > 0 && <span className="w-1 h-1 rounded-full bg-focus-neon" />}
+                  {dayData.expenses.length > 0 && <span className="w-1 h-1 rounded-full bg-red-400" />}
+                  {dayData.debts.length > 0 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
+                  {dayData.subscriptions.length > 0 && <span className="w-1 h-1 rounded-full bg-purple-400" />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Interactive detailed activity list for the selected day */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 bg-black/25 rounded-2xl p-4 border border-white/5">
+          <div className="lg:col-span-8 space-y-3">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-focus-neon animate-ping" />
+              Ayın {selectedCalendarDay}. Günü İşlem Detayları
+            </h4>
+
+            {selectedDayDetails.incomes.length === 0 &&
+             selectedDayDetails.expenses.length === 0 &&
+             selectedDayDetails.debts.length === 0 &&
+             selectedDayDetails.subscriptions.length === 0 ? (
+              <p className="text-xs text-text-secondary italic py-4">Bu günde herhangi bir planlı ödeme veya gelir hareketi bulunmuyor.</p>
+            ) : (
+              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                {/* Incomes */}
+                {selectedDayDetails.incomes.map((inc) => (
+                  <div key={inc.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex items-center justify-between text-xs hover:bg-white/[0.02]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-focus-neon" />
+                      <div>
+                        <span className="font-bold text-white block">{inc.title}</span>
+                        <span className="text-[9px] text-text-secondary">({inc.category} • Gelir)</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-focus-neon">₺{Number(inc.amount).toLocaleString('tr-TR')}</span>
+                      {inc.status === 'Beklemede' ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIncomes(prev => prev.map(item => item.id === inc.id ? { ...item, status: 'Tamamlandı' } : item));
+                            triggerToast('Gelir tamamlandı olarak işlendi!');
+                          }}
+                          className="bg-focus-neon text-black font-black px-2.5 py-1 rounded-lg text-[9px] cursor-pointer"
+                        >
+                          Tamamla ✓
+                        </button>
+                      ) : (
+                        <span className="text-[9px] text-text-secondary bg-white/5 px-2 py-0.5 rounded-lg border border-white/10 font-bold uppercase">Tamamlandı</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Expenses */}
+                {selectedDayDetails.expenses.map((exp) => (
+                  <div key={exp.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex items-center justify-between text-xs hover:bg-white/[0.02]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-400" />
+                      <div>
+                        <span className="font-bold text-white block">{exp.title}</span>
+                        <span className="text-[9px] text-text-secondary">({exp.category} • Gider)</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-red-400">-₺{Number(exp.amount).toLocaleString('tr-TR')}</span>
+                      {exp.status === 'Planlı' ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExpenses(prev => prev.map(item => item.id === exp.id ? { ...item, status: 'Gerçekleşti' } : item));
+                            triggerToast('Gider ödendi olarak işlendi!');
+                          }}
+                          className="bg-crit-vivid text-white font-black px-2.5 py-1 rounded-lg text-[9px] cursor-pointer"
+                        >
+                          Öde ✓
+                        </button>
+                      ) : (
+                        <span className="text-[9px] text-text-secondary bg-white/5 px-2 py-0.5 rounded-lg border border-white/10 font-bold uppercase">Ödendi</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Debts */}
+                {selectedDayDetails.debts.map((deb) => (
+                  <div key={deb.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex items-center justify-between text-xs hover:bg-white/[0.02]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-400" />
+                      <div>
+                        <span className="font-bold text-white block">{deb.title}</span>
+                        <span className="text-[9px] text-text-secondary">(Taksit • Borç)</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-amber-400">-₺{Number(deb.paymentAmount).toLocaleString('tr-TR')}</span>
+                      {deb.status === 'Devam Ediyor' && !deb.paidThisMonth ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDebts(prev => prev.map(item => item.id === deb.id ? { ...item, paidThisMonth: true, remainingAmount: Math.max(0, item.remainingAmount - item.paymentAmount) } : item));
+                            triggerToast('Taksit ödemesi başarıyla işlendi!');
+                          }}
+                          className="bg-amber-400 text-black font-black px-2.5 py-1 rounded-lg text-[9px] cursor-pointer"
+                        >
+                          Taksit Öde ✓
+                        </button>
+                      ) : (
+                        <span className="text-[9px] text-text-secondary bg-white/5 px-2 py-0.5 rounded-lg border border-white/10 font-bold uppercase">Ödendi</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Subscriptions */}
+                {selectedDayDetails.subscriptions.map((sub) => (
+                  <div key={sub.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex items-center justify-between text-xs hover:bg-white/[0.02]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-purple-400" />
+                      <div>
+                        <span className="font-bold text-white block">{sub.title}</span>
+                        <span className="text-[9px] text-text-secondary">({sub.category} • Abonelik)</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-purple-400">-₺{Number(sub.amount).toLocaleString('tr-TR')}</span>
+                      <span className="text-[9px] text-text-secondary bg-white/5 px-2 py-0.5 rounded-lg border border-white/10 font-bold uppercase">Düzenli Ödeme</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Metrics Breakdown for selected Day */}
+          <div className="lg:col-span-4 p-4 bg-white/[0.02] border border-white/10 rounded-2xl flex flex-col justify-between">
+            <div className="space-y-3">
+              <span className="text-[10px] text-text-secondary font-bold block uppercase tracking-wider">Günlük Toplam Dengesi</span>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-1 border-b border-white/5">
+                  <span className="text-text-secondary">Gelen Nakit:</span>
+                  <span className="font-mono font-bold text-focus-neon">₺{selectedDayDetails.totalIn.toLocaleString('tr-TR')}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-white/5">
+                  <span className="text-text-secondary">Çıkan Nakit:</span>
+                  <span className="font-mono font-bold text-red-400">₺{selectedDayDetails.totalOut.toLocaleString('tr-TR')}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-white/5 text-[11px] text-text-secondary leading-relaxed italic">
+              * Bu gün gerçekleşen net akış: <span className="font-bold text-white">₺{(selectedDayDetails.totalIn - selectedDayDetails.totalOut).toLocaleString('tr-TR')}</span>
+            </div>
+          </div>
         </div>
       </div>
 
