@@ -25,7 +25,19 @@ import {
   ArrowDownRight,
   Layers,
   Sparkles,
-  Check
+  Check,
+  Settings,
+  Clock,
+  Bell,
+  FileText,
+  SlidersHorizontal,
+  ShieldAlert,
+  HelpCircle,
+  CheckSquare,
+  DollarSign,
+  Percent,
+  ChevronRight,
+  Hash
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -35,27 +47,36 @@ import {
   Tooltip
 } from 'recharts';
 
-interface Subscription {
+export interface Subscription {
   id: string;
   title: string;
   amount: number;
-  billingCycle: 'Haftalık' | 'Aylık' | 'Yıllık';
+  billingCycle: 'Haftalık' | 'Aylık' | '3 Aylık' | '6 Aylık' | 'Yıllık';
   category: string;
   nextBillingDate: string;
-  status: 'Aktif' | 'İptal Edildi';
+  status: 'Aktif' | 'İptal Edildi' | 'Donduruldu';
   platform: string;
   type?: string; 
   paymentMethod?: string;
   currency?: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  // Enhanced Fields
+  isCommitment?: boolean;            // Taahhütlü Abonelik mi?
+  installments?: number;             // Toplam Taahhüt Süresi / Taksit (Ay)
+  paidInstallments?: number;         // Ödenen Taksit / Ay Sayısı
+  accountNumber?: string;            // Müşteri / Abone / Sözleşme No
+  autoPay?: boolean;                 // Otomatik Ödeme Talimatı var mı?
+  reminderDays?: number;             // Kaç gün önce hatırlatılsın? (0, 1, 3, 7 vb.)
+  notes?: string;                    // Açıklama ve Notlar
+  taxRate?: number;                  // % Vergi / KDV Oranı
 }
 
-interface Debt {
+export interface Debt {
   id: string;
   title: string;
   totalAmount: number;
   remainingAmount: number;
   paymentAmount: number;
-  paymentFrequency: 'Haftalık' | 'Aylık' | 'Yıllık';
+  paymentFrequency: 'Haftalık' | 'Aylık' | '3 Aylık' | '6 Aylık' | 'Yıllık';
   nextPaymentDate: string;
   category: string;
   status: 'Devam Ediyor' | 'Ödendi';
@@ -65,6 +86,12 @@ interface Debt {
   paidThisMonth?: boolean;
   interestRate?: number;
   currency?: 'TRY' | 'USD' | 'EUR' | 'GBP';
+  // Enhanced Fields
+  accountNumber?: string;            // Hesap / Kredi / Kart No
+  autoPay?: boolean;                 // Otomatik Ödeme Talimatı
+  reminderDays?: number;             // Kaç gün önce bildirim verilsin?
+  notes?: string;                    // Notlar & Açıklamalar
+  paymentMethod?: string;            // Ödeme Yöntemi / Banka Hesabı
 }
 
 const POPULAR_SUBSCRIPTIONS = [
@@ -531,9 +558,11 @@ export const FinanceSubscriptions = () => {
   };
 
   const deleteSubscription = (id: string) => {
-    if (confirm('Bu abonelik kaydını kalıcı olarak silmek istediğinize emin misiniz?')) {
-      setSubscriptions(prev => prev.filter(s => s.id !== id));
-      setActionMenuId(null);
+    setSubscriptions(prev => prev.filter(s => String(s.id) !== String(id)));
+    setActionMenuId(null);
+    if (isSubWizardOpen && String(editingSubId) === String(id)) {
+      setIsSubWizardOpen(false);
+      setEditingSubId(null);
     }
   };
 
@@ -575,9 +604,11 @@ export const FinanceSubscriptions = () => {
   };
 
   const deleteDebt = (id: string) => {
-    if (confirm('Bu borç kaydını silmek istediğinize emin misiniz?')) {
-      setDebts(prev => prev.filter(d => d.id !== id));
-      setActionMenuId(null);
+    setDebts(prev => prev.filter(d => String(d.id) !== String(id)));
+    setActionMenuId(null);
+    if (isDebtWizardOpen && String(editingDebtId) === String(id)) {
+      setIsDebtWizardOpen(false);
+      setEditingDebtId(null);
     }
   };
 
@@ -901,12 +932,13 @@ export const FinanceSubscriptions = () => {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[500px]">
+                    <table className="w-full text-left border-collapse min-w-[600px]">
                       <thead>
                         <tr className="border-b border-white/5 text-[10px] text-text-secondary uppercase tracking-wider">
                           <th className="pb-2 px-2">Abonelik / Platform</th>
                           <th className="pb-2 px-2">Kategori</th>
                           <th className="pb-2 px-2">Sonraki Ödeme</th>
+                          <th className="pb-2 px-2">Taahhüt / Taksit</th>
                           <th className="pb-2 px-2">Tutar</th>
                           <th className="pb-2 px-2">Durum</th>
                           <th className="pb-2 px-2"></th>
@@ -915,50 +947,86 @@ export const FinanceSubscriptions = () => {
                       <tbody className="text-xs">
                         {subscriptions
                           .filter(s => (s.title || '').toLowerCase().includes(subSearch.toLowerCase()) || (s.platform || '').toLowerCase().includes(subSearch.toLowerCase()))
-                          .map((sub) => (
-                            <tr key={sub.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                              <td className="py-3 px-2 font-bold text-text-primary">
-                                <div className="flex flex-col">
-                                  <span>{sub.title}</span>
-                                  <span className="text-[10px] text-text-secondary font-normal">{sub.platform} {sub.type ? `• ${sub.type}` : ''}</span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-2 text-text-secondary">{sub.category}</td>
-                              <td className="py-3 px-2 text-text-secondary font-mono">
-                                {new Date(sub.nextBillingDate).toLocaleDateString('tr-TR')}
-                                <span className="text-[9px] block opacity-50">{sub.billingCycle}</span>
-                              </td>
-                              <td className="py-3 px-2 font-mono font-bold text-text-primary">
-                                {formatValue(convertAmount(sub.amount, sub.currency || 'TRY', displayCurrency))}
-                                {sub.currency !== 'TRY' && (
-                                  <span className="text-[8px] text-text-secondary block font-normal">Orijinal: {sub.amount} {sub.currency}</span>
-                                )}
-                              </td>
-                              <td className="py-3 px-2">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-bold ${sub.status === 'Aktif' ? 'bg-focus-neon/10 text-focus-neon' : 'bg-white/5 text-text-secondary'}`}>
-                                  {sub.status}
-                                </span>
-                              </td>
-                              <td className="py-3 px-2 text-right relative">
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); setActionMenuId(actionMenuId === sub.id ? null : sub.id); }}
-                                  className="p-1 text-text-secondary hover:text-white rounded hover:bg-white/5 transition-all"
-                                >
-                                  <MoreVertical size={14} />
-                                </button>
-                                {actionMenuId === sub.id && (
-                                  <div className="absolute right-6 top-6 bg-neutral-950 border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 w-28 flex flex-col text-left">
-                                    <button onClick={() => openSubWizard(sub)} className="flex items-center gap-1.5 px-3 py-2 text-[11px] text-white hover:bg-white/5 transition-colors">
-                                      <Edit3 size={11} /> Düzenle
-                                    </button>
-                                    <button onClick={() => deleteSubscription(sub.id)} className="flex items-center gap-1.5 px-3 py-2 text-[11px] text-crit-vivid hover:bg-crit-vivid/10 border-t border-white/5 transition-colors">
-                                      <Trash2 size={11} /> Sil
-                                    </button>
+                          .map((sub) => {
+                            const remainingInst = sub.installments ? Math.max(0, sub.installments - (sub.paidInstallments || 0)) : null;
+                            const instPercent = sub.installments ? Math.round(((sub.paidInstallments || 0) / sub.installments) * 100) : 0;
+
+                            return (
+                              <tr key={sub.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                                <td className="py-3 px-2 font-bold text-text-primary">
+                                  <div className="flex flex-col">
+                                    <span className="flex items-center gap-1.5">
+                                      {sub.title}
+                                      {sub.autoPay && (
+                                        <span className="text-[9px] bg-focus-neon/10 text-focus-neon px-1.5 py-0.2 rounded font-normal" title="Otomatik Ödeme Talimatı Var">
+                                          Otomatik
+                                        </span>
+                                      )}
+                                    </span>
+                                    <span className="text-[10px] text-text-secondary font-normal flex items-center gap-1">
+                                      {sub.platform} {sub.type ? `• ${sub.type}` : ''}
+                                      {sub.accountNumber && (
+                                        <span className="font-mono text-[9px] bg-white/5 px-1 rounded text-text-secondary">
+                                          No: {sub.accountNumber}
+                                        </span>
+                                      )}
+                                    </span>
                                   </div>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="py-3 px-2 text-text-secondary">{sub.category}</td>
+                                <td className="py-3 px-2 text-text-secondary font-mono">
+                                  {sub.nextBillingDate ? new Date(sub.nextBillingDate).toLocaleDateString('tr-TR') : '-'}
+                                  <span className="text-[9px] block opacity-50">{sub.billingCycle}</span>
+                                </td>
+                                <td className="py-3 px-2">
+                                  {sub.isCommitment && sub.installments ? (
+                                    <div className="flex flex-col gap-1 w-24">
+                                      <span className="text-[10px] font-bold text-focus-neon">
+                                        Kalan: {remainingInst} Ay
+                                      </span>
+                                      <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden">
+                                        <div className="bg-focus-neon h-full transition-all" style={{ width: `${instPercent}%` }} />
+                                      </div>
+                                      <span className="text-[8px] text-text-secondary">
+                                        {sub.paidInstallments || 0} / {sub.installments} Ay
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-text-secondary opacity-50">Taahhütsüz</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-2 font-mono font-bold text-text-primary">
+                                  {formatValue(convertAmount(sub.amount, sub.currency || 'TRY', displayCurrency))}
+                                  {sub.currency !== 'TRY' && (
+                                    <span className="text-[8px] text-text-secondary block font-normal">Orijinal: {sub.amount} {sub.currency}</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-2">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-bold ${sub.status === 'Aktif' ? 'bg-focus-neon/10 text-focus-neon' : sub.status === 'Donduruldu' ? 'bg-nrg-sun/10 text-nrg-sun' : 'bg-white/5 text-text-secondary'}`}>
+                                    {sub.status}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-2 text-right relative">
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setActionMenuId(actionMenuId === sub.id ? null : sub.id); }}
+                                    className="p-1 text-text-secondary hover:text-white rounded hover:bg-white/5 transition-all"
+                                  >
+                                    <MoreVertical size={14} />
+                                  </button>
+                                  {actionMenuId === sub.id && (
+                                    <div className="absolute right-6 top-6 bg-neutral-950 border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 w-28 flex flex-col text-left">
+                                      <button onClick={(e) => { e.stopPropagation(); openSubWizard(sub); }} className="flex items-center gap-1.5 px-3 py-2 text-[11px] text-white hover:bg-white/5 transition-colors">
+                                        <Edit3 size={11} /> Düzenle
+                                      </button>
+                                      <button onClick={(e) => { e.stopPropagation(); deleteSubscription(sub.id); }} className="flex items-center gap-1.5 px-3 py-2 text-[11px] text-crit-vivid hover:bg-crit-vivid/10 border-t border-white/5 transition-colors">
+                                        <Trash2 size={11} /> Sil
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                     {subscriptions.length === 0 && (
@@ -1610,327 +1678,719 @@ export const FinanceSubscriptions = () => {
         </motion.div>
       </AnimatePresence>
 
-      {/* SUBSCRIPTION WIZARD MODAL */}
+      {/* ENHANCED UNIFIED ENTRY WIZARD MODAL */}
       <AnimatePresence>
-        {isSubWizardOpen && (
+        {(isSubWizardOpen || isDebtWizardOpen) && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-pure-black/80 backdrop-blur-md">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+              className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]"
             >
+              {/* Modal Header */}
               <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-                <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
-                   <Repeat size={16} className="text-focus-neon"/> {editingSubId ? 'Abonelik Düzenle' : 'Yeni Abonelik Ekle'}
-                </h2>
-                <button onClick={() => setIsSubWizardOpen(false)} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-text-secondary hover:text-white"><X size={16} /></button>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl ${isSubWizardOpen ? 'bg-focus-neon/10 text-focus-neon' : 'bg-crit-vivid/10 text-crit-vivid'}`}>
+                    {isSubWizardOpen ? <Repeat size={18} /> : <CreditCard size={18} />}
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">
+                      {isSubWizardOpen 
+                        ? (editingSubId ? 'Abonelik Düzenle' : 'Yeni Abonelik / Servis Ekle')
+                        : (editingDebtId ? 'Borç / Kredi Güncelle' : 'Yeni Borç veya Kredi Ekle')
+                      }
+                    </h2>
+                    <p className="text-[10px] text-text-secondary">
+                      Gelişmiş taksit, kalan taksit, ödeme planı ve bildirim seçeneklerini yapılandırın.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Type Switcher */}
+                  <div className="flex bg-black/40 border border-white/10 p-0.5 rounded-xl text-[11px] font-bold">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setIsSubWizardOpen(true);
+                        setIsDebtWizardOpen(false);
+                      }}
+                      className={`px-3 py-1 rounded-lg transition-all ${isSubWizardOpen ? 'bg-focus-neon text-black' : 'text-text-secondary hover:text-white'}`}
+                    >
+                      Abonelik
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setIsSubWizardOpen(false);
+                        setIsDebtWizardOpen(true);
+                      }}
+                      className={`px-3 py-1 rounded-lg transition-all ${isDebtWizardOpen ? 'bg-crit-vivid text-white' : 'text-text-secondary hover:text-white'}`}
+                    >
+                      Borç / Kredi
+                    </button>
+                  </div>
+                  <button 
+                    onClick={() => { setIsSubWizardOpen(false); setIsDebtWizardOpen(false); }} 
+                    className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-text-secondary hover:text-white"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
-              <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-4 text-xs">
+
+              {/* Wizard Content */}
+              <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-5 text-xs">
                 
-                {/* Search Preset Suggestion Field */}
-                <div className="relative">
-                  <label className="block font-bold text-text-secondary mb-1">Abonelik Adı / Platform</label>
-                  <input 
-                    type="text" placeholder="Örn: Netflix, Spotify..." value={subFormData.title || ''}
-                    onChange={handleSubTitleChange} onFocus={() => setShowSubSuggestions(true)}
-                    className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-focus-neon/50"
-                  />
-                  {showSubSuggestions && subSuggestions.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-neutral-800 border border-white/10 rounded-xl shadow-xl max-h-40 overflow-y-auto">
-                      {subSuggestions.map((s, idx) => (
-                        <div key={idx} onClick={() => selectSubSuggestion(s)} className="px-3 py-2 border-b border-white/5 hover:bg-white/[0.04] cursor-pointer flex justify-between items-center">
-                          <div>
-                            <p className="font-bold text-white text-xs">{s.title}</p>
-                            <p className="text-[9px] text-text-secondary">{s.category} • {s.type}</p>
+                {/* 1. ABONELİK SİHİRBAZI */}
+                {isSubWizardOpen && (
+                  <>
+                    {/* Basic Info Section */}
+                    <div className="space-y-3">
+                      <span className="text-[11px] font-bold text-focus-neon uppercase tracking-wider flex items-center gap-1.5 border-b border-white/5 pb-1">
+                        <FileText size={13} /> 1. Abonelik & Hizmet Detayları
+                      </span>
+
+                      {/* Title input with presets */}
+                      <div className="relative">
+                        <label className="block font-bold text-text-secondary mb-1">Abonelik Adı / Platform Sağlayıcı *</label>
+                        <input 
+                          type="text" 
+                          placeholder="Örn: Netflix, Spotify, Adobe CC, Turkcell Ev İnterneti..." 
+                          value={subFormData.title || ''}
+                          onChange={handleSubTitleChange} 
+                          onFocus={() => setShowSubSuggestions(true)}
+                          className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-focus-neon/50"
+                        />
+                        {showSubSuggestions && subSuggestions.length > 0 && (
+                          <div className="absolute z-20 w-full mt-1 bg-neutral-800 border border-white/10 rounded-xl shadow-2xl max-h-40 overflow-y-auto">
+                            {subSuggestions.map((s, idx) => (
+                              <div key={idx} onClick={() => selectSubSuggestion(s)} className="px-3 py-2 border-b border-white/5 hover:bg-white/[0.06] cursor-pointer flex justify-between items-center">
+                                <div>
+                                  <p className="font-bold text-white text-xs">{s.title}</p>
+                                  <p className="text-[9px] text-text-secondary">{s.category} • {s.type}</p>
+                                </div>
+                                <span className="font-mono text-focus-neon">₺{s.amount}</span>
+                              </div>
+                            ))}
                           </div>
-                          <span className="font-mono text-focus-neon">₺{s.amount}</span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Kategori</label>
+                          <select 
+                            value={subFormData.category || ''} 
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, category: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          >
+                            <option value="">Seçiniz...</option>
+                            <option value="Eğlence">Eğlence (Netflix, Spotify, Oyun)</option>
+                            <option value="Yazılım">Yazılım (Adobe, AI Araçları, SaaS)</option>
+                            <option value="Altyapı">Altyapı (Hosting, Bulut, Domain)</option>
+                            <option value="İletişim & İnternet">İletişim & GSM & İnternet</option>
+                            <option value="Alışveriş">Alışveriş (Prime, Hepsiburada Premium)</option>
+                            <option value="Eğitim">Eğitim & Kurslar</option>
+                            <option value="Spor & Sağlık">Spor & Fitneess & Sağlık</option>
+                            <option value="Diğer">Diğer</option>
+                          </select>
                         </div>
-                      ))}
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Paket / Hizmet Türü</label>
+                          <input 
+                            type="text" 
+                            placeholder="Örn: 4K Premium, Aile Planı, Pro" 
+                            value={subFormData.type || ''}
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, type: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Abone / Müşteri / Sözleşme No</label>
+                          <input 
+                            type="text" 
+                            placeholder="Örn: AB-884920" 
+                            value={subFormData.accountNumber || ''}
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Durum</label>
+                          <select 
+                            value={subFormData.status || 'Aktif'} 
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white font-bold"
+                          >
+                            <option value="Aktif">Aktif</option>
+                            <option value="Donduruldu">Donduruldu</option>
+                            <option value="İptal Edildi">İptal Edildi</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Tutar</label>
-                    <input 
-                      type="number" placeholder="0.00" value={subFormData.amount || ''}
-                      onChange={(e) => setSubFormData(prev => ({ ...prev, amount: Number(e.target.value) }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Para Birimi</label>
-                    <select 
-                      value={subFormData.currency || 'TRY'} 
-                      onChange={(e) => setSubFormData(prev => ({ ...prev, currency: e.target.value as any }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
-                    >
-                      <option value="TRY">TRY (₺)</option>
-                      <option value="USD">USD ($)</option>
-                      <option value="EUR">EUR (€)</option>
-                      <option value="GBP">GBP (£)</option>
-                    </select>
-                  </div>
-                </div>
+                    {/* Amount & Installment / Commitment Section */}
+                    <div className="space-y-3 pt-2">
+                      <span className="text-[11px] font-bold text-focus-neon uppercase tracking-wider flex items-center gap-1.5 border-b border-white/5 pb-1">
+                        <DollarSign size={13} /> 2. Ücret, Taahhüt ve Taksit Ayarları
+                      </span>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Döngü</label>
-                    <select 
-                      value={subFormData.billingCycle || 'Aylık'} onChange={(e) => setSubFormData(prev => ({ ...prev, billingCycle: e.target.value as any }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
-                    >
-                      <option value="Haftalık">Haftalık</option>
-                      <option value="Aylık">Aylık</option>
-                      <option value="Yıllık">Yıllık</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Kategori</label>
-                    <select 
-                      value={subFormData.category || ''} onChange={(e) => setSubFormData(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
-                    >
-                      <option value="">Seçiniz...</option>
-                      <option value="Eğlence">Eğlence (Film, Müzik, Oyun)</option>
-                      <option value="Yazılım">Yazılım (Adobe, AI Araçları)</option>
-                      <option value="Altyapı">Altyapı (Bulut, Hosting)</option>
-                      <option value="Alışveriş">Alışveriş (Premium Kargo vb)</option>
-                      <option value="Medya">Medya & Yayıncılık</option>
-                      <option value="Diğer">Diğer</option>
-                    </select>
-                  </div>
-                </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Dönemlik Ücret *</label>
+                          <input 
+                            type="number" 
+                            placeholder="0.00" 
+                            value={subFormData.amount || ''}
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Para Birimi</label>
+                          <select 
+                            value={subFormData.currency || 'TRY'} 
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, currency: e.target.value as any }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          >
+                            <option value="TRY">TRY (₺)</option>
+                            <option value="USD">USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                            <option value="GBP">GBP (£)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Faturalama Döngüsü</label>
+                          <select 
+                            value={subFormData.billingCycle || 'Aylık'} 
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, billingCycle: e.target.value as any }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          >
+                            <option value="Haftalık">Haftalık</option>
+                            <option value="Aylık">Aylık</option>
+                            <option value="3 Aylık">3 Aylık</option>
+                            <option value="6 Aylık">6 Aylık</option>
+                            <option value="Yıllık">Yıllık</option>
+                          </select>
+                        </div>
+                      </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Paket / Tür (Opsiyonel)</label>
-                    <input 
-                      type="text" placeholder="Örn: Premium, Aile" value={subFormData.type || ''}
-                      onChange={(e) => setSubFormData(prev => ({ ...prev, type: e.target.value }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Sonraki Ödeme Tarihi</label>
-                    <input 
-                      type="date" value={subFormData.nextBillingDate || ''}
-                      onChange={(e) => setSubFormData(prev => ({ ...prev, nextBillingDate: e.target.value }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white [color-scheme:dark]"
-                    />
-                  </div>
-                </div>
+                      {/* Taahhüt ve Taksit Kutusu */}
+                      <div className="p-3.5 bg-white/[0.02] border border-white/10 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={subFormData.isCommitment || false}
+                              onChange={(e) => setSubFormData(prev => ({ ...prev, isCommitment: e.target.checked }))}
+                              className="w-4 h-4 rounded border-white/20 bg-black/40 text-focus-neon focus:ring-0"
+                            />
+                            <span className="font-bold text-white text-xs">Sözleşmeli / Taahhütlü Abonelik mi?</span>
+                          </label>
+                          {subFormData.isCommitment && (
+                            <span className="text-[10px] text-focus-neon bg-focus-neon/10 px-2 py-0.5 rounded-full font-bold">
+                              Taahhüt Takibi Açık
+                            </span>
+                          )}
+                        </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Ödeme Yöntemi</label>
-                    <input 
-                      type="text" placeholder="Kart sonu 4452 vb." value={subFormData.paymentMethod || ''}
-                      onChange={(e) => setSubFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
-                    />
-                  </div>
-                  {editingSubId && (
-                    <div>
-                      <label className="block font-bold text-text-secondary mb-1">Abonelik Durumu</label>
-                      <select 
-                        value={subFormData.status || 'Aktif'} onChange={(e) => setSubFormData(prev => ({ ...prev, status: e.target.value as any }))}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
-                      >
-                        <option value="Aktif">Aktif</option>
-                        <option value="İptal Edildi">İptal Edildi</option>
-                      </select>
+                        {subFormData.isCommitment && (
+                          <div className="grid grid-cols-3 gap-3 pt-2">
+                            <div>
+                              <label className="block text-[10px] text-text-secondary mb-1">Toplam Taahhüt (Ay)</label>
+                              <input 
+                                type="number" 
+                                placeholder="Örn: 12 veya 24" 
+                                value={subFormData.installments || ''}
+                                onChange={(e) => {
+                                  const totalInst = Number(e.target.value);
+                                  setSubFormData(prev => ({
+                                    ...prev,
+                                    installments: totalInst,
+                                    paidInstallments: prev.paidInstallments !== undefined ? Math.min(prev.paidInstallments, totalInst) : 0
+                                  }));
+                                }}
+                                className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-text-secondary mb-1">Tamamlanan (Ay)</label>
+                              <input 
+                                type="number" 
+                                placeholder="Örn: 4" 
+                                value={subFormData.paidInstallments || 0}
+                                onChange={(e) => {
+                                  const paid = Number(e.target.value);
+                                  setSubFormData(prev => ({
+                                    ...prev,
+                                    paidInstallments: paid
+                                  }));
+                                }}
+                                className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-focus-neon font-bold mb-1">Kalan Taahhüt (Ay)</label>
+                              <input 
+                                type="number" 
+                                placeholder="Örn: 8" 
+                                value={(subFormData.installments || 0) - (subFormData.paidInstallments || 0)}
+                                onChange={(e) => {
+                                  const remaining = Number(e.target.value);
+                                  const total = subFormData.installments || 0;
+                                  setSubFormData(prev => ({
+                                    ...prev,
+                                    paidInstallments: Math.max(0, total - remaining)
+                                  }));
+                                }}
+                                className="w-full bg-focus-neon/10 border border-focus-neon/30 rounded-lg px-2.5 py-1.5 font-mono font-bold text-focus-neon"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">KDV / Vergi Oranı (%)</label>
+                          <input 
+                            type="number" 
+                            placeholder="%20" 
+                            value={subFormData.taxRate || ''}
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, taxRate: Number(e.target.value) }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Sonraki Ödeme Tarihi *</label>
+                          <input 
+                            type="date" 
+                            value={subFormData.nextBillingDate || ''}
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, nextBillingDate: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white [color-scheme:dark]"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
 
-              </div>
-              <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end gap-2 text-xs font-bold">
-                <button onClick={() => setIsSubWizardOpen(false)} className="px-4 py-2 text-text-secondary hover:text-white">İptal</button>
-                <button onClick={saveSubscription} className="px-5 py-2 bg-focus-neon text-black rounded-xl hover:bg-focus-neon/90">
-                  {editingSubId ? 'Güncelle' : 'Kaydet'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                    {/* Settings & Reminder Section */}
+                    <div className="space-y-3 pt-2">
+                      <span className="text-[11px] font-bold text-focus-neon uppercase tracking-wider flex items-center gap-1.5 border-b border-white/5 pb-1">
+                        <Settings size={13} /> 3. Ödeme Yöntemi, Hatırlatma & Notlar
+                      </span>
 
-      {/* DEBT WIZARD MODAL */}
-      <AnimatePresence>
-        {isDebtWizardOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-pure-black/80 backdrop-blur-md">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
-            >
-              <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-                <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
-                  <CreditCard size={16} className="text-crit-vivid"/> {editingDebtId ? 'Borç / Kredi Güncelle' : 'Yeni Borç veya Kredi Ekle'}
-                </h2>
-                <button onClick={() => setIsDebtWizardOpen(false)} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-text-secondary hover:text-white"><X size={16} /></button>
-              </div>
-              <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-4 text-xs">
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Kategori</label>
-                    <select 
-                      value={debtFormData.category || ''}
-                      onChange={(e) => setDebtFormData(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white font-bold"
-                    >
-                      <option value="İhtiyaç Kredisi">İhtiyaç Kredisi</option>
-                      <option value="Konut Kredisi">Konut Kredisi</option>
-                      <option value="Taşıt Kredisi">Taşıt Kredisi</option>
-                      <option value="Kredi Kartı">Kredi Kartı</option>
-                      <option value="Esnek Hesap (KMH)">Esnek Hesap / KMH</option>
-                      <option value="Elden Borç">Elden Borç / Şahıs</option>
-                      <option value="Diğer">Diğer</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Hesap / Borç Adı</label>
-                    <input 
-                      type="text" placeholder="Örn: Garanti BBVA Kredisi..."
-                      value={debtFormData.title || ''} onChange={(e) => setDebtFormData(prev => ({ ...prev, title: e.target.value }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
-                    />
-                  </div>
-                </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Bağlı Kart / Ödeme Yöntemi</label>
+                          <input 
+                            type="text" 
+                            placeholder="Örn: Garanti Bonus (..4820)" 
+                            value={subFormData.paymentMethod || ''}
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Bildirim & Hatırlatıcı</label>
+                          <select 
+                            value={subFormData.reminderDays ?? 3} 
+                            onChange={(e) => setSubFormData(prev => ({ ...prev, reminderDays: Number(e.target.value) }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          >
+                            <option value={0}>Ödeme Günü Bildir</option>
+                            <option value={1}>1 Gün Önce Bildir</option>
+                            <option value={3}>3 Gün Önce Bildir</option>
+                            <option value={7}>7 Gün Önce Bildir</option>
+                            <option value={15}>15 Gün Önce Bildir</option>
+                          </select>
+                        </div>
+                      </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Kurum / Alacaklı</label>
-                    <input 
-                      type="text" placeholder="Örn: Yapı Kredi, Ahmet Bey..."
-                      value={debtFormData.lender || ''} onChange={(e) => setDebtFormData(prev => ({ ...prev, lender: e.target.value }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Para Birimi</label>
-                    <select 
-                      value={debtFormData.currency || 'TRY'} 
-                      onChange={(e) => setDebtFormData(prev => ({ ...prev, currency: e.target.value as any }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
-                    >
-                      <option value="TRY">TRY (₺)</option>
-                      <option value="USD">USD ($)</option>
-                      <option value="EUR">EUR (€)</option>
-                      <option value="GBP">GBP (£)</option>
-                    </select>
-                  </div>
-                </div>
+                      <div className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                        <input 
+                          type="checkbox" 
+                          id="autoPaySub"
+                          checked={subFormData.autoPay || false}
+                          onChange={(e) => setSubFormData(prev => ({ ...prev, autoPay: e.target.checked }))}
+                          className="w-4 h-4 rounded border-white/20 bg-black/40 text-focus-neon focus:ring-0"
+                        />
+                        <label htmlFor="autoPaySub" className="cursor-pointer">
+                          <span className="font-bold text-white block">Otomatik Ödeme Talimatı Var</span>
+                          <span className="text-[10px] text-text-secondary">Bu abonelik banka hesabından/karttan otomatik çekilmektedir.</span>
+                        </label>
+                      </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Yıllık Faiz Oranı (%)</label>
-                    <input 
-                      type="number" step="0.1" placeholder="Yıllık faiz örn: 45"
-                      value={debtFormData.interestRate || ''} onChange={(e) => setDebtFormData(prev => ({ ...prev, interestRate: Number(e.target.value) }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Sonraki Taksit / Ödeme Günü</label>
-                    <input 
-                      type="date" value={debtFormData.nextPaymentDate || ''}
-                      onChange={(e) => setDebtFormData(prev => ({ ...prev, nextPaymentDate: e.target.value }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white [color-scheme:dark]"
-                    />
-                  </div>
-                </div>
-
-                {/* Dinamik Taksit Hesaplayıcı Box */}
-                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl space-y-3">
-                  <span className="font-bold text-text-primary block">Taksit ve Bakiye Bilgileri</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-text-secondary mb-1">Toplam Borç</label>
-                      <input 
-                        type="number" placeholder="0.00"
-                        value={debtFormData.totalAmount || ''} 
-                        onChange={(e) => setDebtFormData(prev => ({ ...prev, totalAmount: Number(e.target.value) }))}
-                        onBlur={() => handleDebtCalcBlur('totalAmount')}
-                        className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 font-mono"
-                      />
+                      <div>
+                        <label className="block font-bold text-text-secondary mb-1">Notlar & Açıklama</label>
+                        <textarea 
+                          rows={2}
+                          placeholder="Fatura detayları, iptal şartları veya şifre notları..." 
+                          value={subFormData.notes || ''}
+                          onChange={(e) => setSubFormData(prev => ({ ...prev, notes: e.target.value }))}
+                          className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-focus-neon/50"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-[10px] text-text-secondary mb-1">Taksit Tutarı</label>
-                      <input 
-                        type="number" placeholder="0.00"
-                        value={debtFormData.paymentAmount || ''} 
-                        onChange={(e) => setDebtFormData(prev => ({ ...prev, paymentAmount: Number(e.target.value) }))}
-                        onBlur={() => handleDebtCalcBlur('paymentAmount')}
-                        className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 font-mono text-crit-vivid font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-text-secondary mb-1">Toplam Taksit</label>
-                      <input 
-                        type="number" placeholder="0"
-                        value={debtFormData.installments || ''} 
-                        onChange={(e) => setDebtFormData(prev => ({ ...prev, installments: Number(e.target.value) }))}
-                        onBlur={() => handleDebtCalcBlur('installments')}
-                        className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 font-mono"
-                      />
-                    </div>
-                  </div>
+                  </>
+                )}
 
-                  <div className="grid grid-cols-2 gap-4 pt-1">
-                    <div>
-                      <label className="block text-[10px] text-text-secondary mb-1">Kalan Taksit Sayısı</label>
-                      <input 
-                        type="number" placeholder="0"
-                        value={debtFormData.paidInstallments !== undefined && debtFormData.installments !== undefined ? (debtFormData.installments - debtFormData.paidInstallments) : ''} 
-                        onChange={(e) => {
-                          const remaining = Number(e.target.value);
-                          if (debtFormData.installments !== undefined) {
-                            setDebtFormData(prev => ({ ...prev, paidInstallments: Math.max(0, (prev.installments || 0) - remaining) }));
-                          }
-                        }}
-                        className="w-full bg-black/40 border border-white/10 rounded px-2.5 py-1.5 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-text-secondary mb-1">Ödeme Sıklığı</label>
-                      <select 
-                        value={debtFormData.paymentFrequency || 'Aylık'}
-                        onChange={(e) => setDebtFormData(prev => ({ ...prev, paymentFrequency: e.target.value as any }))}
-                        className="w-full bg-black/40 border border-white/10 rounded px-2.5 py-1.5"
-                      >
-                        <option value="Haftalık">Haftalık</option>
-                        <option value="Aylık">Aylık</option>
-                        <option value="Yıllık">Yıllık</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
+                {/* 2. BORÇ & KREDİ SİHİRBAZI */}
+                {isDebtWizardOpen && (
+                  <>
+                    {/* Basic Debt Info */}
+                    <div className="space-y-3">
+                      <span className="text-[11px] font-bold text-crit-vivid uppercase tracking-wider flex items-center gap-1.5 border-b border-white/5 pb-1">
+                        <Building size={13} /> 1. Borç / Kredi Türü & Alacaklı Bilgileri
+                      </span>
 
-                {editingDebtId && (
-                  <div>
-                    <label className="block font-bold text-text-secondary mb-1">Borç Durumu</label>
-                    <select 
-                      value={debtFormData.status || 'Devam Ediyor'} onChange={(e) => setDebtFormData(prev => ({ ...prev, status: e.target.value as any }))}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white"
-                    >
-                      <option value="Devam Ediyor">Devam Ediyor</option>
-                      <option value="Ödendi">Ödendi / Kapandı</option>
-                    </select>
-                  </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Borç / Kredi Türü *</label>
+                          <select 
+                            value={debtFormData.category || 'İhtiyaç Kredisi'}
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, category: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white font-bold"
+                          >
+                            <option value="İhtiyaç Kredisi">İhtiyaç Kredisi</option>
+                            <option value="Konut Kredisi">Konut Kredisi</option>
+                            <option value="Taşıt Kredisi">Taşıt Kredisi</option>
+                            <option value="Kredi Kartı">Kredi Kartı Borcu / Ekstre</option>
+                            <option value="Taksitli Alışveriş">Taksitli Alışveriş Borcu</option>
+                            <option value="Esnek Hesap (KMH)">Esnek Hesap / KMH Borcu</option>
+                            <option value="Elden Borç">Elden Borç / Şahıs Borcu</option>
+                            <option value="Diğer">Diğer Finansal Yükümlülük</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Borç / Kalem Adı *</label>
+                          <input 
+                            type="text" 
+                            placeholder="Örn: Garanti İhtiyaç Kredisi, Laptop Taksidi..."
+                            value={debtFormData.title || ''} 
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, title: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Kurum / Alacaklı Kişi</label>
+                          <input 
+                            type="text" 
+                            placeholder="Örn: Yapı Kredi, Vatan Bilgisayar, Mehmet Bey..."
+                            value={debtFormData.lender || ''} 
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, lender: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Hesap / Kredi / Sözleşme No</label>
+                          <input 
+                            type="text" 
+                            placeholder="Örn: TR88 0006 200..." 
+                            value={debtFormData.accountNumber || ''} 
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Detailed Installment & Calculations */}
+                    <div className="space-y-3 pt-2">
+                      <span className="text-[11px] font-bold text-crit-vivid uppercase tracking-wider flex items-center gap-1.5 border-b border-white/5 pb-1">
+                        <Hash size={13} /> 2. Tutar, Taksit & Kalan Taksit Sayısı (Hesaplayıcı)
+                      </span>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Toplam Borç Tutarı</label>
+                          <input 
+                            type="number" 
+                            placeholder="0.00"
+                            value={debtFormData.totalAmount || ''} 
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, totalAmount: Number(e.target.value) }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Taksit Tutarı *</label>
+                          <input 
+                            type="number" 
+                            placeholder="0.00"
+                            value={debtFormData.paymentAmount || ''} 
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, paymentAmount: Number(e.target.value) }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-crit-vivid font-mono font-bold text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Para Birimi</label>
+                          <select 
+                            value={debtFormData.currency || 'TRY'} 
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, currency: e.target.value as any }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          >
+                            <option value="TRY">TRY (₺)</option>
+                            <option value="USD">USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                            <option value="GBP">GBP (£)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Explicit Installment Breakdown Card */}
+                      <div className="p-4 bg-crit-vivid/[0.03] border border-crit-vivid/20 rounded-xl space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                            <Sparkles size={13} className="text-nrg-sun" /> Taksit ve Kalan Taksit Sayısı Ayarı
+                          </span>
+                          <span className="text-[10px] text-text-secondary">
+                            Kalan taksit girildiğinde bakiye otomatik güncellenir.
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-[10px] text-text-secondary mb-1 font-bold">Toplam Taksit Sayısı</label>
+                            <input 
+                              type="number" 
+                              placeholder="Örn: 12"
+                              value={debtFormData.installments || ''} 
+                              onChange={(e) => {
+                                const totalInst = Number(e.target.value);
+                                setDebtFormData(prev => {
+                                  const paid = prev.paidInstallments || 0;
+                                  const remaining = Math.max(0, totalInst - paid);
+                                  const remainingAmount = (prev.paymentAmount || 0) * remaining;
+                                  return {
+                                    ...prev,
+                                    installments: totalInst,
+                                    remainingAmount: remainingAmount > 0 ? remainingAmount : prev.remainingAmount
+                                  };
+                                });
+                              }}
+                              className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 font-mono text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] text-text-secondary mb-1 font-bold">Ödenen Taksit Sayısı</label>
+                            <input 
+                              type="number" 
+                              placeholder="Örn: 4"
+                              value={debtFormData.paidInstallments || 0} 
+                              onChange={(e) => {
+                                const paid = Number(e.target.value);
+                                setDebtFormData(prev => {
+                                  const totalInst = prev.installments || 0;
+                                  const remaining = Math.max(0, totalInst - paid);
+                                  const remainingAmount = (prev.paymentAmount || 0) * remaining;
+                                  return {
+                                    ...prev,
+                                    paidInstallments: paid,
+                                    remainingAmount: remainingAmount > 0 ? remainingAmount : prev.remainingAmount
+                                  };
+                                });
+                              }}
+                              className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 font-mono text-focus-neon"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] text-crit-vivid mb-1 font-bold">Kalan Taksit Sayısı *</label>
+                            <input 
+                              type="number" 
+                              placeholder="Örn: 8"
+                              value={debtFormData.installments !== undefined ? Math.max(0, (debtFormData.installments || 0) - (debtFormData.paidInstallments || 0)) : ''} 
+                              onChange={(e) => {
+                                const remaining = Math.max(0, Number(e.target.value));
+                                setDebtFormData(prev => {
+                                  const totalInst = prev.installments || (prev.paidInstallments || 0) + remaining;
+                                  const paid = Math.max(0, totalInst - remaining);
+                                  const remainingAmount = (prev.paymentAmount || 0) * remaining;
+                                  return {
+                                    ...prev,
+                                    installments: totalInst,
+                                    paidInstallments: paid,
+                                    remainingAmount: remainingAmount > 0 ? remainingAmount : prev.remainingAmount
+                                  };
+                                });
+                              }}
+                              className="w-full bg-crit-vivid/10 border border-crit-vivid/40 rounded-lg px-2.5 py-1.5 font-mono text-crit-vivid font-bold"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 pt-1 border-t border-white/5">
+                          <div>
+                            <label className="block text-[10px] text-text-secondary mb-1">Hesaplanan Kalan Borç Bakiyesi</label>
+                            <input 
+                              type="number" 
+                              placeholder="0.00"
+                              value={debtFormData.remainingAmount || ''} 
+                              onChange={(e) => setDebtFormData(prev => ({ ...prev, remainingAmount: Number(e.target.value) }))}
+                              className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 font-mono font-bold text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-text-secondary mb-1">Yıllık Akdi Faiz Oranı (%)</label>
+                            <input 
+                              type="number" 
+                              step="0.1" 
+                              placeholder="Örn: 42.5"
+                              value={debtFormData.interestRate || ''} 
+                              onChange={(e) => setDebtFormData(prev => ({ ...prev, interestRate: Number(e.target.value) }))}
+                              className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 font-mono text-nrg-sun"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Ödeme Sıklığı</label>
+                          <select 
+                            value={debtFormData.paymentFrequency || 'Aylık'}
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, paymentFrequency: e.target.value as any }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          >
+                            <option value="Haftalık">Haftalık</option>
+                            <option value="Aylık">Aylık</option>
+                            <option value="3 Aylık">3 Aylık</option>
+                            <option value="6 Aylık">6 Aylık</option>
+                            <option value="Yıllık">Yıllık</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Sonraki Taksit Vade Tarihi *</label>
+                          <input 
+                            type="date" 
+                            value={debtFormData.nextPaymentDate || ''}
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, nextPaymentDate: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white [color-scheme:dark]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Payment Setup & Reminder */}
+                    <div className="space-y-3 pt-2">
+                      <span className="text-[11px] font-bold text-crit-vivid uppercase tracking-wider flex items-center gap-1.5 border-b border-white/5 pb-1">
+                        <Bell size={13} /> 3. Ödeme Hesabı & Hatırlatma Ayarları
+                      </span>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Ödeme Yapılacak Hesap / Kart</label>
+                          <input 
+                            type="text" 
+                            placeholder="Örn: Enpara Vadesiz TL"
+                            value={debtFormData.paymentMethod || ''} 
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-text-secondary mb-1">Ödeme Hatırlatıcı Bildirimi</label>
+                          <select 
+                            value={debtFormData.reminderDays ?? 3} 
+                            onChange={(e) => setDebtFormData(prev => ({ ...prev, reminderDays: Number(e.target.value) }))}
+                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white"
+                          >
+                            <option value={0}>Son Ödeme Günü</option>
+                            <option value={1}>1 Gün Önce Bildir</option>
+                            <option value={3}>3 Gün Önce Bildir</option>
+                            <option value={7}>7 Gün Önce Bildir</option>
+                            <option value={15}>15 Gün Önce Bildir</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                        <input 
+                          type="checkbox" 
+                          id="autoPayDebt"
+                          checked={debtFormData.autoPay || false}
+                          onChange={(e) => setDebtFormData(prev => ({ ...prev, autoPay: e.target.checked }))}
+                          className="w-4 h-4 rounded border-white/20 bg-black/40 text-crit-vivid focus:ring-0"
+                        />
+                        <label htmlFor="autoPayDebt" className="cursor-pointer">
+                          <span className="font-bold text-white block">Otomatik Ödeme Talimatı</span>
+                          <span className="text-[10px] text-text-secondary">Taksit tutarı son ödeme tarihinde otomatik çekilecek.</span>
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-text-secondary mb-1">Notlar & Açıklama</label>
+                        <textarea 
+                          rows={2}
+                          placeholder="Banka şubesi, erken kapama detayları veya kefil notları..." 
+                          value={debtFormData.notes || ''}
+                          onChange={(e) => setDebtFormData(prev => ({ ...prev, notes: e.target.value }))}
+                          className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-crit-vivid/50"
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
 
               </div>
-              <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end gap-2 text-xs font-bold">
-                <button onClick={() => setIsDebtWizardOpen(false)} className="px-4 py-2 text-text-secondary hover:text-white">İptal</button>
-                <button onClick={saveDebt} className="px-5 py-2 bg-crit-vivid text-white rounded-xl hover:bg-crit-vivid/90">
-                  {editingDebtId ? 'Güncelle' : 'Kaydet'}
-                </button>
+
+              {/* Modal Footer Controls */}
+              <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-between items-center text-xs font-bold">
+                <div className="flex items-center gap-2">
+                  {isSubWizardOpen && editingSubId && (
+                    <button 
+                      type="button"
+                      onClick={() => deleteSubscription(editingSubId)} 
+                      className="px-3 py-2 bg-crit-vivid/10 text-crit-vivid hover:bg-crit-vivid/20 border border-crit-vivid/30 rounded-xl transition-all flex items-center gap-1 font-bold"
+                    >
+                      <Trash2 size={13} /> Kaydı Sil
+                    </button>
+                  )}
+                  {isDebtWizardOpen && editingDebtId && (
+                    <button 
+                      type="button"
+                      onClick={() => deleteDebt(editingDebtId)} 
+                      className="px-3 py-2 bg-crit-vivid/10 text-crit-vivid hover:bg-crit-vivid/20 border border-crit-vivid/30 rounded-xl transition-all flex items-center gap-1 font-bold"
+                    >
+                      <Trash2 size={13} /> Kaydı Sil
+                    </button>
+                  )}
+                  <span className="text-[10px] text-text-secondary hidden sm:inline">
+                    * Zorunlu alanları doldurmayı unutmayın.
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => { setIsSubWizardOpen(false); setIsDebtWizardOpen(false); }} 
+                    className="px-4 py-2 text-text-secondary hover:text-white rounded-xl transition-colors"
+                  >
+                    İptal
+                  </button>
+                  {isSubWizardOpen ? (
+                    <button 
+                      onClick={saveSubscription} 
+                      className="px-6 py-2 bg-focus-neon text-black rounded-xl hover:bg-focus-neon/90 transition-all shadow-lg shadow-focus-neon/20"
+                    >
+                      {editingSubId ? 'Aboneliği Güncelle' : 'Abonelik Kaydet'}
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={saveDebt} 
+                      className="px-6 py-2 bg-crit-vivid text-white rounded-xl hover:bg-crit-vivid/90 transition-all shadow-lg shadow-crit-vivid/20"
+                    >
+                      {editingDebtId ? 'Borç Kaydını Güncelle' : 'Borç Kaydet'}
+                    </button>
+                  )}
+                </div>
               </div>
             </motion.div>
           </div>

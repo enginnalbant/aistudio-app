@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Syne:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700;800&family=Cinzel:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -7,75 +7,89 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Premium Pristine Ultra-White & Sleek Slate Light Theme */
+  /* Safe Area Insets for iOS Notch, Dynamic Island, Home Indicator & Android Navigation */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+
+  /* Hybrid Responsive System Variables */
+  --app-padding: clamp(0.375rem, 1.5vw, 1.25rem);
+  --app-gap: clamp(0.375rem, 1.2vw, 1rem);
+  --card-padding: clamp(0.5rem, 1.5vw, 1.25rem);
+  --header-height: clamp(3rem, 5vh, 4rem);
+  --dock-height: clamp(3.25rem, 6vh, 4.25rem);
+
+  /* Cognitive Color Engine - Light Theme (Default) */
   --pure-white: #FFFFFF;
+
   --pure-black: #000000;
 
   --void-white-val: #FFFFFF;
-  --void-black-val: #FFFFFF; /* Pristine white background */
+  --void-black-val: #050505;
 
-  --skel-glass-val: #0F172A; /* Clean Charcoal Slate */
-  --skel-metal-val: #475569;
-  --skel-matte-val: #64748B;
-  --skel-dark-val: #F1F5F9;   /* Pure soft slate background */
-  --skel-space-val: #FFFFFF;  /* Crisp white space background */
+  --skel-glass-val: #1E293B; /* Dark text for light mode */
+  --skel-metal-val: #64748B; /* Slate 500 */
+  --skel-matte-val: #475569; /* Slate 600 */
+  --skel-dark-val: #F1F5F9;  /* Light background for light mode */
+  --skel-space-val: #FFFFFF; /* Pure white for cards in light mode */
 
-  --focus-ice-val: #F8FAFC;
-  --focus-neon: #3B82F6;      /* Modern Tech Blue Accent */
+  --focus-ice-val: #EFF6FF;
+  --focus-neon: #2563EB; /* Default blue for light mode */
   --focus-neon-val: var(--focus-neon);
-  --focus-main-val: #2563EB;
-  --focus-deep-val: #1D4ED8;
-  --focus-void-val: #F1F5F9;
+  --focus-main-val: #1D4ED8;
+  --focus-deep-val: #1E40AF;
+  --focus-void-val: #DBEAFE;
 
-  --ai-fairy-val: #FAF5FF;
-  --ai-bright-val: #8B5CF6;   /* Elegant violet */
+  --ai-fairy-val: #F5F3FF;
+  --ai-bright-val: #8B5CF6;
   --ai-royal-val: #7C3AED;
-  --ai-night-val: #5B21B6;
-  --ai-void-val: #F3E8FF;
+  --ai-night-val: #6D28D9;
+  --ai-void-val: #EDE9FE;
 
   --crit-pale-val: #FEF2F2;
   --crit-vivid-val: #EF4444;
   --crit-blood-val: #DC2626;
-  --crit-dark-val: #991B1B;
+  --crit-dark-val: #B91C1C;
   --crit-shadow-val: #FEE2E2;
 
   --grow-mint-val: #F0FDF4;
-  --grow-phosphor-val: #10B981;
-  --grow-main-val: #059669;
-  --grow-forest-val: #047857;
-  --grow-moss-val: #D1FAE5;
+  --grow-phosphor-val: #22C55E;
+  --grow-main-val: #16A34A;
+  --grow-forest-val: #15803D;
+  --grow-moss-val: #DCFCE7;
 
-  --nrg-sun-val: #F59E0B;
+  --nrg-sun-val: #EAB308;
   --nrg-gold-val: #D97706;
   --nrg-fire-val: #EA580C;
-  --nrg-brick-val: #B91C1C;
+  --nrg-brick-val: #C2410C;
 
-  --app-bg: #FFFFFF; /* Pristine Pure White */
-  --card-bg: rgba(255, 255, 255, 0.95); /* Elegant crisp white base */
-  --border-val: rgba(226, 232, 240, 0.8); /* Clean modern border */
-  --border-strong-val: rgba(203, 213, 225, 1);
-  --text-primary-val: #0F172A; /* Slate Charcoal */
-  --text-secondary-val: #475569;
+  --app-bg: #F8FAFC;
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --border-val: rgba(100, 116, 139, 0.15);
+  --border-strong-val: rgba(100, 116, 139, 0.3);
+  --text-primary-val: #0F172A;
+  --text-secondary-val: #64748B;
 
-  --card-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 10px -1px rgba(15, 23, 42, 0.03);
-  --card-shadow-hover: 0 20px 40px -10px rgba(15, 23, 42, 0.1), 0 2px 15px -1px rgba(15, 23, 42, 0.05);
+  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+  --card-shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
   --background: oklch(1 0 0);
-  --foreground: oklch(0.18 0.01 60);
-  --card: oklch(0.99 0.002 60);
-  --card-foreground: oklch(0.18 0.01 60);
-  --popover: oklch(0.99 0.002 60);
-  --popover-foreground: oklch(0.18 0.01 60);
-  --primary: oklch(0.25 0.01 60);
-  --primary-foreground: oklch(0.99 0.002 60);
-  --secondary: oklch(0.96 0.01 60);
-  --secondary-foreground: oklch(0.25 0.01 60);
-  --muted: oklch(0.96 0.01 60);
-  --muted-foreground: oklch(0.45 0.01 60);
-  --accent: oklch(0.96 0.01 60);
-  --accent-foreground: oklch(0.25 0.01 60);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.01 60);
-  --input: oklch(0.92 0.01 60);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -83,22 +97,18 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.99 0.002 60);
-  --sidebar-foreground: oklch(0.18 0.01 60);
-  --sidebar-primary: oklch(0.25 0.01 60);
-  --sidebar-primary-foreground: oklch(0.99 0.002 60);
-  --sidebar-accent: oklch(0.96 0.01 60);
-  --sidebar-accent-foreground: oklch(0.25 0.01 60);
-  --sidebar-border: oklch(0.92 0.01 60);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-
-  /* Font mappings */
-  --font-sans-val: "Inter", sans-serif;
-  --font-display-val: "Outfit", sans-serif;
 }
 
 .dark {
-  /* Slate Dark Theme kept pristine */
+  /* Cognitive Color Engine - Dark Theme */
   --skel-glass-val: #F8F9FB;
   --skel-metal-val: #9499B0;
   --skel-matte-val: #474B63;
@@ -219,8 +229,8 @@
   --color-nrg-fire: var(--nrg-fire-val);
   --color-nrg-brick: var(--nrg-brick-val);
 
-  --font-sans: var(--font-sans-val), "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display-val), "Outfit", sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   --radius-xs: 6px;
@@ -262,33 +272,27 @@
   }
   html {
     @apply font-sans;
-    font-family: var(--font-sans-val), "Inter", sans-serif;
   }
 }
 
 @utility bento-card {
-  background-color: var(--card-bg);
-  backdrop-filter: blur(var(--glass-blur-level, 25px));
-  border: 1px solid var(--border-val);
-  border-radius: 1.2rem;
-  transition: all var(--frame-duration, 0.4s) cubic-bezier(0.2, 0.8, 0.2, 1);
-  box-shadow: var(--card-shadow);
+  @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10 rounded-[1.5rem] transition-all duration-700 shadow-[0_10px_40px_rgba(0,0,0,0.2)];
+  box-shadow: 
+    0 10px 40px rgba(0,0,0,0.2),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 @utility bento-card-hover {
-  border-color: var(--border-strong-val);
-  box-shadow: var(--card-shadow-hover);
-  transform: translateY(-4px) scale(1.005);
+  @apply border-white/20 bg-white/[0.06] shadow-[0_20px_60px_rgba(0,0,0,0.3)];
+  transform: translateY(-4px) scale(1.01);
 }
 
 @utility glass-panel {
-  background-color: var(--card-bg);
-  backdrop-filter: blur(var(--glass-blur-level, 35px));
-  border: 1px solid var(--border-val);
+  @apply bg-void-white/5 backdrop-blur-3xl border border-void-white/10;
 }
 
 @utility os-btn {
-  @apply relative px-5 py-2.5 md:px-7 md:py-3 rounded-lg md:rounded-xl font-display font-bold tracking-wide transition-all duration-500 flex items-center justify-center gap-2.5 md:gap-3 overflow-hidden text-xs md:text-sm;
+  @apply relative px-7 py-3 rounded-xl font-display font-bold tracking-wide transition-all duration-500 flex items-center justify-center gap-3 overflow-hidden;
 }
 
 @utility os-btn-primary {
@@ -300,7 +304,7 @@
 }
 
 @utility label-mono {
-  @apply font-mono text-[10px] md:text-[11px] uppercase tracking-[0.25em] text-text-secondary font-bold;
+  @apply font-mono text-[11px] uppercase tracking-[0.25em] text-text-secondary font-bold;
 }
 
 @utility aerogel {
@@ -318,7 +322,7 @@
 }
 
 @utility os-input {
-  @apply bg-skel-space/60 border border-skel-metal/15 rounded-xl px-4 py-2.5 md:px-5 md:py-3 text-xs md:text-sm text-text-primary transition-all duration-500 placeholder:text-text-secondary/40 focus:outline-none focus:border-focus-neon/50 focus:bg-skel-space/90 focus:ring-4 focus:ring-focus-neon/5;
+  @apply bg-skel-space/60 border border-skel-metal/15 rounded-xl px-5 py-3 text-text-primary transition-all duration-500 placeholder:text-text-secondary/40 focus:outline-none focus:border-focus-neon/50 focus:bg-skel-space/90 focus:ring-4 focus:ring-focus-neon/5;
 }
 
 @utility custom-scrollbar {
@@ -395,13 +399,38 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Safe Area Inset Helpers */
+  .pt-safe { padding-top: max(0.5rem, var(--sat)); }
+  .pb-safe { padding-bottom: max(0.5rem, var(--sab)); }
+  .pl-safe { padding-left: max(0.5rem, var(--sal)); }
+  .pr-safe { padding-right: max(0.5rem, var(--sar)); }
+
+  .dock-safe-bottom {
+    padding-bottom: max(0.5rem, calc(var(--sab) + 0.375rem));
+  }
+
+  /* Floating VisionOS / iOS Style Dock Effect */
+  .glass-dock {
+    background: rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.08) inset;
+  }
+
+  .light .glass-dock {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.12), 0 0 1px 1px rgba(255, 255, 255, 0.6) inset;
+  }
+
   /* Mobil Yoğun ve Orantılı Kart Düzenleri */
   .mobile-compact-padding {
-    padding: clamp(0.375rem, 1.5vw, 0.75rem);
+    padding: clamp(0.5rem, 2vw, 1rem);
   }
 
   .mobile-compact-gap {
-    gap: clamp(0.25rem, 1vw, 0.5rem);
+    gap: clamp(0.375rem, 1.5vw, 0.75rem);
   }
 }
 
@@ -433,7 +462,7 @@ body, #root {
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans-val), 'Geist Variable', sans-serif;
+  --font-sans: 'Geist Variable', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -465,11 +494,11 @@ body, #root {
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.5);
-  --radius-md: calc(var(--radius) * 0.7);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.2);
-  --radius-2xl: calc(var(--radius) * 1.5);
-  --radius-3xl: calc(var(--radius) * 1.8);
-  --radius-4xl: calc(var(--radius) * 2.2);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }

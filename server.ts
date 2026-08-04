@@ -1193,22 +1193,20 @@ Lütfen sitenin amacını ve içeriğini göz önünde bulundurarak en doğru ve
       const { title, author } = req.body;
       if (!title) return res.status(400).json({ error: "Title is required" });
 
-      const ai = getAi();
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const prompt = `Kullanıcı tarafından sağlanan veri (bir dosya adı, eksik veya karmaşık bir başlık olabilir): "${title}"
 Yazar (eğer belirtilmişse): "${author || 'Bilinmiyor'}"
 
-Lütfen bu veriyi analiz et. Eğer bu bir dosya veya manga adıysa (örneğin: 'one-piece-ch1000.cbz', 'solo-leveling-vol1', '1984_George_Orwell_epub' gibi), öncelikle içindeki gerçek eser/manga adını ve yazarını temizleyerek ayırt et.
-Yapay zeka web arama ve genel manga veritabanları (MyAnimeList, AniList veya MangaUpdates) vizyonunla eşleştirerek bu esere dair en doğru, zengin meta verileri toparla ve aşağıdaki JSON formatında, Türkçe dilinde dön:
+Lütfen bu veriyi analiz et. Eğer bu bir dosya adıysa (örneğin: '1984_George_Orwell_epub', 'harry-potter-1-pdf' gibi), öncelikle içindeki gerçek kitap adını ve yazarını temizleyerek ayırt et.
+Ardından bu kitap hakkında en doğru, zengin meta verileri toparla ve aşağıdaki JSON formatında, Türkçe dilinde dön:
 
 {
-  "title": "Eserin doğru, tam ve temiz adı (Dosya uzantıları veya gereksiz karakterler olmadan)",
+  "title": "Kitabın doğru, tam ve temiz adı (Dosya uzantıları veya gereksiz karakterler olmadan)",
   "author": "Yazarın doğru ve tam adı",
-  "category": "En uygun tek bir ana kategori (örn: Aksiyon, Macera, Cyberpunk, Fantastik, Dram, Slice of Life, Gizem, Bilim Kurgu)",
+  "category": "En uygun tek bir ana kategori (örn: Bilim Kurgu, Roman, Tarih, Felsefe)",
   "tags": ["ilgili-etiket-1", "ilgili-etiket-2", "ilgili-etiket-3"],
-  "description": "Eserin profesyonel, merak uyandırıcı, 2-3 cümlelik çok iyi yazılmış bir arka kapak veya tanıtım özeti.",
-  "coverUrl": "Eğer internette bilinen iyi çözünürlüklü bir kapak görseli URL'si bulabilirsen (veya tahmini bir public resim URL'si), aksi takdirde boş bırak",
-  "year": 2026,
-  "totalPages": 12
+  "description": "Kitabın profesyonel, merak uyandırıcı, 2-3 cümlelik çok iyi yazılmış bir arka kapak veya tanıtım özeti.",
+  "coverUrl": "Eğer internette bilinen iyi çözünürlüklü bir kapak görseli URL'si bulabilirsen (veya tahmini bir public resim URL'si), aksi takdirde boş bırak"
 }`;
 
       const response = await ai.models.generateContent({
@@ -1224,11 +1222,9 @@ Yapay zeka web arama ve genel manga veritabanları (MyAnimeList, AniList veya Ma
               category: { type: Type.STRING },
               tags: { type: Type.ARRAY, items: { type: Type.STRING } },
               description: { type: Type.STRING },
-              coverUrl: { type: Type.STRING },
-              year: { type: Type.INTEGER },
-              totalPages: { type: Type.INTEGER }
+              coverUrl: { type: Type.STRING }
             },
-            required: ["title", "author", "category", "tags", "description", "year", "totalPages"]
+            required: ["title", "author", "category", "tags", "description"]
           }
         }
       });
@@ -1560,7 +1556,7 @@ Dil tamamen Türkçe ve Markdown formatında olmalıdır.`;
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get(/^(?!\/api).*$/, (req, res) => {
+    app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

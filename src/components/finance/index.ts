@@ -1,5 +1,4 @@
 export * from './FinanceDashboard';
-export * from './FinanceStatus';
 export * from './FinanceIncomes';
 export * from './FinanceExpenses';
 export * from './FinanceSubscriptions';

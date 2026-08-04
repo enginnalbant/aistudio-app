@@ -65,9 +65,9 @@ export const NotesDashboard: React.FC = () => {
   const totalPagesCount = useMemo(() => notebooks.reduce((acc, nb) => acc + nb.pages.length, 0), [notebooks]);
 
   return (
-    <div className="flex flex-col gap-2.5 md:gap-6 w-full max-w-7xl mx-auto p-1.5 md:p-0">
+    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-amber-500/15 via-indigo-500/10 to-transparent border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-6 backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4 shadow-xl">
+      <div className="bg-gradient-to-r from-amber-500/15 via-indigo-500/10 to-transparent border border-white/10 rounded-3xl p-6 backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-indigo-600 flex items-center justify-center text-white shadow-lg">
             <LayoutDashboard size={24} />
@@ -92,7 +92,7 @@ export const NotesDashboard: React.FC = () => {
       </div>
 
       {/* Global AI Intelligence Bar */}
-      <div className="bg-neutral-900/90 border border-amber-500/30 rounded-2xl md:rounded-3xl p-3.5 md:p-5 shadow-2xl space-y-2 md:space-y-3 backdrop-blur-xl">
+      <div className="bg-neutral-900/90 border border-amber-500/30 rounded-3xl p-5 shadow-2xl space-y-3 backdrop-blur-xl">
         <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider font-mono">
           <Sparkles size={16} /> Global Yapay Zeka Not Arama & Sorgulama (Gemini AI)
         </div>
@@ -124,17 +124,17 @@ export const NotesDashboard: React.FC = () => {
       </div>
 
       {/* Metric Cards Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Memos', value: memos.length, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20', icon: <Zap size={16} />, module: 'notes-quick' },
-          { label: 'Defterler', value: notebooks.length, color: 'text-indigo-400', bg: 'bg-indigo-500/10 border-indigo-500/20', icon: <BookText size={16} />, module: 'notes-notebook' },
-          { label: 'Sayfalar', value: totalPagesCount, color: 'text-cyan-400', bg: 'bg-cyan-500/10 border-cyan-500/20', icon: <FileText size={16} />, module: 'notes-notebook' },
-          { label: 'Etiketler', value: INITIAL_NOTE_CATEGORIES.length, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', icon: <Tag size={16} />, module: 'notes-quick' }
+          { label: 'Hızlı Notlar (Memos)', value: memos.length, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20', icon: <Zap size={20} />, module: 'notes-quick' },
+          { label: 'Not Defterleri', value: notebooks.length, color: 'text-indigo-400', bg: 'bg-indigo-500/10 border-indigo-500/20', icon: <BookText size={20} />, module: 'notes-notebook' },
+          { label: 'Defter Sayfaları', value: totalPagesCount, color: 'text-cyan-400', bg: 'bg-cyan-500/10 border-cyan-500/20', icon: <FileText size={20} />, module: 'notes-notebook' },
+          { label: 'Kategoriler & Etiketler', value: INITIAL_NOTE_CATEGORIES.length, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', icon: <Tag size={20} />, module: 'notes-quick' }
         ].map((card, i) => (
           <div 
             key={i}
             onClick={() => navigateTo(card.module)}
-            className={`p-3 md:p-5 rounded-xl md:rounded-3xl border ${card.bg} bg-neutral-900/80 backdrop-blur-xl shadow-xl hover:scale-[1.02] transition-transform cursor-pointer flex items-center justify-between`}
+            className={`p-5 rounded-3xl border ${card.bg} bg-neutral-900/80 backdrop-blur-xl shadow-xl hover:scale-[1.02] transition-transform cursor-pointer flex items-center justify-between`}
           >
             <div>
               <span className="text-[11px] font-mono text-text-secondary uppercase">{card.label}</span>
@@ -148,31 +148,31 @@ export const NotesDashboard: React.FC = () => {
       </div>
 
       {/* Split Section: Quick Memos Preview + Notebooks Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Recent Memos Feed */}
-        <div className="lg:col-span-6 bg-neutral-900/80 border border-white/10 rounded-2xl md:rounded-3xl p-3.5 md:p-5 space-y-3 md:space-y-4 shadow-xl backdrop-blur-xl flex flex-col justify-between">
-          <div className="space-y-3 md:space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-white/5">
-              <h3 className="text-xs md:text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <Zap size={14} className="text-amber-400" /> Son Hızlı Notlar (Memos)
+        <div className="lg:col-span-6 bg-neutral-900/80 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl backdrop-blur-xl flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/5">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Zap size={16} className="text-amber-400" /> Son Hızlı Notlar (Memos)
               </h3>
               <button 
                 onClick={() => navigateTo('notes-quick')}
-                className="text-[10px] md:text-xs font-mono text-amber-400 hover:underline flex items-center gap-1"
+                className="text-xs font-mono text-amber-400 hover:underline flex items-center gap-1"
               >
-                Gör &rarr;
+                Tümünü Gör &rarr;
               </button>
             </div>
 
-            <div className="space-y-2 md:space-y-3">
+            <div className="space-y-3">
               {memos.slice(0, 3).map((memo) => (
-                <div key={memo.id} className="bg-white/5 border border-white/5 rounded-xl p-2.5 space-y-1.5">
-                  <div className="flex items-center justify-between text-[9px] font-mono text-text-secondary">
-                    <span className="text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded-full">{memo.category}</span>
+                <div key={memo.id} className="bg-white/5 border border-white/5 rounded-2xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between text-[10px] font-mono text-text-secondary">
+                    <span className="text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full">{memo.category}</span>
                     <span>{new Date(memo.createdAt).toLocaleDateString('tr-TR')}</span>
                   </div>
-                  <p className="text-[11px] md:text-xs text-skel-glass line-clamp-2 leading-relaxed">{memo.content}</p>
+                  <p className="text-xs text-skel-glass line-clamp-2">{memo.content}</p>
                 </div>
               ))}
             </div>
@@ -180,44 +180,44 @@ export const NotesDashboard: React.FC = () => {
 
           <button 
             onClick={() => navigateTo('notes-quick')}
-            className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 rounded-xl text-xs font-bold transition-all cursor-pointer mt-3"
+            className="w-full py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-2xl text-xs font-bold transition-all cursor-pointer mt-4"
           >
-            + Hızlı Not Ekle
+            + Hızlı Not Ekle (Memos)
           </button>
         </div>
 
         {/* Right Column: Recent Notebooks */}
-        <div className="lg:col-span-6 bg-neutral-900/80 border border-white/10 rounded-2xl md:rounded-3xl p-3.5 md:p-5 space-y-3 md:space-y-4 shadow-xl backdrop-blur-xl flex flex-col justify-between">
-          <div className="space-y-3 md:space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-white/5">
-              <h3 className="text-xs md:text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <BookText size={14} className="text-indigo-400" /> Defterler (Open Notebooks)
+        <div className="lg:col-span-6 bg-neutral-900/80 border border-white/10 rounded-3xl p-5 space-y-4 shadow-xl backdrop-blur-xl flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/5">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <BookText size={16} className="text-indigo-400" /> Defterler (Open Notebooks)
               </h3>
               <button 
                 onClick={() => navigateTo('notes-notebook')}
-                className="text-[10px] md:text-xs font-mono text-indigo-400 hover:underline flex items-center gap-1"
+                className="text-xs font-mono text-indigo-400 hover:underline flex items-center gap-1"
               >
-                Gör &rarr;
+                Tümünü Gör &rarr;
               </button>
             </div>
 
-            <div className="space-y-2 md:space-y-3">
+            <div className="space-y-3">
               {notebooks.slice(0, 3).map((nb) => (
                 <div 
                   key={nb.id} 
                   onClick={() => navigateTo('notes-notebook')}
-                  className="bg-white/5 border border-white/5 hover:border-indigo-500/30 rounded-xl p-2.5 flex items-center justify-between cursor-pointer transition-colors"
+                  className="bg-white/5 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-3.5 flex items-center justify-between cursor-pointer transition-colors"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
-                      <BookOpen size={15} />
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
+                      <BookOpen size={18} />
                     </div>
                     <div>
-                      <h4 className="text-[11px] md:text-xs font-bold text-white line-clamp-1">{nb.title}</h4>
-                      <p className="text-[9px] text-text-secondary">{nb.pages.length} Sayfa • {nb.sources.length} Kaynak</p>
+                      <h4 className="text-xs font-bold text-white">{nb.title}</h4>
+                      <p className="text-[10px] text-text-secondary">{nb.pages.length} Sayfa • {nb.sources.length} Kaynak</p>
                     </div>
                   </div>
-                  <ArrowRight size={14} className="text-text-secondary" />
+                  <ArrowRight size={16} className="text-text-secondary" />
                 </div>
               ))}
             </div>
@@ -225,7 +225,7 @@ export const NotesDashboard: React.FC = () => {
 
           <button 
             onClick={() => navigateTo('notes-notebook')}
-            className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer mt-3 shadow-lg"
+            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-2xl transition-all cursor-pointer mt-4 shadow-lg"
           >
             Not Defterlerini Yönet
           </button>

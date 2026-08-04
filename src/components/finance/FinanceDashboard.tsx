@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { runFinanceHealthEngine, UserProfile } from '../../lib/financeHealthEngine';
-import { useDevice } from '../../hooks/useDevice';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
@@ -28,13 +27,7 @@ import {
   Download,
   Sparkles,
   ChevronRight,
-  Coins,
-  Brain,
-  HelpCircle,
-  Eye,
-  Calendar,
-  X,
-  ChevronLeft
+  Coins
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -48,13 +41,8 @@ import {
   Bar,
   Cell,
   PieChart,
-  Pie,
-  ScatterChart,
-  Scatter,
-  ZAxis
+  Pie
 } from 'recharts';
-import { VisualEngine, triggerConfettiBurst } from '../ui/VisualEngine';
-import { WidgetHub } from '../ui/WidgetHub';
 
 interface Income {
   id: string;
@@ -147,12 +135,6 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 export const FinanceDashboard = () => {
-  const { isMobile, isTablet, screenTier, width } = useDevice();
-  const isXs = screenTier === 'xs' || width < 380;
-
-  // Active widgets list controlled by the hub engine
-  const [activeWidgetIds, setActiveWidgetIds] = useState<string[]>([]);
-
   // Pull data from local storages
   const [incomes, setIncomes] = useLocalStorage<Income[]>('finance_incomes', []);
   const [expenses, setExpenses] = useLocalStorage<Expense[]>('finance_expenses', []);
@@ -170,18 +152,10 @@ export const FinanceDashboard = () => {
     sehir_yasam_maliyeti_endeksi: 'orta'
   });
 
-  // UI States & Interactive Drilldown Drawer
+  // UI States
   const [activeQuickAction, setActiveQuickAction] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [showHealthScoreDetails, setShowHealthScoreDetails] = useState(false);
-
-  // Smart Interactive Calendar state
-  const [selectedCalendarDay, setSelectedCalendarDay] = useState<number>(new Date().getDate());
-
-  // Interactive Drilldown State
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerTitle, setDrawerTitle] = useState('');
-  const [drawerContent, setDrawerContent] = useState<any>(null);
 
   // Quick Currency Converter Widget state
   const [calcAmount, setCalcAmount] = useState<string>('100');
@@ -331,13 +305,41 @@ export const FinanceDashboard = () => {
     return amount;
   };
 
-  // Active metrics (calculates realized balance up to the current date)
-  const monthlyIncome = useMemo(() => {
+  const [includePendingIncomes] = useLocalStorage<boolean>('finance_include_pending_incomes', true);
+
+  // Active & Pending metrics
+  const incomeDetails = useMemo(() => {
     const today = new Date();
-    const compl = incomes.filter(i => i.status === 'Tamamlandı' && new Date(i.date) <= today);
-    if (compl.length > 0) return compl.reduce((sum, i) => sum + Number(i.amount || 0), 0);
-    return 0;
-  }, [incomes]);
+    today.setHours(0, 0, 0, 0);
+
+    let realized = 0;
+    let pending = 0;
+
+    (incomes || []).forEach(i => {
+      if (!i) return;
+      const amt = Number(i.amount || 0);
+      const isCompleted = i.status === 'Tamamlandı';
+      const d = i.date ? new Date(i.date) : new Date();
+      d.setHours(0, 0, 0, 0);
+      const isFuture = d > today;
+
+      if (isCompleted && !isFuture) {
+        realized += amt;
+      } else {
+        pending += amt;
+      }
+    });
+
+    const totalCalculated = includePendingIncomes ? realized + pending : realized;
+
+    return {
+      realized,
+      pending,
+      totalCalculated
+    };
+  }, [incomes, includePendingIncomes]);
+
+  const monthlyIncome = incomeDetails.totalCalculated;
 
   const monthlyExpense = useMemo(() => {
     const today = new Date();
@@ -376,6 +378,7 @@ export const FinanceDashboard = () => {
 
   // --- DYNAMIC INPUTS FOR FINANCAL HEALTH ENGINE V3 ---
   const dynamicGelirGecmisi = useMemo(() => {
+    const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
     const currentYear = 2026;
     const currentMonthIndex = 6;
     const history = [];
@@ -551,72 +554,40 @@ export const FinanceDashboard = () => {
 
   const healthScore = healthScoreDetails.nihai_skor;
 
-  // --- INTUITIVE INFOGRAPHIC ENGINE DATA COMPILATION (NEW RECHARTS SCATTER BUBBLES) ---
-  const bubbleInvestmentsData = useMemo(() => {
-    const types = ['Hisse', 'Altın', 'Kripto', 'Döviz', 'Emlak'];
-    const active = investments.filter(i => i.status === 'Aktif');
-    return active.map((inv, index) => {
-      const xVal = index * 20 + 20;
-      const yVal = Number(inv.currentAmount || 10000) / 1000; // y-axis
-      const sizeVal = Number(inv.initialAmount || 10000) / 100; // z-axis bubble size
-      return {
-        name: inv.title,
-        type: inv.type,
-        x: xVal,
-        y: yVal,
-        z: sizeVal,
-        amount: inv.currentAmount
-      };
-    });
-  }, [investments]);
+  // --- INTERACTIVE SIMULATOR MATH (Finansal Stres Testi) ---
+  const simulatorResult = useMemo(() => {
+    const activeSubs = subscriptions.filter(s => s.status === 'Aktif');
+    const subCostMonthly = activeSubs.reduce((sum, s) => sum + calculateMonthly(Number(s.amount || 0), s.billingCycle), 0);
+    
+    const activeDebtsList = debts.filter(d => d.status === 'Devam Ediyor');
+    const debtCostMonthly = activeDebtsList.reduce((sum, d) => sum + calculateMonthly(Number(d.paymentAmount || 0), d.paymentFrequency), 0);
 
-  // Click Trigger for the Infographics Engine Drill-Down Modal
-  const triggerDrilldown = (type: 'heatmap' | 'bubble' | 'snowball' | 'kpi', title: string, payload: any) => {
-    triggerConfettiBurst();
-    setDrawerTitle(title);
-    setDrawerOpen(true);
+    // Adjusted Outflow
+    const baseOutflow = monthlyExpense > 0 ? monthlyExpense : 0;
+    const adjustedOutflow = baseOutflow + subCostMonthly + debtCostMonthly;
+    
+    // Adjusted Inflow
+    const adjustedInflow = simJobLoss ? 0 : monthlyIncome;
+    
+    // Monthly Deficit
+    const monthlyDeficit = Math.max(0, adjustedOutflow - adjustedInflow);
 
-    if (type === 'heatmap') {
-      setDrawerContent({
-        summary: 'Aylık nakit akışınızın haftalık periyotlardaki ısı haritası incelendiğinde harcamaların ayın ilk yarısında yoğunlaştığı görülüyor.',
-        advices: [
-          'Ayın 1. ve 2. haftasındaki büyük borç ödemelerini 3. haftaya kaydırarak likidite dengesi sağlayın.',
-          'Maaş gününden hemen sonra otomatik olarak en az %15 birikim payı ayırmayı ihmal etmeyin.',
-          'Faturalarınız için otomatik ödeme talimatı atayarak gecikme faizlerini sıfırlayın.'
-        ],
-        extra: payload
-      });
-    } else if (type === 'bubble') {
-      setDrawerContent({
-        summary: `"${payload.name}" adlı yatırım varlığınız, portföyünüzün büyüklük sıralamasında üst basamakta yer alıyor.`,
-        advices: [
-          'Varlığın yıllık getiri oranını piyasa endeksiyle karşılaştırıp risk profilini dengeleyin.',
-          'Tek bir yatırım aracına bağlı kalmayarak varlık çeşitlendirmesini (altın, borsa, fon) optimize edin.',
-          'Eğer bu varlık likiditesi düşük bir türdeyse (örneğin arsa veya gayrimenkul), acil durum fonu payını artırın.'
-        ],
-        extra: payload
-      });
-    } else if (type === 'snowball') {
-      setDrawerContent({
-        summary: 'Aktif borçlarınızın vadeleri ve kartopu yöntemi kapsamında erken kapatılması önerilen öncelikli borç planlaması.',
-        advices: [
-          'En düşük bakiyeli borcu ilk sırada kapatarak (Kartopu) psikolojik kazanım elde edin.',
-          'Gerektiğinde yüksek faizli borçları tek bir düşük faizli transfer kredisinde konsolide edin.',
-          'Gecikmeli kredi kartı asgari tutarlarının bütçeyi sızdırmasını önleyin.'
-        ],
-        extra: payload
-      });
-    } else {
-      setDrawerContent({
-        summary: 'Genel bütçe performans karneniz.',
-        advices: [
-          'Haftalık harcama limiti belirleyerek plansız satın almaları dizginleyin.',
-          'Gereksiz abonelik ve servis üyeliği harcamalarını dondurun.'
-        ],
-        extra: payload
-      });
+    // Available reserves
+    const baseReserves = totalInvestments + totalSavings;
+    const availableReserves = Math.max(0, baseReserves - simEmergencyExpense);
+
+    let runwayMonths = 999;
+    if (monthlyDeficit > 0) {
+      runwayMonths = Number((availableReserves / monthlyDeficit).toFixed(1));
     }
-  };
+
+    return {
+      runwayMonths,
+      monthlyDeficit,
+      availableReserves,
+      adjustedOutflow
+    };
+  }, [monthlyIncome, monthlyExpense, subscriptions, debts, simJobLoss, simEmergencyExpense, totalInvestments, totalSavings]);
 
   // --- CHARTS & TREND DATA ---
   const chartData = useMemo(() => {
@@ -626,6 +597,7 @@ export const FinanceDashboard = () => {
     const currentMonthIndex = startDate.getMonth();
     const result = [];
 
+    // Realistic baseline points starting from today and going forward
     const mockIncomes = [monthlyIncome || 48000, 52000, 50000, 55000, 58000, 60000];
     const mockExpenses = [monthlyExpense || 32000, 31000, 33000, 30000, 34500, 32000];
 
@@ -670,6 +642,7 @@ export const FinanceDashboard = () => {
     });
 
     if (Object.keys(catMap).length === 0) {
+      // Return high-quality defaults
       return [
         { name: 'Barınma', value: 12000, color: '#ef4444', limit: 15000 },
         { name: 'Gıda', value: 7500, color: '#f97316', limit: 10000 },
@@ -751,59 +724,6 @@ export const FinanceDashboard = () => {
     return alertsList;
   }, [monthlyIncome, monthlyExpense, subscriptions, savings, savingsRate, isDatabaseEmpty]);
 
-  // --- DYNAMIC CALENDAR ACTIVITIES COMPILATION ---
-  const getDayFromDateString = (dateStr: string) => {
-    if (!dateStr) return 1;
-    const parts = dateStr.split('-');
-    if (parts.length < 3) return 1;
-    return parseInt(parts[2], 10) || 1;
-  };
-
-  const calendarDayActivities = useMemo(() => {
-    const map: Record<number, { incomes: any[]; expenses: any[]; debts: any[]; subscriptions: any[]; totalIn: number; totalOut: number }> = {};
-    for (let d = 1; d <= 31; d++) {
-      map[d] = { incomes: [], expenses: [], debts: [], subscriptions: [], totalIn: 0, totalOut: 0 };
-    }
-
-    incomes.forEach(i => {
-      const day = getDayFromDateString(i.date);
-      if (map[day]) {
-        map[day].incomes.push(i);
-        if (i.status === 'Tamamlandı') map[day].totalIn += Number(i.amount || 0);
-      }
-    });
-
-    expenses.forEach(e => {
-      const day = getDayFromDateString(e.date);
-      if (map[day]) {
-        map[day].expenses.push(e);
-        if (e.status === 'Gerçekleşti') map[day].totalOut += Number(e.amount || 0);
-      }
-    });
-
-    debts.forEach(d => {
-      const day = getDayFromDateString(d.nextPaymentDate);
-      if (map[day]) {
-        map[day].debts.push(d);
-        if (d.status === 'Devam Ediyor') map[day].totalOut += Number(d.paymentAmount || 0);
-      }
-    });
-
-    subscriptions.forEach(s => {
-      const day = getDayFromDateString(s.nextBillingDate);
-      if (map[day]) {
-        map[day].subscriptions.push(s);
-        if (s.status === 'Aktif') map[day].totalOut += Number(s.amount || 0);
-      }
-    });
-
-    return map;
-  }, [incomes, expenses, debts, subscriptions]);
-
-  const selectedDayDetails = useMemo(() => {
-    return calendarDayActivities[selectedCalendarDay] || { incomes: [], expenses: [], debts: [], subscriptions: [], totalIn: 0, totalOut: 0 };
-  }, [calendarDayActivities, selectedCalendarDay]);
-
   // --- UPCOMING PAYMENTS ---
   const upcomingPayments = useMemo(() => {
     const list: any[] = [];
@@ -827,6 +747,10 @@ export const FinanceDashboard = () => {
         type: 'debt'
       });
     });
+
+    if (list.length === 0) {
+      return [];
+    }
 
     return list.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4);
   }, [subscriptions, debts]);
@@ -857,6 +781,10 @@ export const FinanceDashboard = () => {
       });
     });
 
+    if (combined.length === 0) {
+      return [];
+    }
+
     return combined.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   }, [incomes, expenses]);
 
@@ -876,8 +804,7 @@ export const FinanceDashboard = () => {
   ];
 
   return (
-    <div className="p-1 sm:p-3 md:p-6 w-full max-w-7xl mx-auto space-y-4 md:space-y-6 pb-20 text-text-primary touch-optimized relative">
-
+    <div className="p-2.5 sm:p-4 md:p-6 w-full max-w-7xl mx-auto space-y-3.5 sm:space-y-6 pb-20 text-text-primary touch-optimized">
       {/* Toast alert */}
       <AnimatePresence>
         {successToast && (
@@ -885,9 +812,9 @@ export const FinanceDashboard = () => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-focus-neon/30 bg-focus-neon/10 text-focus-neon font-bold text-xs md:text-sm shadow-2xl"
+            className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4.5 py-3 rounded-xl border border-focus-neon/30 bg-focus-neon/10 text-focus-neon font-bold text-sm shadow-2xl"
           >
-            <CheckCircle2 size={14} />
+            <CheckCircle2 size={16} />
             <span>{successToast}</span>
           </motion.div>
         )}
@@ -898,305 +825,57 @@ export const FinanceDashboard = () => {
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-ai-bright/25 to-focus-neon/10 border border-ai-bright/35 rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 shadow-xl"
+          className="bg-gradient-to-r from-ai-bright/25 to-focus-neon/10 border border-ai-bright/35 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xl"
         >
-          <div className="space-y-1 max-w-2xl">
-            <h3 className="font-display font-black text-white text-sm md:text-lg flex items-center gap-2">
-              <Sparkles className="text-ai-bright shrink-0 animate-pulse" size={16} />
+          <div className="space-y-1.5 max-w-2xl">
+            <h3 className="font-display font-black text-white text-base md:text-lg flex items-center gap-2">
+              <Sparkles className="text-ai-bright shrink-0 animate-pulse" size={20} />
               Bütçe Modülünü Keşfedin!
             </h3>
-            <p className="text-[11px] md:text-xs text-text-secondary leading-relaxed">
+            <p className="text-xs text-text-secondary leading-relaxed">
               Kişisel finans bütçe veritabanınız şu anda boş görünüyor. Dashboard'u tüm dinamik grafikleri, akıllı stres testlerini ve finansal sağlık skorlarını deneyimlemek için örnek simülasyon verileriyle hemen doldurabilirsiniz.
             </p>
           </div>
-          <div className="flex flex-wrap sm:flex-nowrap gap-2 md:gap-3 shrink-0 w-full md:w-auto">
+          <div className="flex flex-wrap sm:flex-nowrap gap-3 shrink-0 w-full md:w-auto">
             <button
               onClick={handleLoadDemoData}
-              className="flex-grow sm:flex-none bg-white hover:bg-neutral-100 text-black px-3.5 py-2 rounded-xl text-[10px] md:text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg"
+              className="flex-1 sm:flex-none bg-white hover:bg-neutral-100 text-black px-4.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg"
             >
-              <Coins size={12} /> Örnek Bütçe Verisi Yükle
+              <Coins size={14} /> Örnek Bütçe Verisi Yükle
             </button>
             <button
               onClick={handleResetFinanceData}
-              className="flex-grow sm:flex-none bg-red-600 hover:bg-red-700 text-white px-3.5 py-2 rounded-xl text-[10px] md:text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg"
+              className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-4.5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg"
             >
-              <RefreshCw size={12} /> Sıfırla
+              <RefreshCw size={14} /> Finans Verilerini Sıfırla
             </button>
           </div>
         </motion.div>
       )}
 
       {/* Header and Welcome */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-xl md:text-3xl font-display font-black text-white tracking-tight flex items-center gap-1.5">
+          <h1 className="text-2xl md:text-3xl font-display font-black text-white tracking-tight flex items-center gap-2">
             Finansal Durum Paneli
           </h1>
-          <p className="text-[10px] md:text-sm text-text-secondary">
+          <p className="text-xs md:text-sm text-text-secondary">
             Gelir, gider, yatırım ve borç kalemlerinin akıllı finansal dinamik analiz ve stres testi motoru.
           </p>
         </div>
         <button
           onClick={() => setShowHealthScoreDetails(!showHealthScoreDetails)}
-          className="flex items-center gap-2.5 bg-white/[0.02] border border-white/5 hover:border-white/15 px-3.5 py-2 rounded-xl transition-all hover:scale-102 cursor-pointer active:scale-98 self-stretch md:self-auto justify-between"
+          className="flex items-center gap-3 bg-white/[0.02] border border-white/5 hover:border-white/15 px-4.5 py-2.5 rounded-2xl transition-all hover:scale-102 cursor-pointer active:scale-98"
         >
-          <div className="flex items-center gap-2">
-            <Activity size={16} className="text-ai-bright animate-pulse shrink-0" />
-            <div className="flex flex-col text-left">
-              <span className="text-[8px] md:text-[9px] text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1">
-                Sağlık Skoru
-                <span className="text-[7px] bg-white/5 px-1 py-0.2 rounded font-mono text-focus-neon">DETAY</span>
-              </span>
-              <span className="text-xs md:text-base font-mono font-black text-white">{healthScore} / 100</span>
-            </div>
+          <Activity size={18} className="text-ai-bright animate-pulse" />
+          <div className="flex flex-col text-left">
+            <span className="text-[9px] text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1">
+              Finansal Sağlık Skoru
+              <span className="text-[8px] bg-white/5 px-1 py-0.2 rounded font-mono text-focus-neon">DETAYLAR</span>
+            </span>
+            <span className="text-base font-mono font-black text-white">{healthScore} / 100</span>
           </div>
-          <ChevronRight size={14} className="text-text-secondary md:hidden" />
         </button>
-      </div>
-
-      {/* --- INTEGRATE DYNAMIC WIDGET ENGINE PORTAL --- */}
-      <WidgetHub onLayoutChange={setActiveWidgetIds} />
-
-      {/* --- 3D ENGINE & EXPERIMENTAL HEATMAP ROW --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Render interactive morphing 3D geometry engine */}
-        <div className="lg:col-span-4 bg-white/[0.02] border border-white/5 rounded-3xl p-4.5 flex flex-col justify-between">
-          <span className="text-[9px] font-mono text-text-secondary tracking-widest uppercase block mb-1">REAL-TIME WEBGL VIEWPORT</span>
-          <VisualEngine interactive={true} className="flex-1 min-h-[220px]" themeColor="#3B82F6" />
-        </div>
-
-        {/* Clickable Infographic: Weekly Cash Flow Heatmap */}
-        <div className="lg:col-span-8 bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar size={14} className="text-focus-neon" /> Haftalık Finansal Isı Haritası (Heatmap)
-              </h3>
-              <span className="text-[8px] bg-focus-neon/10 text-focus-neon px-2 py-0.5 rounded font-mono">KLİKLENEBİLİR</span>
-            </div>
-            <p className="text-[10.5px] text-text-secondary mb-4">
-              Son 12 haftanın işlem yoğunluk matrisi. Tıklayarak o döneme ait yapay zeka analiz detaylarını drill-down ile açın.
-            </p>
-
-            <div className="grid grid-cols-6 sm:grid-cols-12 gap-2">
-              {Array.from({ length: 12 }).map((_, i) => {
-                const activityLevel = (i * 3 + 20) % 5; // Simulating weekly variances
-                const color = activityLevel === 0 ? 'bg-neutral-800' :
-                              activityLevel === 1 ? 'bg-focus-neon/20' :
-                              activityLevel === 2 ? 'bg-focus-neon/40' :
-                              activityLevel === 3 ? 'bg-focus-neon/70' : 'bg-focus-neon';
-                return (
-                  <button
-                    key={i}
-                    onClick={() => triggerDrilldown('heatmap', `Hafta ${i + 1} İşlem Yoğunluğu Raporu`, { week: i + 1, level: activityLevel })}
-                    className={`h-16 rounded-xl flex flex-col justify-between p-2 text-left transition-all hover:scale-105 hover:ring-2 hover:ring-focus-neon/30 ${color}`}
-                  >
-                    <span className="text-[8px] font-mono font-black text-white/50">H{i+1}</span>
-                    <span className="text-[9px] font-bold text-white font-mono">{activityLevel * 3 || 1} İşlem</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <span className="text-[9px] text-text-secondary mt-3 block italic">
-            * Isı derecesi arttıkça yapılan harcama ve nakit çıkış adedi yükselmektedir.
-          </span>
-        </div>
-      </div>
-
-      {/* --- SMART DYNAMIC PAYMENT CALENDAR WIDGET --- */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
-        <div className="flex justify-between items-center border-b border-white/5 pb-3">
-          <div className="flex items-center gap-2 text-focus-neon">
-            <Calendar size={18} className="animate-pulse" />
-            <h3 className="text-sm font-black text-text-primary uppercase tracking-wider">İnteraktif Aylık Ödeme & Gelir Takvimi</h3>
-          </div>
-          <span className="text-[10px] text-text-secondary font-mono">Bugün: Ayın {new Date().getDate()}. Günü</span>
-        </div>
-
-        {/* 31-Day Grid Track */}
-        <div className="flex gap-2 overflow-x-auto pb-3 custom-scrollbar">
-          {Array.from({ length: 31 }, (_, i) => i + 1).map(day => {
-            const dayData = calendarDayActivities[day] || { incomes: [], expenses: [], debts: [], subscriptions: [], totalIn: 0, totalOut: 0 };
-            const hasActivity = dayData.incomes.length > 0 || dayData.expenses.length > 0 || dayData.debts.length > 0 || dayData.subscriptions.length > 0;
-            const isSelected = selectedCalendarDay === day;
-
-            return (
-              <button
-                key={day}
-                type="button"
-                onClick={() => {
-                  setSelectedCalendarDay(day);
-                  triggerConfettiBurst();
-                }}
-                className={`flex-shrink-0 w-11 h-14 rounded-xl flex flex-col items-center justify-between py-1.5 transition-all border ${
-                  isSelected
-                    ? 'bg-focus-neon/20 border-focus-neon text-focus-neon font-black scale-105 shadow-md shadow-focus-neon/5'
-                    : hasActivity
-                    ? 'bg-white/[0.03] border-white/10 text-white'
-                    : 'bg-white/[0.005] border-transparent text-text-secondary/50'
-                }`}
-              >
-                <span className="text-[8px] opacity-50 uppercase font-black">Gün</span>
-                <span className="text-sm font-mono font-black">{day}</span>
-                <div className="flex gap-0.5 justify-center">
-                  {dayData.incomes.length > 0 && <span className="w-1 h-1 rounded-full bg-focus-neon" />}
-                  {dayData.expenses.length > 0 && <span className="w-1 h-1 rounded-full bg-red-400" />}
-                  {dayData.debts.length > 0 && <span className="w-1 h-1 rounded-full bg-amber-400" />}
-                  {dayData.subscriptions.length > 0 && <span className="w-1 h-1 rounded-full bg-purple-400" />}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Interactive detailed activity list for the selected day */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 bg-black/25 rounded-2xl p-4 border border-white/5">
-          <div className="lg:col-span-8 space-y-3">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-focus-neon animate-ping" />
-              Ayın {selectedCalendarDay}. Günü İşlem Detayları
-            </h4>
-
-            {selectedDayDetails.incomes.length === 0 &&
-             selectedDayDetails.expenses.length === 0 &&
-             selectedDayDetails.debts.length === 0 &&
-             selectedDayDetails.subscriptions.length === 0 ? (
-              <p className="text-xs text-text-secondary italic py-4">Bu günde herhangi bir planlı ödeme veya gelir hareketi bulunmuyor.</p>
-            ) : (
-              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                {/* Incomes */}
-                {selectedDayDetails.incomes.map((inc) => (
-                  <div key={inc.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex items-center justify-between text-xs hover:bg-white/[0.02]">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-focus-neon" />
-                      <div>
-                        <span className="font-bold text-white block">{inc.title}</span>
-                        <span className="text-[9px] text-text-secondary">({inc.category} • Gelir)</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono font-bold text-focus-neon">₺{Number(inc.amount).toLocaleString('tr-TR')}</span>
-                      {inc.status === 'Beklemede' ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIncomes(prev => prev.map(item => item.id === inc.id ? { ...item, status: 'Tamamlandı' } : item));
-                            triggerToast('Gelir tamamlandı olarak işlendi!');
-                          }}
-                          className="bg-focus-neon text-black font-black px-2.5 py-1 rounded-lg text-[9px] cursor-pointer"
-                        >
-                          Tamamla ✓
-                        </button>
-                      ) : (
-                        <span className="text-[9px] text-text-secondary bg-white/5 px-2 py-0.5 rounded-lg border border-white/10 font-bold uppercase">Tamamlandı</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Expenses */}
-                {selectedDayDetails.expenses.map((exp) => (
-                  <div key={exp.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex items-center justify-between text-xs hover:bg-white/[0.02]">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-red-400" />
-                      <div>
-                        <span className="font-bold text-white block">{exp.title}</span>
-                        <span className="text-[9px] text-text-secondary">({exp.category} • Gider)</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono font-bold text-red-400">-₺{Number(exp.amount).toLocaleString('tr-TR')}</span>
-                      {exp.status === 'Planlı' ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setExpenses(prev => prev.map(item => item.id === exp.id ? { ...item, status: 'Gerçekleşti' } : item));
-                            triggerToast('Gider ödendi olarak işlendi!');
-                          }}
-                          className="bg-crit-vivid text-white font-black px-2.5 py-1 rounded-lg text-[9px] cursor-pointer"
-                        >
-                          Öde ✓
-                        </button>
-                      ) : (
-                        <span className="text-[9px] text-text-secondary bg-white/5 px-2 py-0.5 rounded-lg border border-white/10 font-bold uppercase">Ödendi</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Debts */}
-                {selectedDayDetails.debts.map((deb) => (
-                  <div key={deb.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex items-center justify-between text-xs hover:bg-white/[0.02]">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-400" />
-                      <div>
-                        <span className="font-bold text-white block">{deb.title}</span>
-                        <span className="text-[9px] text-text-secondary">(Taksit • Borç)</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono font-bold text-amber-400">-₺{Number(deb.paymentAmount).toLocaleString('tr-TR')}</span>
-                      {deb.status === 'Devam Ediyor' && !deb.paidThisMonth ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDebts(prev => prev.map(item => item.id === deb.id ? { ...item, paidThisMonth: true, remainingAmount: Math.max(0, item.remainingAmount - item.paymentAmount) } : item));
-                            triggerToast('Taksit ödemesi başarıyla işlendi!');
-                          }}
-                          className="bg-amber-400 text-black font-black px-2.5 py-1 rounded-lg text-[9px] cursor-pointer"
-                        >
-                          Taksit Öde ✓
-                        </button>
-                      ) : (
-                        <span className="text-[9px] text-text-secondary bg-white/5 px-2 py-0.5 rounded-lg border border-white/10 font-bold uppercase">Ödendi</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Subscriptions */}
-                {selectedDayDetails.subscriptions.map((sub) => (
-                  <div key={sub.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl flex items-center justify-between text-xs hover:bg-white/[0.02]">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-purple-400" />
-                      <div>
-                        <span className="font-bold text-white block">{sub.title}</span>
-                        <span className="text-[9px] text-text-secondary">({sub.category} • Abonelik)</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono font-bold text-purple-400">-₺{Number(sub.amount).toLocaleString('tr-TR')}</span>
-                      <span className="text-[9px] text-text-secondary bg-white/5 px-2 py-0.5 rounded-lg border border-white/10 font-bold uppercase">Düzenli Ödeme</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Quick Metrics Breakdown for selected Day */}
-          <div className="lg:col-span-4 p-4 bg-white/[0.02] border border-white/10 rounded-2xl flex flex-col justify-between">
-            <div className="space-y-3">
-              <span className="text-[10px] text-text-secondary font-bold block uppercase tracking-wider">Günlük Toplam Dengesi</span>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between py-1 border-b border-white/5">
-                  <span className="text-text-secondary">Gelen Nakit:</span>
-                  <span className="font-mono font-bold text-focus-neon">₺{selectedDayDetails.totalIn.toLocaleString('tr-TR')}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-white/5">
-                  <span className="text-text-secondary">Çıkan Nakit:</span>
-                  <span className="font-mono font-bold text-red-400">₺{selectedDayDetails.totalOut.toLocaleString('tr-TR')}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-white/5 text-[11px] text-text-secondary leading-relaxed italic">
-              * Bu gün gerçekleşen net akış: <span className="font-bold text-white">₺{(selectedDayDetails.totalIn - selectedDayDetails.totalOut).toLocaleString('tr-TR')}</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Dynamic Health Score Breakdown Panel */}
@@ -1224,28 +903,36 @@ export const FinanceDashboard = () => {
               </span>
             </div>
 
-            {/* Veto Layer */}
+            {/* Veto Layer Notification */}
             {healthScoreDetails.veto_uygulandi && (
-              <div className="bg-gradient-to-r from-red-950/40 to-red-900/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-3">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-gradient-to-r from-red-950/40 to-red-900/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-3"
+              >
                 <AlertTriangle className="text-red-500 shrink-0 mt-0.5 animate-pulse" size={16} />
                 <div className="space-y-1">
                   <span className="text-xs font-bold text-red-400 block uppercase tracking-wider">Kritik Veto Limit Katmanı Aktif</span>
                   <p className="text-[11px] text-red-200/80 leading-relaxed">
-                    {healthScoreDetails.veto_nedeni} (Veto kuralları gereği, nihai skorunuz bu tavanla sınırlandırılmıştır).
+                    {healthScoreDetails.veto_nedeni} (Veto kuralları gereği, diğer metrikleriniz yüksek olsa dahi nihai skorunuz bu tavanla sınırlandırılmıştır).
                   </p>
                 </div>
-              </div>
+              </motion.div>
             )}
 
-            {/* Profile Config */}
+            {/* 1. Dynamic Weighting Profile Selector Panel */}
             <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4.5 space-y-4">
               <div className="flex justify-between items-center border-b border-white/5 pb-2.5">
                 <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider flex items-center gap-1.5">
                   <Sliders size={12} className="text-focus-neon" />
                   Kişisel Yaşam Profili ve Dinamik Ağırlıklandırma
                 </span>
+                <span className="text-[10px] font-mono text-text-secondary">
+                  Yaşam evreniz değiştiğinde önem sırası otomatik değişir
+                </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {/* Age selector */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-text-secondary font-bold block">YAŞ ({userProfile.yas})</label>
                   <input
@@ -1258,6 +945,7 @@ export const FinanceDashboard = () => {
                   />
                 </div>
 
+                {/* Life Stage selector */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-text-secondary font-bold block">YAŞAM EVRESİ</label>
                   <select
@@ -1274,6 +962,7 @@ export const FinanceDashboard = () => {
                   </select>
                 </div>
 
+                {/* Household Size */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-text-secondary font-bold block">HANE BÜYÜKLÜĞÜ ({userProfile.hane_buyuklugu} Kişi)</label>
                   <input
@@ -1286,6 +975,7 @@ export const FinanceDashboard = () => {
                   />
                 </div>
 
+                {/* City Index */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-text-secondary font-bold block">ŞEHİR MALİYET ENDEKSİ</label>
                   <select
@@ -1301,130 +991,357 @@ export const FinanceDashboard = () => {
               </div>
             </div>
 
-            {/* Categories Status Grid */}
+            {/* 2. Categories Normalized Status Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {healthScoreDetails.kategoriler.map((cat, idx) => (
-                <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-3">
+                <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-3 relative overflow-hidden">
                   <div className="flex justify-between items-start">
                     <span className="text-[9px] text-text-secondary font-bold uppercase block tracking-wider">
                       {idx + 1}. {cat.ad}
                     </span>
+                    <span className="text-[8px] px-1.5 py-0.5 rounded font-mono text-focus-neon bg-focus-neon/5">
+                      Ağırlık: {cat.max}
+                    </span>
                   </div>
                   <div className="flex justify-between items-end">
                     <span className="text-[10px] font-mono text-white/40">Başarı</span>
-                    <span className="text-sm font-mono font-black text-focus-neon">%{cat.yuzde}</span>
+                    <span className={`text-base font-mono font-black ${cat.yuzde >= 70 ? 'text-focus-neon' : cat.yuzde >= 40 ? 'text-nrg-sun' : 'text-crit-vivid'}`}>
+                      %{cat.yuzde}
+                    </span>
+                  </div>
+                  <div className="w-full bg-neutral-800/80 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${cat.yuzde >= 70 ? 'bg-focus-neon' : cat.yuzde >= 40 ? 'bg-nrg-sun' : 'bg-crit-vivid'}`}
+                      style={{ width: `${cat.yuzde}%` }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[8px] text-text-secondary font-bold block">EN ZAYIF METRİK</span>
+                    <span className="text-[9px] font-mono text-white/70 truncate">{cat.en_zayif_metrik}</span>
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* 3. Stress Test & Causality Analytics Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Stress Test */}
+              <div className="lg:col-span-7 bg-white/[0.02] border border-white/5 rounded-2xl p-4.5 space-y-4">
+                <div className="flex justify-between items-center border-b border-white/5 pb-2.5">
+                  <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <Zap size={12} className="text-ai-bright animate-bounce" />
+                    Finansal Stres Testi & Dayanıklılık Simülasyonu
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] text-text-secondary">Dayanıklılık Endeksi</span>
+                    <span className={`text-xs font-mono font-black px-2 py-0.5 rounded bg-white/5 ${healthScoreDetails.dayaniklilik_testi.dayaniklilik_indeksi >= 70 ? 'text-focus-neon' : healthScoreDetails.dayaniklilik_testi.dayaniklilik_indeksi >= 40 ? 'text-nrg-sun' : 'text-crit-vivid'}`}>
+                      {healthScoreDetails.dayaniklilik_testi.dayaniklilik_indeksi} / 100
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Scenario A */}
+                  <div className="bg-black/20 border border-white/5 p-3 rounded-xl space-y-2">
+                    <span className="text-[8px] text-text-secondary font-black uppercase block tracking-wider">A) Gelir %20 Azalırsa</span>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[9px] text-text-secondary font-mono">Y. Tasarruf Oranı</span>
+                      <span className="text-[11px] font-mono font-bold text-white">
+                        %{Math.round(healthScoreDetails.dayaniklilik_testi.senaryo_gelir_sok.yeni_tasarruf_orani * 100)}
+                      </span>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full inline-block uppercase tracking-wider ${
+                      healthScoreDetails.dayaniklilik_testi.senaryo_gelir_sok.durum === 'guvenli' ? 'bg-focus-neon/10 text-focus-neon' :
+                      healthScoreDetails.dayaniklilik_testi.senaryo_gelir_sok.durum === 'riskli' ? 'bg-nrg-sun/10 text-nrg-sun' : 'bg-crit-vivid/10 text-crit-vivid'
+                    }`}>
+                      {healthScoreDetails.dayaniklilik_testi.senaryo_gelir_sok.durum === 'guvenli' ? 'Güvenli' :
+                       healthScoreDetails.dayaniklilik_testi.senaryo_gelir_sok.durum === 'riskli' ? 'Riskli' : 'Kritik'}
+                    </span>
+                  </div>
+
+                  {/* Scenario B */}
+                  <div className="bg-black/20 border border-white/5 p-3 rounded-xl space-y-2">
+                    <span className="text-[8px] text-text-secondary font-black uppercase block tracking-wider">B) Faiz Oranları Artarsa</span>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[9px] text-text-secondary font-mono">Tahmini DSR</span>
+                      <span className="text-[11px] font-mono font-bold text-white">
+                        %{Math.round(healthScoreDetails.dayaniklilik_testi.senaryo_faiz_artisi.yeni_dsr * 100)}
+                      </span>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full inline-block uppercase tracking-wider ${
+                      healthScoreDetails.dayaniklilik_testi.senaryo_faiz_artisi.durum === 'guvenli' ? 'bg-focus-neon/10 text-focus-neon' :
+                      healthScoreDetails.dayaniklilik_testi.senaryo_faiz_artisi.durum === 'riskli' ? 'bg-nrg-sun/10 text-nrg-sun' : 'bg-crit-vivid/10 text-crit-vivid'
+                    }`}>
+                      {healthScoreDetails.dayaniklilik_testi.senaryo_faiz_artisi.durum === 'guvenli' ? 'Güvenli' :
+                       healthScoreDetails.dayaniklilik_testi.senaryo_faiz_artisi.durum === 'riskli' ? 'Riskli' : 'Kritik'}
+                    </span>
+                  </div>
+
+                  {/* Scenario C */}
+                  <div className="bg-black/20 border border-white/5 p-3 rounded-xl space-y-2">
+                    <span className="text-[8px] text-text-secondary font-black uppercase block tracking-wider">C) Ani Gider (+1 Aylık)</span>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[9px] text-text-secondary font-mono">Kalan Koruma</span>
+                      <span className="text-[11px] font-mono font-bold text-white">
+                        {healthScoreDetails.dayaniklilik_testi.senaryo_beklenmedik_gider.kalan_runway_ay} Ay
+                      </span>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full inline-block uppercase tracking-wider ${
+                      healthScoreDetails.dayaniklilik_testi.senaryo_beklenmedik_gider.durum === 'guvenli' ? 'bg-focus-neon/10 text-focus-neon' :
+                      healthScoreDetails.dayaniklilik_testi.senaryo_beklenmedik_gider.durum === 'riskli' ? 'bg-nrg-sun/10 text-nrg-sun' : 'bg-crit-vivid/10 text-crit-vivid'
+                    }`}>
+                      {healthScoreDetails.dayaniklilik_testi.senaryo_beklenmedik_gider.durum === 'guvenli' ? 'Güvenli' :
+                       healthScoreDetails.dayaniklilik_testi.senaryo_beklenmedik_gider.durum === 'riskli' ? 'Riskli' : 'Kritik'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Causality Narrative & Trend */}
+              <div className="lg:col-span-5 bg-white/[0.02] border border-white/5 rounded-2xl p-4.5 flex flex-col justify-between gap-4">
+                <div className="space-y-2.5">
+                  <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <Activity size={12} className="text-ai-bright" />
+                    Nedensellik Ve Trend Analizi
+                  </span>
+                  <p className="text-xs text-text-secondary leading-relaxed bg-black/20 border border-white/5 p-3 rounded-xl">
+                    {healthScoreDetails.nedensellik_analizi}
+                  </p>
+                </div>
+
+                <div className="flex justify-between items-center bg-white/[0.01] border border-white/5 rounded-xl px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-text-secondary font-bold uppercase">BİRİKİM MOMENTUMU</span>
+                    <span className="text-[9px] font-mono text-white/50">Eğim: {healthScoreDetails.trend.egim_aylik}/Ay</span>
+                  </div>
+                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                    healthScoreDetails.trend.yorum === 'iyileşiyor' ? 'bg-focus-neon/15 text-focus-neon border border-focus-neon/20' :
+                    healthScoreDetails.trend.yorum === 'kötüleşiyor' ? 'bg-crit-vivid/15 text-crit-vivid border border-crit-vivid/20' : 'bg-neutral-800 text-text-secondary'
+                  }`}>
+                    {healthScoreDetails.trend.yorum === 'iyileşiyor' ? 'İyileşiyor' :
+                     healthScoreDetails.trend.yorum === 'kötüleşiyor' ? 'Kötüleşiyor' : 'Stabil'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Action recommendations */}
+            <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-4.5 space-y-3.5">
+              <span className="text-[10px] text-text-secondary font-black uppercase tracking-wider block">
+                Öncelik Etki Matrisi Tabanlı Akıllı Aksiyon Planı
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {healthScoreDetails.oneriler_oncelik_sirali.map((one, idx) => (
+                  <div key={idx} className="bg-black/20 border border-white/5 p-3.5 rounded-xl space-y-1.5 hover:border-white/10 transition-colors">
+                    <div className="flex justify-between items-center">
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                        one.seviye.startsWith('KOLAY') ? 'bg-focus-neon/10 text-focus-neon' :
+                        one.seviye.startsWith('ORTA') ? 'bg-nrg-sun/10 text-nrg-sun' :
+                        one.seviye.startsWith('ZOR') ? 'bg-purple-500/10 text-purple-400' : 'bg-red-500/10 text-red-400 animate-pulse'
+                      }`}>
+                        {one.seviye}
+                      </span>
+                      {one.etki_puani && (
+                        <span className="text-[9px] font-mono text-focus-neon bg-focus-neon/5 px-2 py-0.5 rounded">
+                          Potansiyel: +{one.etki_puani} Puan
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-text-secondary leading-relaxed">
+                      {one.metin}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Main KPI metrics (4 Columns) - Compact */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Net Worth */}
         <motion.div 
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-black/30 border border-white/5 p-3 md:p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors cursor-pointer"
-          onClick={() => triggerDrilldown('kpi', 'Net Varlık Dağılım Detayı', { netWorth, totalInvestments, totalSavings, totalDebts })}
+          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
         >
-          <div className="absolute top-0 right-0 p-2 md:p-3 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Wallet size={36} className="text-focus-neon" />
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Wallet size={48} className="text-focus-neon" />
           </div>
-          <span className="text-[8px] md:text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Net Varlık</span>
-          <span className={`text-sm md:text-xl font-mono font-black block mt-0.5 ${netWorth >= 0 ? 'text-white' : 'text-crit-vivid'}`}>
+          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Net Varlık</span>
+          <span className={`text-lg md:text-xl font-mono font-black block mt-0.5 ${netWorth >= 0 ? 'text-white' : 'text-crit-vivid'}`}>
             ₺{netWorth.toLocaleString('tr-TR')}
           </span>
-          <span className="text-[8px] md:text-[9px] text-text-secondary mt-0.5 block">Varlıklar - Borçlar</span>
+          <span className="text-[9px] text-text-secondary mt-1 block">Varlıklar - Borçlar</span>
         </motion.div>
 
         {/* Card 2: Income */}
-        <div className="bg-black/30 border border-white/5 p-3 md:p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors">
-          <span className="text-[8px] md:text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Gelir</span>
-          <span className="text-sm md:text-xl font-mono font-black text-focus-neon block mt-0.5">
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
+        >
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <ArrowDownRight size={48} className="text-focus-neon" />
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Gelir</span>
+            {incomeDetails.pending > 0 && (
+              <span className="text-[8px] font-mono font-bold bg-focus-neon/10 text-focus-neon px-1.5 py-0.2 rounded">
+                +₺{incomeDetails.pending.toLocaleString('tr-TR')} Bekliyor
+              </span>
+            )}
+          </div>
+          <span className="text-lg md:text-xl font-mono font-black text-focus-neon block mt-0.5">
             ₺{monthlyIncome.toLocaleString('tr-TR')}
           </span>
-        </div>
+          <span className="text-[9px] text-text-secondary mt-1 block">
+            {includePendingIncomes ? (
+              <span>Gerçekleşen: ₺{incomeDetails.realized.toLocaleString('tr-TR')} • Beklenen: ₺{incomeDetails.pending.toLocaleString('tr-TR')}</span>
+            ) : (
+              <span>Sadece Gerçekleşen (Beklenenler Hariç)</span>
+            )}
+          </span>
+        </motion.div>
 
         {/* Card 3: Expenses */}
-        <div className="bg-black/30 border border-white/5 p-3 md:p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors">
-          <span className="text-[8px] md:text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Gider</span>
-          <span className="text-sm md:text-xl font-mono font-black text-white block mt-0.5">
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
+        >
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <ArrowUpRight size={48} className="text-crit-vivid" />
+          </div>
+          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Aylık Gider</span>
+          <span className="text-lg md:text-xl font-mono font-black text-white block mt-0.5">
             ₺{monthlyExpense.toLocaleString('tr-TR')}
           </span>
-        </div>
+          <span className="text-[9px] text-text-secondary mt-1 block">
+            Gelirin %{monthlyIncome > 0 ? Math.round((monthlyExpense / monthlyIncome) * 100) : 0}\'i
+          </span>
+        </motion.div>
 
         {/* Card 4: Net Balance */}
-        <div className="bg-black/30 border border-white/5 p-3 md:p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors">
-          <span className="text-[8px] md:text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Net Bakiye</span>
-          <span className="text-sm md:text-xl font-mono font-black text-white block mt-0.5">
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-black/30 border border-white/5 p-4 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors"
+        >
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Target size={48} className="text-nrg-sun" />
+          </div>
+          <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Net Bakiye</span>
+          <span className={`text-lg md:text-xl font-mono font-black block mt-0.5 ${(monthlyIncome - monthlyExpense) >= 0 ? 'text-focus-neon' : 'text-crit-vivid'}`}>
             ₺{(monthlyIncome - monthlyExpense).toLocaleString('tr-TR')}
           </span>
-        </div>
+          <div className="w-full bg-white/5 h-0.5 rounded-full mt-1.5 overflow-hidden">
+            <div className={`h-full ${(monthlyIncome - monthlyExpense) >= 0 ? 'bg-focus-neon' : 'bg-crit-vivid'}`} style={{ width: `${Math.min(100, Math.max(0, savingsRate))}%` }} />
+          </div>
+        </motion.div>
       </div>
 
       {/* Interactive Quick Actions Panel */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3 md:p-5">
-        <h3 className="text-[10px] md:text-xs font-bold text-text-secondary mb-2 md:mb-4 uppercase tracking-wider px-1">Hızlı Sayfa Geçişleri</h3>
-        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3">
+      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5">
+        <h3 className="text-xs font-bold text-text-secondary mb-4 uppercase tracking-wider px-2">Hızlı Sayfa Geçişleri</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {quickActions.map((action) => (
             <button
               key={action.id}
               onClick={() => handleNavigation(action.id)}
-              className="bg-white/[0.02] border-white/5 hover:bg-white/[0.04] p-3 rounded-xl flex flex-col items-center justify-center text-center text-xs font-bold text-text-secondary hover:text-white transition-all"
+              onMouseEnter={() => setActiveQuickAction(action.id)}
+              onMouseLeave={() => setActiveQuickAction(null)}
+              className={`relative overflow-hidden flex flex-col items-center justify-center p-4.5 h-22 rounded-2xl border transition-all duration-300 ${
+                activeQuickAction === action.id 
+                  ? `${action.bgClass} ${action.borderClass} -translate-y-1 shadow-lg` 
+                  : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
+              }`}
             >
-              {action.icon}
-              <span className="mt-1 block truncate max-w-full text-[10px]">{action.label}</span>
+              <div className={`mb-2 transition-colors ${activeQuickAction === action.id ? action.textClass : 'text-text-secondary'}`}>
+                {action.icon}
+              </div>
+              <span className={`text-[11px] font-black transition-colors ${activeQuickAction === action.id ? 'text-white' : 'text-text-secondary'}`}>
+                {action.label}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* --- GRID OF CONDITIONALLY RENDERED WIDGETS --- */}
+
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Trend Area Chart */}
+        {/* Trend Area Chart - Compact */}
         <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
               <Activity size={14} className="text-focus-neon" /> Altı Aylık Nakit Akış Trendi
             </h3>
+            <span className="text-[9px] text-text-secondary">Gelir vs Gider</span>
           </div>
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorGelir" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorGider" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} axisLine={false} />
                 <YAxis stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} axisLine={false} tickFormatter={(val) => `₺${val/1000}k`} />
-                <Tooltip />
-                <Area type="monotone" dataKey="gelir" stroke="#10b981" strokeWidth={2} fillOpacity={0.1} fill="#10b981" />
-                <Area type="monotone" dataKey="gider" stroke="#ef4444" strokeWidth={2} fillOpacity={0.1} fill="#ef4444" />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#121214', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px' }}
+                  labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                />
+                <Area type="monotone" dataKey="gelir" name="Gelir" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorGelir)" />
+                <Area type="monotone" dataKey="gider" name="Gider" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorGider)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Categories Progress */}
+        {/* Categories Bar & Limit Progress Chart - Compact */}
         <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
               <Target size={14} className="text-ai-bright" /> Kategori Harcamaları & Limitler
             </h3>
+            <span className="text-[9px] text-text-secondary">Eşik Sınır Takibi</span>
           </div>
           
-          <div className="space-y-3 max-h-[200px] overflow-y-auto">
+          <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
             {categoryData.slice(0, 5).map((item, index) => {
               const spentPercent = Math.min(100, Math.round((item.value / item.limit) * 100));
               return (
                 <div key={index} className="space-y-1">
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-white font-bold">{item.name}</span>
-                    <span className="text-text-secondary">₺{item.value.toLocaleString('tr-TR')}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="text-white font-bold">{item.name}</span>
+                    </div>
+                    <span className="text-text-secondary">
+                      <strong className="text-white font-mono">₺{item.value.toLocaleString('tr-TR')}</strong> ({spentPercent}%)
+                    </span>
                   </div>
                   <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-focus-neon" style={{ width: `${spentPercent}%` }} />
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500`}
+                      style={{ 
+                        width: `${spentPercent}%`,
+                        backgroundColor: spentPercent > 90 ? '#ef4444' : spentPercent > 70 ? '#f59e0b' : item.color
+                      }}
+                    />
                   </div>
                 </div>
               );
@@ -1432,138 +1349,196 @@ export const FinanceDashboard = () => {
           </div>
         </div>
 
-        {/* Currency Converter */}
+        {/* Quick Currency Converter */}
         <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
-          <div className="space-y-3">
-            <h3 className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Coins size={14} className="text-focus-neon" /> Hızlı Kur Çevirici
-            </h3>
-            <input
-              type="number"
-              value={calcAmount}
-              onChange={(e) => setCalcAmount(e.target.value)}
-              className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-4 py-2 font-mono text-sm text-white focus:outline-none"
-            />
-            <div className="flex justify-between text-xs text-text-secondary bg-black/20 p-3 rounded-lg">
-              <span>Sonuç ({calcFrom} to TRY):</span>
-              <span className="font-bold text-focus-neon">₺{calculatedConvertResult}</span>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Coins size={14} className="text-focus-neon" /> Hızlı Kur Çevirici
+              </h3>
+              {rateFetchTime && (
+                <span className="text-[8px] text-text-secondary font-mono bg-white/5 px-1.5 py-0.5 rounded">
+                  {rateFetchTime} Güncel
+                </span>
+              )}
             </div>
+
+            <div className="space-y-3">
+              <div className="relative">
+                <input 
+                  type="number"
+                  min="0"
+                  value={calcAmount}
+                  onChange={(e) => setCalcAmount(e.target.value)}
+                  className="w-full bg-white/[0.02] border border-white/5 rounded-xl pl-4 pr-16 py-3 font-mono font-bold text-sm text-white focus:outline-none focus:border-focus-neon/30"
+                />
+                
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+                  {(['USD', 'EUR', 'GBP'] as const).map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setCalcFrom(c)}
+                      className={`px-2 py-1 text-[10px] font-bold transition-colors ${
+                        calcFrom === c ? 'bg-focus-neon text-pure-black' : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Conversion Result Block */}
+              <div className="bg-black/20 border border-white/5 p-4 rounded-xl flex justify-between items-center">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-text-secondary font-semibold uppercase tracking-wider block">Türk Lirası Karşılığı</span>
+                  <span className="text-[9px] text-text-secondary font-mono">1 {calcFrom} = {exchangeRates[calcFrom] || DEFAULT_RATES[calcFrom]} ₺</span>
+                </div>
+                <span className="text-base font-mono font-black text-focus-neon">
+                  ₺{calculatedConvertResult}
+                </span>
+              </div>
+            </div>
+          </div>
+          <p className="text-[8px] text-text-secondary text-center italic mt-auto">
+            Canlı kurlar open.er-api.com üzerinden otomatik güncellenmektedir.
+          </p>
+        </div>
+
+      </div>
+
+      {/* Grid: Alerts (LHS) & Upcoming Bills (RHS) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Alerts and Insights */}
+        <div className="lg:col-span-1 bg-black/20 border border-white/5 rounded-3xl p-6 space-y-5">
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <Bell size={14} className="text-crit-vivid" /> Akıllı Bütçe Uyarıları
+          </h3>
+
+          <div className="space-y-3.5">
+            {smartAlerts.map((alert) => (
+              <div 
+                key={alert.id} 
+                className={`p-4 rounded-xl border flex items-start gap-3 transition-colors ${
+                  alert.type === 'critical' ? 'bg-crit-vivid/10 border-crit-vivid/20 text-crit-vivid' :
+                  alert.type === 'warning' ? 'bg-nrg-sun/10 border-nrg-sun/20 text-nrg-sun' :
+                  'bg-focus-neon/10 border-focus-neon/20 text-focus-neon'
+                }`}
+              >
+                <div className="mt-0.5 shrink-0">{alert.icon}</div>
+                <div className="space-y-0.5">
+                  <h4 className="text-xs font-black uppercase tracking-wider">{alert.title}</h4>
+                  <p className="text-[11px] text-text-secondary leading-normal">{alert.message}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Upcoming Bill Planner */}
+        <div className="lg:col-span-2 bg-white/[0.02] border border-white/5 rounded-3xl p-6 space-y-4">
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <RefreshCw size={14} className="text-nrg-sun" /> Yaklaşan Otomatik Ödemeler & Faturalar
+          </h3>
+          <p className="text-xs text-text-secondary">
+            Önümüzdeki günlerde gerçekleşecek olan aktif abonelik veya borç taksitlerinizin planı:
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {upcomingPayments.map((item) => (
+              <div key={item.id} className="p-3.5 rounded-xl bg-black/35 border border-white/5 flex items-center justify-between hover:border-white/10 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg shrink-0 ${
+                    item.type === 'subscription' ? 'bg-purple-500/10 text-purple-400' : 'bg-crit-vivid/10 text-crit-vivid'
+                  }`}>
+                    {item.type === 'subscription' ? <CreditCard size={15} /> : <ArrowUpRight size={15} />}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-white line-clamp-1">{item.title}</h4>
+                    <span className="text-[10px] text-text-secondary font-mono">{item.date}</span>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-black text-white shrink-0 pl-2">
+                  ₺{item.amount.toLocaleString('tr-TR')}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Conditionally Rendered Interactive Bubble Investments Infographic */}
-      {activeWidgetIds.includes('investment_bubble') && bubbleInvestmentsData.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 space-y-4"
-        >
+      {/* Grid: Son İşlemler & En Son Rapor Dashboard connection */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* LHS: Recent Transactions */}
+        <div className="lg:col-span-7 bg-white/[0.02] border border-white/5 rounded-3xl p-6 space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Brain size={14} className="text-purple-400" /> Yatırım Balon Dağılım İnfografiği (Clickable Bubble)
-            </h3>
-            <span className="text-[8px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded font-mono">DİNAMİK & ETKİLEŞİMLİ</span>
-          </div>
-          <p className="text-xs text-text-secondary">
-            Yatırım varlıklarınızın büyüklükleri ve risk katsayıları balon grafiğiyle görselleştirilmiştir. Bir balona tıklayarak derin analizleri başlatabilirsiniz.
-          </p>
-          <div className="h-[220px] w-full bg-black/10 rounded-2xl p-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                <XAxis type="number" dataKey="x" name="Varlık" stroke="rgba(255,255,255,0.2)" fontSize={9} hide />
-                <YAxis type="number" dataKey="y" name="Tutar (K)" stroke="rgba(255,255,255,0.4)" fontSize={9} unit="K" />
-                <ZAxis type="number" dataKey="z" range={[60, 400]} name="Başlangıç" />
-                <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                <Scatter
-                  name="Yatırımlar"
-                  data={bubbleInvestmentsData}
-                  fill="#8b5cf6"
-                  onClick={(node: any) => triggerDrilldown('bubble', `${node.payload?.name || node.name || 'Yatırım'} Analiz Raporu`, node.payload || node)}
-                >
-                  {bubbleInvestmentsData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#3B82F6' : '#8B5CF6'} className="cursor-pointer" />
-                  ))}
-                </Scatter>
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-        </motion.div>
-      )}
-
-      {/* DRILLDOWN DETAIL DRAWER COMPONENT */}
-      <AnimatePresence>
-        {drawerOpen && (
-          <div className="fixed inset-0 z-[300] flex justify-end">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setDrawerOpen(false)}
-              className="absolute inset-0 bg-black/75 backdrop-blur-sm"
-            />
-            {/* Drawer */}
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-full max-w-lg bg-skel-space border-l border-white/10 h-full p-6 overflow-y-auto flex flex-col justify-between z-10 text-white"
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Son Yapılan Hareketler</h3>
+            <button 
+              onClick={() => handleNavigation('finance-analytics')}
+              className="text-[10px] text-focus-neon hover:underline font-bold flex items-center gap-0.5"
             >
-              <div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
-                  <h3 className="font-display font-black text-sm uppercase tracking-wider flex items-center gap-2">
-                    <Brain size={16} className="text-focus-neon" /> {drawerTitle}
-                  </h3>
-                  <button onClick={() => setDrawerOpen(false)} className="p-1 hover:bg-white/5 rounded-full">
-                    <X size={18} />
-                  </button>
-                </div>
+              Tümünü Gör <ChevronRight size={12} />
+            </button>
+          </div>
 
-                <div className="space-y-6 text-xs text-text-secondary leading-relaxed">
-                  <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-2">
-                    <span className="text-[9px] text-focus-neon font-bold uppercase tracking-wider block">Yapay Zeka Analiz Brifingi</span>
-                    <p className="text-white/90">{drawerContent?.summary}</p>
+          <div className="space-y-2.5">
+            {recentTransactions.map((tx) => (
+              <div key={tx.id} className="p-3 bg-black/25 border border-white/5 rounded-xl flex justify-between items-center hover:border-white/10 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    tx.type === 'income' ? 'bg-focus-neon shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'bg-crit-vivid'
+                  }`} />
+                  <div>
+                    <h4 className="text-xs font-bold text-white line-clamp-1">{tx.title}</h4>
+                    <span className="text-[9px] text-text-secondary uppercase tracking-wider">{tx.category} • {tx.date}</span>
                   </div>
+                </div>
+                <span className={`text-xs font-mono font-black shrink-0 ${
+                  tx.type === 'income' ? 'text-focus-neon' : 'text-white'
+                }`}>
+                  {tx.type === 'income' ? '+' : '-'}₺{Math.abs(tx.amount).toLocaleString('tr-TR')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-                  <div className="space-y-3">
-                    <span className="text-[9px] text-text-secondary font-bold uppercase tracking-wider block">Önerilen Aksiyon Adımları</span>
-                    <div className="space-y-2.5">
-                      {drawerContent?.advices.map((adv: string, idx: number) => (
-                        <div key={idx} className="flex gap-2.5 items-start bg-black/20 p-3 rounded-xl border border-white/5">
-                          <span className="w-5 h-5 rounded-full bg-focus-neon/10 border border-focus-neon/20 flex items-center justify-center text-focus-neon font-bold shrink-0 text-[10px]">
-                            {idx + 1}
-                          </span>
-                          <p className="text-white/80">{adv}</p>
-                        </div>
-                      ))}
+        {/* RHS: Recent Reports Quick Links */}
+        <div className="lg:col-span-5 bg-white/[0.02] border border-white/5 rounded-3xl p-5 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <FileText size={14} className="text-ai-bright" /> Finansal Raporlar
+            </h3>
+            <button onClick={() => handleNavigation('finance-reports')} className="text-[9px] text-ai-bright hover:underline font-bold">Yönet</button>
+          </div>
+          
+          <div className="space-y-2">
+            {reports && reports.length > 0 ? (
+              reports.slice(0, 2).map(report => (
+                <div key={report.id} className="p-3 bg-black/25 border border-white/5 rounded-xl flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-ai-bright/10 flex items-center justify-center text-ai-bright font-black text-xs">
+                      {report.grade}
+                    </div>
+                    <div>
+                      <h4 className="text-[11px] font-bold text-white truncate w-32">{report.title}</h4>
+                      <p className="text-[9px] text-text-secondary">{report.period}</p>
                     </div>
                   </div>
+                  <ChevronRight size={14} className="text-text-secondary" />
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-6 border border-dashed border-white/10 rounded-xl">
+                <p className="text-[10px] text-text-secondary">Henüz oluşturulmuş rapor bulunmuyor.</p>
               </div>
-
-              <div className="pt-6 border-t border-white/5 mt-8 flex justify-end gap-3">
-                <button
-                  onClick={() => setDrawerOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-white/[0.04] text-xs font-bold hover:bg-white/10 transition-all"
-                >
-                  Kapat
-                </button>
-                <button
-                  onClick={() => {
-                    setDrawerOpen(false);
-                    triggerToast('Önerilen aksiyonlar bütçe planına uyarlandı!');
-                  }}
-                  className="px-4 py-2 rounded-xl bg-focus-neon text-white dark:text-black font-black text-xs hover:scale-105 transition-all"
-                >
-                  Aksiyonu Uygula
-                </button>
-              </div>
-            </motion.div>
+            )}
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+
+      </div>
     </div>
   );
 };

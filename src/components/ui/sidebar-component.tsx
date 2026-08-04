@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { 
   Zap,
   LayoutDashboard,
-  Activity,
   Settings as SettingsIcon,
   ChevronDown,
   Search,
@@ -172,17 +171,6 @@ interface SidebarContent {
 
 function getSidebarContent(activeSection: string): SidebarContent {
   const contentMap: Record<string, SidebarContent> = {
-    home: {
-      title: "Ana Sayfa",
-      sections: [
-        {
-          title: "Yönetim",
-          items: [
-            { id: 'home-dashboard', icon: <LayoutDashboard size={16} />, label: 'Akıllı Ana Ekran', moduleId: 'home-dashboard' },
-          ],
-        },
-      ],
-    },
     finance: {
       title: "Kişisel Finans",
       sections: [
@@ -190,7 +178,6 @@ function getSidebarContent(activeSection: string): SidebarContent {
           title: "Yönetim",
           items: [
             { id: 'finance-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'finance-dashboard' },
-            { id: 'finance-status', icon: <Activity size={16} />, label: 'Finansal Durum', moduleId: 'finance-status' },
             { id: 'finance-incomes', icon: <TrendingUp size={16} />, label: 'Gelirlerim', moduleId: 'finance-incomes' },
             { id: 'finance-expenses', icon: <TrendingDown size={16} />, label: 'Giderlerim', moduleId: 'finance-expenses' },
             { id: 'finance-subscriptions', icon: <CreditCard size={16} />, label: 'Abonelik ve Borçlarım', moduleId: 'finance-subscriptions' },
@@ -208,7 +195,7 @@ function getSidebarContent(activeSection: string): SidebarContent {
         {
           title: "Genel",
           items: [
-            { id: 'library-manga-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'library-manga-dashboard' },
+            { id: 'library-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'library-dashboard' },
           ],
         },
         {
@@ -343,9 +330,8 @@ function IconNavigation({
   setSidebarOpen?: (open: boolean) => void;
 }) {
   const navItems = [
-    { id: "home", icon: <LayoutDashboard size={18} />, label: "Ana Sayfa", moduleId: 'home-dashboard' },
     { id: "finance", icon: <Wallet size={18} />, label: "Kişisel Finans", moduleId: 'finance-dashboard' },
-    { id: "library", icon: <Library size={18} />, label: "Kütüphane", moduleId: 'library-mangas' },
+    { id: "library", icon: <Library size={18} />, label: "Kütüphane", moduleId: 'library-dashboard' },
     { id: "notes", icon: <NotebookPen size={18} />, label: "Notlarım", moduleId: 'notes-dashboard' },
     { id: "bulletin", icon: <Rss size={18} />, label: "Bülten", moduleId: 'bulletin-dashboard' },
   ];
@@ -364,12 +350,12 @@ function IconNavigation({
       <div 
         className="mb-3 size-8 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
         onClick={() => {
-          onSectionChange('home');
-          setActiveModule('home-dashboard');
+          onSectionChange('finance');
+          setActiveModule('finance-dashboard');
         }}
       >
         <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-lg transition-all duration-500 ${
-          activeSection === 'home' ? 'bg-focus-main shadow-focus-main/30' : 'bg-neutral-800 shadow-black/20'
+          activeSection === 'finance' ? 'bg-focus-main shadow-focus-main/30' : 'bg-neutral-800 shadow-black/20'
         }`}>
           <Zap size={14} className="text-pure-white" />
         </div>
@@ -442,7 +428,6 @@ function DetailSidebar({ activeSection, onSectionChange, setActiveModule, active
   const [isCollapsed, setIsCollapsed] = useState(false);
   const content = getSidebarContent(activeSection);
   const subBrand = 
-    activeSection === 'home' ? 'OS' :
     activeSection === 'finance' ? 'FİNANS' : 
     activeSection === 'library' ? 'KÜTÜPHANE' : 
     activeSection === 'notes' ? 'NOTLARIM' : 
@@ -661,9 +646,7 @@ export function TwoLevelSidebar({ setActiveModule, isOpen, activeModule, setSide
 
   // Sync activeSection with activeModule when it changes from outside (e.g. Header)
   React.useEffect(() => {
-    if (activeModule.startsWith('home-')) {
-      setActiveSection('home');
-    } else if (activeModule.startsWith('finance-')) {
+    if (activeModule.startsWith('finance-')) {
       setActiveSection('finance');
     } else if (activeModule.startsWith('library-')) {
       setActiveSection('library');

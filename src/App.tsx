@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
-import { Dock } from './components/dock/Dock';
+import { AndroidDockBar } from './components/AndroidDockBar';
 import { SpatialBackground } from './components/SpatialBackground';
 import { SettingsModal } from './components/ui/SettingsModal';
 import { NotificationPage } from './components/NotificationPage';
@@ -21,7 +21,6 @@ import {
 } from './components/PurchasingModules';
 import {
   FinanceDashboard,
-  FinanceStatus,
   FinanceIncomes,
   FinanceExpenses,
   FinanceSubscriptions,
@@ -54,25 +53,25 @@ import { Zap } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
 import { BulletinNews } from './components/bulletin/BulletinNews';
 import { NotesTodo } from './components/notes/NotesTodo';
-import { HomeDashboard } from './components/HomeDashboard';
 import { NotesBookmarks } from './components/notes/NotesBookmarks';
 import { NotesPasswords } from './components/notes/NotesPasswords';
 import { NotesBooks } from './components/notes/NotesBooks';
 import { NotesDashboard } from './components/notes/NotesDashboard';
 import { NotesQuickMemos } from './components/notes/NotesQuickMemos';
 import { NotesNotebook } from './components/notes/NotesNotebook';
-import { MangaAppContainer } from './components/library/MangaAppContainer';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { useDevice } from './hooks/useDevice';
+import { DeviceTemplate } from './components/layout/DeviceTemplate';
 
 function AppLayout() {
   const { settings } = useSettings();
-  const { isMobile, isDesktop } = useDevice();
-  const [activeModule, setActiveModule] = useState('home-dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(isDesktop && settings['sidebar_default']?.value === 'expanded');
+  const deviceInfo = useDevice();
+  const isLargeScreen = deviceInfo.width >= 1024;
+  const [activeModule, setActiveModule] = useState('finance-dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(isLargeScreen);
   const [isBooting, setIsBooting] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -85,12 +84,12 @@ function AppLayout() {
     };
   }, []);
 
-  // Close sidebar on mobile when module changes
+  // Close sidebar on mobile/tablet when module changes
   useEffect(() => {
-    if (isMobile) {
+    if (!isLargeScreen) {
       setIsSidebarOpen(false);
     }
-  }, [activeModule, isMobile]);
+  }, [activeModule, isLargeScreen]);
 
   const toggleSidebar = useCallback(() => {
     setIsSidebarOpen(prev => !prev);
@@ -156,147 +155,149 @@ function AppLayout() {
         
         <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
         
-        <div className="flex-1 flex overflow-hidden p-0 sm:p-2 lg:p-4 gap-0 sm:gap-3 lg:gap-4 relative pb-16 lg:pb-4 touch-optimized">
-          {isDesktop && (
-            <Sidebar
-              isOpen={isSidebarOpen}
-              activeModule={activeModule}
-              setActiveModule={handleSetActiveModule}
-              closeSidebar={() => setIsSidebarOpen(false)}
-              setSidebarOpen={setIsSidebarOpen}
+        <div className="flex-1 flex overflow-hidden p-1 sm:p-3 lg:p-4 gap-2 sm:gap-3 lg:gap-4 relative pb-20 lg:pb-4 touch-optimized">
+          {/* Backdrop Overlay for Mobiles & Tablets */}
+          {!isLargeScreen && isSidebarOpen && (
+            <div 
+              onClick={() => setIsSidebarOpen(false)} 
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[100] transition-all duration-300"
             />
           )}
+
+          <Sidebar 
+            isOpen={isSidebarOpen} 
+            activeModule={activeModule} 
+            setActiveModule={handleSetActiveModule} 
+            closeSidebar={() => setIsSidebarOpen(false)}
+            setSidebarOpen={setIsSidebarOpen}
+          />
           
-          <div className="flex-1 flex flex-col gap-1.5 sm:gap-4 min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[30px] rounded-none sm:rounded-2xl border-x-0 sm:border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.4)] p-1.5 sm:p-4 lg:p-6 pb-24 sm:pb-28 lg:pb-6 transition-all duration-500">
+          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[30px] rounded-xl sm:rounded-2xl border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.4)] transition-all duration-500">
             <main className="flex-1 overflow-x-hidden">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeModule}
-                initial={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
-                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
-                transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                className="w-full h-full min-h-[380px]"
-              >
-                {activeModule === 'home-dashboard' ? (
-                  <HomeDashboard />
-                ) : activeModule === 'notification-page' ? (
-                  <NotificationPage />
-                ) : activeModule === 'notification-settings' ? (
-                  <NotificationSettings />
-                ) : activeModule === 'calendar-page' ? (
-                  <CalendarPage />
-                ) : activeModule === 'finance-dashboard' ? (
-                  <FinanceDashboard />
-                ) : activeModule === 'finance-status' ? (
-                  <FinanceStatus />
-                ) : activeModule === 'finance-incomes' ? (
-                  <FinanceIncomes />
-                ) : activeModule === 'finance-expenses' ? (
-                  <FinanceExpenses />
-                ) : activeModule === 'finance-subscriptions' ? (
-                  <FinanceSubscriptions />
-                ) : activeModule === 'finance-investments' ? (
-                  <FinanceInvestments />
-                ) : activeModule === 'finance-purchasing' ? (
-                  <FinancePurchasing />
-                ) : activeModule === 'finance-analytics' ? (
-                  <FinanceAnalytics />
-                ) : activeModule === 'finance-reports' ? (
-                  <FinanceReports />
-                ) : activeModule === 'purchasing-dashboard' ? (
-                  <PurchasingDashboard />
-                ) : activeModule === 'purchasing-requests' ? (
-                  <PurchasingRequests />
-                ) : activeModule === 'purchasing-lists' ? (
-                  <PurchasingLists />
-                ) : activeModule === 'purchasing-quotes' ? (
-                  <PurchasingQuotes />
-                ) : activeModule === 'purchasing-pending-orders' ? (
-                  <PurchasingPendingOrders />
-                ) : activeModule === 'purchasing-sent-orders' ? (
-                  <PurchasingSentOrders />
-                ) : activeModule === 'purchasing-all-orders' ? (
-                  <PurchasingAllOrders />
-                ) : activeModule === 'purchasing-reports' ? (
-                  <PurchasingReports />
-                ) : activeModule === 'purchasing-analytics' ? (
-                  <PurchasingAnalytics />
-                ) : activeModule === 'fason-dashboard' ? (
-                  <FasonDashboard />
-                ) : activeModule === 'fason-outgoing' ? (
-                  <FasonOutgoing />
-                ) : activeModule === 'fason-all' ? (
-                  <FasonAll />
-                ) : activeModule === 'fason-reports' ? (
-                  <FasonReports />
-                ) : activeModule === 'fason-analytics' ? (
-                  <FasonAnalytics />
-                ) : activeModule === 'stocks-dashboard' ? (
-                  <StocksDashboard />
-                ) : activeModule === 'stocks-list' ? (
-                  <StocksList />
-                ) : activeModule === 'stocks-reports' ? (
-                  <StocksReports />
-                ) : activeModule === 'stocks-analytics' ? (
-                  <StocksAnalytics />
-                ) : activeModule === 'contacts-dashboard' ? (
-                  <ContactsDashboard />
-                ) : activeModule === 'contacts-list' ? (
-                  <ContactsList />
-                ) : activeModule === 'contacts-reports' ? (
-                  <ContactsReports />
-                ) : activeModule === 'contacts-analytics' ? (
-                  <ContactsAnalytics />
-                ) : activeModule === 'recon-dashboard' ? (
-                  <ReconDashboard />
-                ) : activeModule === 'recon-contacts' ? (
-                  <ReconContacts />
-                ) : activeModule === 'recon-reports' ? (
-                  <ReconReports />
-                ) : activeModule === 'recon-analytics' ? (
-                  <ReconAnalytics />
-                ) : activeModule === 'library-ebooks' ? (
-                  <NotesBooks />
-                ) : (activeModule.startsWith('library-manga') || activeModule === 'library-mangas' || activeModule === 'library-dashboard') ? (
-                  <MangaAppContainer activeModule={activeModule} />
-                ) : activeModule.startsWith('library-') ? (
-                  <ComingSoon 
-                    title={activeModule.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
-                    brandName="APEXOS KÜTÜPHANE" 
-                  />
-                ) : activeModule === 'notes-dashboard' ? (
-                  <NotesDashboard />
-                ) : activeModule === 'notes-quick' ? (
-                  <NotesQuickMemos />
-                ) : activeModule === 'notes-notebook' ? (
-                  <NotesNotebook />
-                ) : activeModule === 'notes-todo' ? (
-                  <NotesTodo />
-                ) : activeModule === 'notes-bookmarks' ? (
-                  <NotesBookmarks />
-                ) : activeModule === 'notes-passwords' ? (
-                  <NotesPasswords />
-                ) : activeModule === 'notes-books' ? (
-                  <NotesBooks />
-                ) : activeModule.startsWith('notes-') ? (
-                  <ComingSoon 
-                    title={activeModule.replace('notes-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
-                    brandName="APEXOS NOTLARIM" 
-                  />
-                ) : activeModule.startsWith('bulletin-') ? (
-                  <BulletinNews activeSubModule={activeModule.replace('bulletin-', '')} />
-                ) : (
-                  <HomeDashboard />
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </main>
-        </div>
+              <DeviceTemplate deviceInfo={deviceInfo} activeModule={activeModule}>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeModule}
+                    initial={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
+                    animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
+                    transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+                    className="w-full h-full min-h-[400px]"
+                  >
+                    {activeModule === 'notification-page' ? (
+                      <NotificationPage />
+                    ) : activeModule === 'notification-settings' ? (
+                      <NotificationSettings />
+                    ) : activeModule === 'calendar-page' ? (
+                      <CalendarPage />
+                    ) : activeModule === 'finance-dashboard' ? (
+                      <FinanceDashboard />
+                    ) : activeModule === 'finance-incomes' ? (
+                      <FinanceIncomes />
+                    ) : activeModule === 'finance-expenses' ? (
+                      <FinanceExpenses />
+                    ) : activeModule === 'finance-subscriptions' ? (
+                      <FinanceSubscriptions />
+                    ) : activeModule === 'finance-investments' ? (
+                      <FinanceInvestments />
+                    ) : activeModule === 'finance-purchasing' ? (
+                      <FinancePurchasing />
+                    ) : activeModule === 'finance-analytics' ? (
+                      <FinanceAnalytics />
+                    ) : activeModule === 'finance-reports' ? (
+                      <FinanceReports />
+                    ) : activeModule === 'purchasing-dashboard' ? (
+                      <PurchasingDashboard />
+                    ) : activeModule === 'purchasing-requests' ? (
+                      <PurchasingRequests />
+                    ) : activeModule === 'purchasing-lists' ? (
+                      <PurchasingLists />
+                    ) : activeModule === 'purchasing-quotes' ? (
+                      <PurchasingQuotes />
+                    ) : activeModule === 'purchasing-pending-orders' ? (
+                      <PurchasingPendingOrders />
+                    ) : activeModule === 'purchasing-sent-orders' ? (
+                      <PurchasingSentOrders />
+                    ) : activeModule === 'purchasing-all-orders' ? (
+                      <PurchasingAllOrders />
+                    ) : activeModule === 'purchasing-reports' ? (
+                      <PurchasingReports />
+                    ) : activeModule === 'purchasing-analytics' ? (
+                      <PurchasingAnalytics />
+                    ) : activeModule === 'fason-dashboard' ? (
+                      <FasonDashboard />
+                    ) : activeModule === 'fason-outgoing' ? (
+                      <FasonOutgoing />
+                    ) : activeModule === 'fason-all' ? (
+                      <FasonAll />
+                    ) : activeModule === 'fason-reports' ? (
+                      <FasonReports />
+                    ) : activeModule === 'fason-analytics' ? (
+                      <FasonAnalytics />
+                    ) : activeModule === 'stocks-dashboard' ? (
+                      <StocksDashboard />
+                    ) : activeModule === 'stocks-list' ? (
+                      <StocksList />
+                    ) : activeModule === 'stocks-reports' ? (
+                      <StocksReports />
+                    ) : activeModule === 'stocks-analytics' ? (
+                      <StocksAnalytics />
+                    ) : activeModule === 'contacts-dashboard' ? (
+                      <ContactsDashboard />
+                    ) : activeModule === 'contacts-list' ? (
+                      <ContactsList />
+                    ) : activeModule === 'contacts-reports' ? (
+                      <ContactsReports />
+                    ) : activeModule === 'contacts-analytics' ? (
+                      <ContactsAnalytics />
+                    ) : activeModule === 'recon-dashboard' ? (
+                      <ReconDashboard />
+                    ) : activeModule === 'recon-contacts' ? (
+                      <ReconContacts />
+                    ) : activeModule === 'recon-reports' ? (
+                      <ReconReports />
+                    ) : activeModule === 'recon-analytics' ? (
+                      <ReconAnalytics />
+                    ) : activeModule === 'library-ebooks' ? (
+                      <NotesBooks />
+                    ) : activeModule.startsWith('library-') ? (
+                      <ComingSoon 
+                        title={activeModule.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
+                        brandName="APEXOS KÜTÜPHANE" 
+                      />
+                    ) : activeModule === 'notes-dashboard' ? (
+                      <NotesDashboard />
+                    ) : activeModule === 'notes-quick' ? (
+                      <NotesQuickMemos />
+                    ) : activeModule === 'notes-notebook' ? (
+                      <NotesNotebook />
+                    ) : activeModule === 'notes-todo' ? (
+                      <NotesTodo />
+                    ) : activeModule === 'notes-bookmarks' ? (
+                      <NotesBookmarks />
+                    ) : activeModule === 'notes-passwords' ? (
+                      <NotesPasswords />
+                    ) : activeModule === 'notes-books' ? (
+                      <NotesBooks />
+                    ) : activeModule.startsWith('notes-') ? (
+                      <ComingSoon 
+                        title={activeModule.replace('notes-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
+                        brandName="APEXOS NOTLARIM" 
+                      />
+                    ) : activeModule.startsWith('bulletin-') ? (
+                      <BulletinNews activeSubModule={activeModule.replace('bulletin-', '')} />
+                    ) : (
+                      <FinanceDashboard />
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </DeviceTemplate>
+            </main>
+          </div>
       </div>
       </div>
 
-      <Dock
+      <AndroidDockBar 
         activeModule={activeModule} 
         setActiveModule={handleSetActiveModule} 
         toggleSidebar={toggleSidebar} 

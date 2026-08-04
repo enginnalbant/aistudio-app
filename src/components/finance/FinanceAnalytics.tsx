@@ -6,7 +6,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ComposedChart, Line
 } from 'recharts';
 import { 
-  BrainCircuit, Zap, TrendingUp, TrendingDown, ShieldCheck, AlertTriangle, Calculator, Clock, Target, Wallet, Activity, ArrowRight, CheckCircle2, Crosshair
+  BrainCircuit, Zap, TrendingUp, TrendingDown, ShieldCheck, AlertTriangle, Calculator, Clock, Target, Wallet, Activity, ArrowRight, CheckCircle2, Crosshair, Calendar, CheckCircle, Sparkles, Info
 } from 'lucide-react';
 
 export const FinanceAnalytics = () => {
@@ -27,12 +27,16 @@ export const FinanceAnalytics = () => {
   const [expenseCutPercent, setExpenseCutPercent] = useState<number>(10);
   const [debtPayoffStrategy, setDebtPayoffStrategy] = useState<'snowball' | 'avalanche'>('snowball');
 
-  const [incomes] = useLocalStorage<any[]>('finance_incomes', []);
+  const [incomes, setIncomes] = useLocalStorage<any[]>('finance_incomes', []);
   const [expenses] = useLocalStorage<any[]>('finance_expenses', []);
   const [investments] = useLocalStorage<any[]>('finance_investments', []);
   const [debts] = useLocalStorage<any[]>('finance_debts', []);
   const [subscriptions] = useLocalStorage<any[]>('finance_subscriptions', []);
   const [savings] = useLocalStorage<any[]>('finance_savings', []);
+
+  // Global toggle to include pending / future scheduled incomes in financial analytics
+  const [includePendingIncomes, setIncludePendingIncomes] = useLocalStorage<boolean>('finance_include_pending_incomes', true);
+  const [showPendingDetails, setShowPendingDetails] = useState<boolean>(false);
 
   // Compute dynamic rollovers
   const { rolloverIncomes, rolloverExpenses } = useMemo(() => {
@@ -52,15 +56,74 @@ export const FinanceAnalytics = () => {
     return num;
   };
 
-  const monthlyIncome = useMemo(() => {
-    const recurring = allIncomes.filter(i => i.recurrence && i.recurrence !== 'Tek Seferlik');
+  // Pending and Realized Income Synthesis Engine (Uses user-entered incomes, excluding synthetic 3-year timeline rollovers)
+  const incomeMetrics = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const userIncomes = (incomes || []);
+    let realizedSum = 0;
+    let pendingSum = 0;
+    const pendingList: Array<{
+      id: string;
+      title: string;
+      amount: number;
+      category: string;
+      date: string;
+      daysLeft: number;
+      source?: string;
+      status: string;
+    }> = [];
+
+    userIncomes.forEach(i => {
+      if (!i) return;
+      const amt = Number(i.amount) || 0;
+      const isCompleted = i.status === 'Tamamlandı';
+      const d = i.date ? new Date(i.date) : new Date();
+      d.setHours(0, 0, 0, 0);
+      const isFuture = d > today;
+
+      if (isCompleted && !isFuture) {
+        realizedSum += amt;
+      } else {
+        pendingSum += amt;
+        const diffTime = d.getTime() - today.getTime();
+        const daysLeft = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+        pendingList.push({
+          id: i.id || Math.random().toString(),
+          title: i.title || 'Planlanan Gelir',
+          amount: amt,
+          category: i.category || 'Diğer',
+          date: i.date || today.toISOString().split('T')[0],
+          daysLeft,
+          source: i.source || 'Gelecek Gelir',
+          status: i.status || 'Beklemede'
+        });
+      }
+    });
+
+    pendingList.sort((a, b) => a.daysLeft - b.daysLeft);
+
+    const recurring = userIncomes.filter(i => i.recurrence && i.recurrence !== 'Tek Seferlik');
+    let recurringMonthly = 0;
     if (recurring.length > 0) {
-      return recurring.reduce((sum, i) => sum + calculateMonthly(i.amount, i.recurrence), 0);
+      recurringMonthly = recurring.reduce((sum, i) => sum + calculateMonthly(i.amount, i.recurrence), 0);
     }
-    const compl = allIncomes.filter(i => i.status === 'Tamamlandı');
-    if (compl.length > 0) return compl.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
-    return 0;
-  }, [allIncomes]);
+
+    const effectiveMonthlyIncome = includePendingIncomes
+      ? (recurringMonthly > 0 ? recurringMonthly + pendingSum : realizedSum + pendingSum)
+      : (recurringMonthly > 0 ? recurringMonthly : realizedSum);
+
+    return {
+      realizedSum,
+      pendingSum,
+      totalProjectedSum: realizedSum + pendingSum,
+      pendingList,
+      effectiveMonthlyIncome
+    };
+  }, [incomes, includePendingIncomes]);
+
+  const monthlyIncome = incomeMetrics.effectiveMonthlyIncome;
 
   const monthlyExpense = useMemo(() => {
     const recurring = allExpenses.filter(e => e.recurrence && e.recurrence !== 'Tek Seferlik');
@@ -704,6 +767,147 @@ export const FinanceAnalytics = () => {
             <ShieldCheck size={16} className="text-ai-bright" /> Akıllı Raporlar
           </button>
         </div>
+      </div>
+
+      {/* HENÜZ GERÇEKLEŞMEYEN (GELECEK) GELİRLER KONTROL & ANALİZ PANELİ */}
+      <div className="bg-gradient-to-r from-neutral-950 via-neutral-900 to-black border border-white/10 rounded-3xl p-5 md:p-6 space-y-4 shadow-xl">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-focus-neon/10 border border-focus-neon/30 rounded-2xl text-focus-neon">
+              <Clock size={24} className="animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base md:text-lg font-bold text-white font-display">
+                  Henüz Gerçekleşmeyen (Gelecek) Gelirler Ayarı
+                </h3>
+                <span className="text-[10px] font-mono font-bold bg-focus-neon/20 text-focus-neon px-2 py-0.5 rounded-full border border-focus-neon/30">
+                  Planlanan Gelir Projeksiyonu
+                </span>
+              </div>
+              <p className="text-xs text-text-secondary mt-0.5">
+                X gün sonra gelmesi planlanan veya henüz tahsil edilmemiş gelirlerinizi bütçe ve analiz hesaplamalarına otomatik dahil edin.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 bg-white/[0.03] border border-white/10 px-4 py-2.5 rounded-2xl w-full lg:w-auto justify-between lg:justify-end">
+            <div className="flex flex-col text-right">
+              <span className="text-[10px] font-bold text-text-secondary uppercase">Beklenen Gelirleri Hesaba Kat</span>
+              <span className="text-xs font-mono font-bold text-white">
+                {includePendingIncomes ? 'Dahil Edildi (Aktif)' : 'Devre Dışı (Sadece Gerçekleşen)'}
+              </span>
+            </div>
+            <button
+              onClick={() => setIncludePendingIncomes(!includePendingIncomes)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                includePendingIncomes 
+                  ? 'bg-focus-neon text-black font-black shadow-lg shadow-focus-neon/20' 
+                  : 'bg-white/10 text-text-secondary hover:text-white'
+              }`}
+            >
+              {includePendingIncomes ? <CheckCircle2 size={16} /> : <Clock size={16} />}
+              {includePendingIncomes ? 'Aktif' : 'Aktifleştir'}
+            </button>
+          </div>
+        </div>
+
+        {/* Live Metrics Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/5">
+          <div className="bg-black/40 border border-white/5 p-3.5 rounded-2xl">
+            <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider block">Gerçekleşen (Onaylı) Gelir</span>
+            <span className="text-base font-mono font-bold text-white mt-1 block">
+              ₺{incomeMetrics.realizedSum.toLocaleString('tr-TR')}
+            </span>
+            <span className="text-[9px] text-text-secondary/60 mt-0.5 block">Hesaba geçen nakit tutar</span>
+          </div>
+
+          <div className="bg-black/40 border border-focus-neon/20 p-3.5 rounded-2xl relative overflow-hidden">
+            <span className="text-[9px] font-bold text-focus-neon uppercase tracking-wider block flex items-center gap-1">
+              <Clock size={11} /> Beklenen / Gelecek Gelir (Planlanan)
+            </span>
+            <span className="text-base font-mono font-bold text-focus-neon mt-1 block">
+              +₺{incomeMetrics.pendingSum.toLocaleString('tr-TR')}
+            </span>
+            <span className="text-[9px] text-text-secondary/80 mt-0.5 block">
+              {incomeMetrics.pendingList.length} adet bekleyen ödeme planı
+            </span>
+          </div>
+
+          <div className="bg-black/40 border border-ai-bright/20 p-3.5 rounded-2xl">
+            <span className="text-[9px] font-bold text-ai-bright uppercase tracking-wider block">Hesaplanan Toplam Bütçe Geliri</span>
+            <span className="text-base font-mono font-bold text-ai-bright mt-1 block">
+              ₺{incomeMetrics.effectiveMonthlyIncome.toLocaleString('tr-TR')}
+            </span>
+            <span className="text-[9px] text-text-secondary/60 mt-0.5 block">
+              {includePendingIncomes ? 'Gerçekleşen + Beklenen Dahil' : 'Sadece Gerçekleşen Gelirler'}
+            </span>
+          </div>
+        </div>
+
+        {/* Expandable Upcoming Pending Incomes Timeline */}
+        {incomeMetrics.pendingList.length > 0 && (
+          <div className="pt-2">
+            <button
+              onClick={() => setShowPendingDetails(!showPendingDetails)}
+              className="text-xs font-bold text-focus-neon hover:underline flex items-center gap-1.5 transition-all"
+            >
+              <Calendar size={14} />
+              Önümüzdeki Günlerde Gelmesi Planlanan Gelirler ({incomeMetrics.pendingList.length} Kalem)
+              <span className="text-[10px] text-text-secondary font-mono">
+                {showPendingDetails ? '▲ Gizle' : '▼ Detayları Gör'}
+              </span>
+            </button>
+
+            <AnimatePresence>
+              {showPendingDetails && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-3 space-y-2 overflow-hidden"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {incomeMetrics.pendingList.map(item => (
+                      <div key={item.id} className="bg-white/[0.02] border border-white/5 hover:border-white/10 p-3 rounded-xl flex justify-between items-center transition-all">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white">{item.title}</span>
+                            <span className="text-[9px] font-mono bg-focus-neon/10 text-focus-neon px-1.5 py-0.2 rounded font-bold">
+                              {item.daysLeft === 0 ? 'Bugün Bekleniyor' : `${item.daysLeft} Gün Sonra`}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-text-secondary flex items-center gap-1.5">
+                            <span>{item.category}</span>
+                            <span>•</span>
+                            <span>{new Date(item.date).toLocaleDateString('tr-TR')}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-bold text-focus-neon">
+                            +₺{item.amount.toLocaleString('tr-TR')}
+                          </span>
+                          {item.id && !item.id.startsWith('dyn-') && (
+                            <button
+                              onClick={() => {
+                                setIncomes(prev => prev.map(inc => inc.id === item.id ? { ...inc, status: 'Tamamlandı' } : inc));
+                              }}
+                              className="p-1.5 bg-focus-neon/10 hover:bg-focus-neon/20 text-focus-neon rounded-lg text-[10px] font-bold transition-all"
+                              title="Ödemeyi Tahsil Edildi / Tamamlandı İşaretle"
+                            >
+                              <CheckCircle2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
 
       {/* --- ENGINE 1: DEBT TRACKING --- */}
