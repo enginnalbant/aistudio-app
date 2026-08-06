@@ -32,11 +32,13 @@ import {
   Pin,
   Sliders,
   RotateCcw,
-  Gauge
+  Gauge,
+  Wand2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../context/LanguageContext';
 import { useSettings } from '../context/SettingsContext';
+import { useWallpaper } from '../context/WallpaperContext';
 import { useDevice } from '../hooks/useDevice';
 import clsx from 'clsx';
 
@@ -70,6 +72,7 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
   const { t, language, toggleLanguage } = useLanguage();
   const { settings, updateSetting } = useSettings();
   const { width, screenTier } = useDevice();
+  const { openWizard } = useWallpaper();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -715,19 +718,31 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
                 </div>
 
                 {/* Quick System Action Links */}
-                <div className="pt-2 border-t border-white/10 grid grid-cols-2 gap-2">
+                <div className="pt-2 border-t border-white/10 grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => {
+                      setIsDrawerOpen(false);
+                      openWizard();
+                    }}
+                    className="flex items-center justify-between p-2.5 rounded-2xl bg-focus-neon/15 border border-focus-neon/30 text-xs font-bold text-focus-neon hover:bg-focus-neon/25"
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Wand2 size={15} className="animate-pulse shrink-0" />
+                      <span className="truncate">Duvar Kağıdı</span>
+                    </span>
+                  </button>
+
                   <button
                     onClick={() => {
                       setIsDrawerOpen(false);
                       (window as any).openSettingsModal?.();
                     }}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-bold text-white hover:bg-white/10"
+                    className="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 border border-white/10 text-xs font-bold text-white hover:bg-white/10"
                   >
-                    <span className="flex items-center gap-2">
-                      <Settings size={16} className="text-focus-neon" />
-                      <span>{t('nav.settings', 'Sistem Ayarları')}</span>
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Settings size={15} className="text-focus-neon shrink-0" />
+                      <span className="truncate">{t('nav.settings', 'Ayarlar')}</span>
                     </span>
-                    <ChevronRight size={14} className="text-text-secondary" />
                   </button>
 
                   <button
@@ -735,13 +750,12 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
                       setIsDrawerOpen(false);
                       toggleSidebar();
                     }}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-bold text-white hover:bg-white/10"
+                    className="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 border border-white/10 text-xs font-bold text-white hover:bg-white/10"
                   >
-                    <span className="flex items-center gap-2">
-                      <Grid size={16} className="text-indigo-400" />
-                      <span>Sol Menüyü Aç</span>
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Grid size={15} className="text-indigo-400 shrink-0" />
+                      <span className="truncate">Sol Menü</span>
                     </span>
-                    <ChevronRight size={14} className="text-text-secondary" />
                   </button>
                 </div>
 

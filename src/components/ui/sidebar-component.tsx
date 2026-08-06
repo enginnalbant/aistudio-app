@@ -2,10 +2,15 @@
 
 import React, { useState } from "react";
 import { 
+  Home,
   Zap,
   LayoutDashboard,
   Settings as SettingsIcon,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   LogOut,
   Clock,
@@ -48,11 +53,12 @@ const softSpringEasing = "cubic-bezier(0.25, 1.1, 0.4, 1)";
 
 /* ----------------------------- Brand / Logos ----------------------------- */
 
-function ApexLogo({ subBrand = "FİNANS" }: { subBrand?: string }) {
+function ApexLogo({ subBrand = "ANA SAYFA" }: { subBrand?: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shrink-0 transition-all duration-500 ${
-        subBrand === 'FİNANS' ? 'bg-focus-main shadow-focus-main/30' : 
+        subBrand === 'ANA SAYFA' ? 'bg-focus-main shadow-focus-main/30' :
+        subBrand === 'FİNANS' ? 'bg-emerald-600 shadow-emerald-600/30' : 
         subBrand === 'KÜTÜPHANE' ? 'bg-indigo-600 shadow-indigo-600/30' :
         subBrand === 'NOTLARIM' ? 'bg-amber-600 shadow-amber-600/30' :
         subBrand === 'BÜLTEN' ? 'bg-rose-600 shadow-rose-600/30' :
@@ -65,7 +71,8 @@ function ApexLogo({ subBrand = "FİNANS" }: { subBrand?: string }) {
           APEX<span className="text-focus-neon">OS</span>
         </span>
         <span className={`text-[10px] font-black tracking-[0.2em] uppercase transition-colors duration-500 ${
-          subBrand === 'FİNANS' ? 'text-focus-neon' : 
+          subBrand === 'ANA SAYFA' ? 'text-focus-neon' :
+          subBrand === 'FİNANS' ? 'text-emerald-400' : 
           subBrand === 'KÜTÜPHANE' ? 'text-indigo-400' :
           subBrand === 'NOTLARIM' ? 'text-amber-400' :
           subBrand === 'BÜLTEN' ? 'text-rose-400' : 'text-text-secondary'
@@ -171,6 +178,17 @@ interface SidebarContent {
 
 function getSidebarContent(activeSection: string): SidebarContent {
   const contentMap: Record<string, SidebarContent> = {
+    welcome: {
+      title: "Ana Sayfa",
+      sections: [
+        {
+          title: "Genel",
+          items: [
+            { id: 'welcome-overview', icon: <Home size={16} className="text-focus-neon" />, label: 'Ana Sayfa', moduleId: 'welcome-overview' },
+          ],
+        },
+      ],
+    },
     finance: {
       title: "Kişisel Finans",
       sections: [
@@ -271,7 +289,6 @@ function getSidebarContent(activeSection: string): SidebarContent {
             { id: 'bulletin-video-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'bulletin-video-dashboard' },
             { id: 'bulletin-series-movies', icon: <PlaySquare size={16} />, label: 'Dizi/Film', moduleId: 'bulletin-series-movies' },
             { id: 'bulletin-videos', icon: <PlaySquare size={16} />, label: 'Videolar', moduleId: 'bulletin-videos' },
-            { id: 'bulletin-mangas', icon: <ImageIcon size={16} />, label: 'Mangalar', moduleId: 'bulletin-mangas' },
             { id: 'bulletin-music', icon: <Rss size={16} />, label: 'Müzikler', moduleId: 'bulletin-music' },
           ],
         },
@@ -279,7 +296,7 @@ function getSidebarContent(activeSection: string): SidebarContent {
     },
   };
 
-  return contentMap[activeSection] || contentMap.finance;
+  return contentMap[activeSection] || contentMap.welcome;
 }
 
 /* ---------------------------- Left Icon Nav Rail -------------------------- */
@@ -330,6 +347,7 @@ function IconNavigation({
   setSidebarOpen?: (open: boolean) => void;
 }) {
   const navItems = [
+    { id: "welcome", icon: <Home size={18} />, label: "Ana Sayfa", moduleId: 'welcome-overview' },
     { id: "finance", icon: <Wallet size={18} />, label: "Kişisel Finans", moduleId: 'finance-dashboard' },
     { id: "library", icon: <Library size={18} />, label: "Kütüphane", moduleId: 'library-dashboard' },
     { id: "notes", icon: <NotebookPen size={18} />, label: "Notlarım", moduleId: 'notes-dashboard' },
@@ -350,8 +368,8 @@ function IconNavigation({
       <div 
         className="mb-3 size-8 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
         onClick={() => {
-          onSectionChange('finance');
-          setActiveModule('finance-dashboard');
+          onSectionChange('welcome');
+          setActiveModule('welcome-overview');
         }}
       >
         <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-lg transition-all duration-500 ${
@@ -408,16 +426,30 @@ function SectionTitle({
   if (isCollapsed) {
     return (
       <div className="w-full flex justify-center mb-4">
+        <button
+          onClick={onToggleCollapse}
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-text-secondary hover:text-pure-white transition-all duration-300 cursor-pointer shadow-md hover:scale-105 active:scale-95 flex items-center justify-center"
+          title="Menüyü Genişlet"
+        >
+          <ChevronRight size={18} className="text-focus-neon" />
+        </button>
       </div>
     );
   }
 
   return (
     <div className="w-full mb-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display font-black text-xl text-text-primary tracking-tight uppercase">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-display font-black text-xl text-text-primary tracking-tight uppercase truncate">
           {title}
         </h2>
+        <button
+          onClick={onToggleCollapse}
+          className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-text-secondary hover:text-pure-white transition-all duration-300 cursor-pointer shadow-md hover:scale-105 active:scale-95 shrink-0 flex items-center justify-center"
+          title="Menüyü Daralt"
+        >
+          <ChevronLeft size={18} className="text-focus-neon" />
+        </button>
       </div>
     </div>
   );
@@ -428,6 +460,7 @@ function DetailSidebar({ activeSection, onSectionChange, setActiveModule, active
   const [isCollapsed, setIsCollapsed] = useState(false);
   const content = getSidebarContent(activeSection);
   const subBrand = 
+    activeSection === 'welcome' ? 'ANA SAYFA' :
     activeSection === 'finance' ? 'FİNANS' : 
     activeSection === 'library' ? 'KÜTÜPHANE' : 
     activeSection === 'notes' ? 'NOTLARIM' : 
@@ -459,15 +492,17 @@ function DetailSidebar({ activeSection, onSectionChange, setActiveModule, active
 
   return (
     <aside
+      data-card="true"
+      data-layer="2"
       className={clsx(
-        "bg-white/[0.03] backdrop-blur-3xl flex flex-col p-4 rounded-2xl transition-all duration-500 h-full border border-white/10 shadow-[20px_0_50px_rgba(0,0,0,0.3)] ml-2",
+        "bento-card layer-2 flex flex-col p-4 rounded-2xl transition-all duration-300 h-full ml-2",
         isCollapsed ? "w-16 min-w-16 !px-2" : "w-64"
       )}
       style={{ transitionTimingFunction: softSpringEasing }}
     >
       {!isCollapsed && <BrandBadge onClick={() => {
-        onSectionChange('finance');
-        setActiveModule('finance-dashboard');
+        onSectionChange('welcome');
+        setActiveModule('welcome-overview');
       }} subBrand={subBrand} />}
 
       <SectionTitle title={content.title} onToggleCollapse={toggleCollapse} isCollapsed={isCollapsed} />
@@ -642,11 +677,13 @@ function MenuSection({
 /* --------------------------------- Layout -------------------------------- */
 
 export function TwoLevelSidebar({ setActiveModule, isOpen, activeModule, setSidebarOpen }: { setActiveModule: (mod: string) => void, isOpen: boolean, activeModule: string, setSidebarOpen?: (open: boolean) => void }) {
-  const [activeSection, setActiveSection] = useState("finance");
+  const [activeSection, setActiveSection] = useState("welcome");
 
   // Sync activeSection with activeModule when it changes from outside (e.g. Header)
   React.useEffect(() => {
-    if (activeModule.startsWith('finance-')) {
+    if (activeModule === 'welcome-overview' || activeModule.startsWith('welcome-')) {
+      setActiveSection('welcome');
+    } else if (activeModule.startsWith('finance-')) {
       setActiveSection('finance');
     } else if (activeModule.startsWith('library-')) {
       setActiveSection('library');

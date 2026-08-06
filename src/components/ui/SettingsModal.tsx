@@ -3,29 +3,33 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, User, Settings2, Palette, Bell, Shield, 
   Globe, Moon, Sun, Monitor, Camera, Lock,
-  Save, LogOut, Trash2, Link, Smartphone
+  Save, LogOut, Trash2, Link, Smartphone, Wand2, Layers
 } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useWallpaper } from '../../context/WallpaperContext';
 import { LanguageSelector } from './LanguageSelector';
 import { IntegrationsSettings } from '../settings/IntegrationsSettings';
+import { DesignSystemStudio } from '../DesignSystemStudio';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type SettingsTab = 'profile' | 'general' | 'customization' | 'integrations' | 'notifications' | 'security' | 'privacy';
+type SettingsTab = 'profile' | 'general' | 'customization' | 'design-studio' | 'integrations' | 'notifications' | 'security' | 'privacy';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const { settings, updateSetting } = useSettings();
   const { language, setLanguage, t } = useLanguage();
+  const { openWizard } = useWallpaper();
 
   const tabs = [
     { id: 'profile', label: t('user.profile', 'Profil'), icon: <User size={18} /> },
     { id: 'general', label: t('nav.settings', 'Genel'), icon: <Settings2 size={18} /> },
     { id: 'customization', label: t('common.theme', 'Özelleştirme'), icon: <Palette size={18} /> },
+    { id: 'design-studio', label: 'Tasarım Stüdyosu (DS)', icon: <Layers size={18} /> },
     { id: 'integrations', label: 'Entegrasyonlar', icon: <Link size={18} /> },
     { id: 'notifications', label: t('nav.notifications', 'Bildirimler'), icon: <Bell size={18} /> },
     { id: 'security', label: 'Güvenlik', icon: <Shield size={18} /> },
@@ -51,7 +55,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-4xl bg-skel-space border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[85vh] md:h-[70vh] z-10"
+          className={`relative w-full transition-all duration-300 ${activeTab === 'design-studio' ? 'max-w-6xl h-[85vh]' : 'max-w-4xl h-[85vh] md:h-[70vh]'} bg-skel-space border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row z-10`}
         >
           {/* Sidebar Nav */}
           <div className="w-full md:w-64 bg-black/40 border-b md:border-b-0 md:border-r border-white/5 p-4 flex flex-col shrink-0">
@@ -94,14 +98,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 custom-scrollbar">
+            <div className={`flex-1 overflow-y-auto ${activeTab === 'design-studio' ? 'p-0 overflow-hidden h-full' : 'p-4 sm:p-6 lg:p-8'} custom-scrollbar`}>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  className="space-y-6"
+                  className={activeTab === 'design-studio' ? 'h-full overflow-hidden' : 'space-y-6'}
                 >
                   {activeTab === 'profile' && (
                     <div className="space-y-6">
@@ -170,6 +174,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
                   {activeTab === 'customization' && (
                     <div className="space-y-6">
+                      {/* Wallpaper & Theme Wizard Card */}
+                      <div className="p-5 rounded-2xl bg-gradient-to-r from-focus-neon/15 via-focus-main/10 to-transparent border border-focus-neon/30 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-2xl bg-focus-neon/20 border border-focus-neon/40 flex items-center justify-center text-focus-neon shadow-[0_0_25px_rgba(59,130,246,0.3)]">
+                            <Wand2 size={24} className="animate-pulse" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold font-display text-white">Duvar Kağıdı & Akıllı Tema Sihirbazı</h4>
+                            <p className="text-xs text-text-secondary">
+                              Resim, video veya <code className="text-focus-neon font-bold">.mlw</code> dosyaları yükleyin; renk paleti otomatik çıkarılsın.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            onClose();
+                            openWizard();
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-focus-neon text-white text-xs font-bold transition-all shadow-lg hover:scale-105 active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                        >
+                          <Wand2 size={14} /> Sihirbazı Aç
+                        </button>
+                      </div>
+
                       <div className="space-y-4">
                         <h4 className="text-xs font-black text-text-secondary uppercase tracking-widest">{t('common.theme', 'Tema Modu')}</h4>
                         <div className="grid grid-cols-3 gap-3">
@@ -190,6 +218,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         </div>
                       </div>
                     </div>
+                  )}
+
+                  {activeTab === 'design-studio' && (
+                    <DesignSystemStudio />
                   )}
 
                   {activeTab === 'integrations' && (

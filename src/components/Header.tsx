@@ -7,12 +7,15 @@ import {
   Home,
   Calendar,
   Settings,
-  Gauge
+  Gauge,
+  Wand2,
+  Sparkles
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useWallpaper } from '../context/WallpaperContext';
 import Switch from './ui/sky-toggle';
 import { SearchBar } from './SearchBar';
 import { EnvironmentalWidget } from './EnvironmentalWidget';
@@ -36,27 +39,20 @@ export const Header = React.memo(function Header({ toggleSidebar, setActiveModul
   const { signOut } = useAuth();
   const { unreadCount } = useNotifications();
   const { t } = useLanguage();
+  const { openWizard } = useWallpaper();
 
   return (
-    <header className="h-12 sm:h-14 lg:h-16 flex items-center justify-between px-1.5 sm:px-3 lg:px-6 bg-white/[0.03] backdrop-blur-3xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.2)] rounded-xl sm:rounded-2xl mt-1 sm:mt-2 lg:mt-4 mx-1 sm:mx-2 lg:mx-4 shrink-0 relative group/header transition-all duration-500 hover:shadow-[0_15px_50px_rgba(0,0,0,0.3)] z-40 touch-optimized">
+    <header className="bento-card layer-2 h-12 sm:h-14 lg:h-16 flex items-center justify-between px-1.5 sm:px-3 lg:px-6 rounded-xl sm:rounded-2xl mt-1 sm:mt-2 lg:mt-4 mx-1 sm:mx-2 lg:mx-4 shrink-0 relative group/header transition-all duration-300 z-40 touch-optimized" data-card="true" data-layer="2">
       {/* Ambient Light Streak */}
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-focus-neon/50 to-transparent opacity-0 group-hover/header:opacity-100 transition-opacity duration-700" />
       
       <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-3 min-w-0">
         <button 
-          onClick={toggleSidebar}
-          className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-lg sm:rounded-xl bg-skel-matte/20 hover:bg-skel-matte/30 text-text-primary hover:text-focus-neon transition-all duration-300 hover:scale-105 active:scale-95 border border-white/10 shrink-0"
-          title={t('nav.menu', 'Menü')}
+          onClick={() => setActiveModule('welcome-overview')}
+          className="h-7 sm:h-8 lg:h-9 w-7 sm:w-8 lg:w-9 rounded-lg sm:rounded-xl bg-gradient-to-r from-focus-main/30 to-focus-neon/20 hover:from-focus-main/50 hover:to-focus-neon/40 text-pure-white border border-focus-neon/40 flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.25)] hover:scale-105 active:scale-95 transition-all duration-300 group shrink-0 cursor-pointer"
+          title="Ana Sayfa"
         >
-          <Menu className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-        </button>
-
-        <button 
-          onClick={() => setActiveModule('finance-dashboard')}
-          className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-lg sm:rounded-xl bg-focus-neon/10 text-focus-neon hover:bg-focus-neon hover:text-pure-white transition-all duration-300 hover:scale-105 active:scale-95 border border-focus-neon/20 shrink-0"
-          title={t('nav.home', 'Ana Sayfa')}
-        >
-          <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-focus-neon group-hover:scale-110 transition-transform duration-300" />
         </button>
 
         <SearchBar onNavigate={setActiveModule} />
@@ -134,6 +130,15 @@ export const Header = React.memo(function Header({ toggleSidebar, setActiveModul
                 <CalendarMenu />
               </PopoverContent>
             </Popover>
+
+            {/* Duvar Kağıdı & Tema Sihirbazı */}
+            <button 
+              onClick={openWizard}
+              className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-lg sm:rounded-xl bg-focus-neon/15 hover:bg-focus-neon/25 text-focus-neon transition-all duration-300 active:scale-95 border border-focus-neon/30 group/btn shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.2)]"
+              title="Duvar Kağıdı & Akıllı Tema Sihirbazı"
+            >
+              <Wand2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-pulse" />
+            </button>
 
             <button 
               onClick={() => (window as any).openSettingsModal?.()}

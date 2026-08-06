@@ -1338,6 +1338,80 @@ Dil tamamen Türkçe ve Markdown formatında olmalıdır.`;
     }
   });
 
+  // --- WELCOME EXECUTIVE AI ASSISTANT CHAT & COMMAND PIPELINE ---
+  app.post("/api/welcome/ai-assistant", async (req, res) => {
+    try {
+      const { message, systemContext, history } = req.body;
+      if (!message) return res.status(400).json({ error: "Message is required" });
+
+      const ai = getAi();
+      const prompt = `Kullanıcı Mesajı: "${message}"
+
+Sistem Canlı Bağlam Raporu:
+${JSON.stringify(systemContext || {}, null, 2)}
+
+Sana verilen mesajı analiz et ve aşağıdaki durumları tespit ederek yapılandırılmış JSON formatında yanıt ver:
+1. Intent: 'add_expense' | 'add_income' | 'add_note' | 'add_schedule' | 'add_stock' | 'query_system' | 'general_chat'
+2. Action Payload (Eğer bir kayıt oluşturma veya işlem isteği varsa ilgili alanları doldur, yoksa null bırak):
+   - 'add_expense': { "title": string, "amount": number, "category": string }
+   - 'add_income': { "title": string, "amount": number, "category": string }
+   - 'add_note': { "title": string, "content": string, "category": string }
+   - 'add_schedule': { "title": string, "time": string }
+   - 'add_stock': { "name": string, "quantity": number, "unit": string }
+3. Executive Response: Kullanıcıya hitap eden son derece profesyonel, zeki, çözüm odaklı, kibar ve Türkçe bir asistan yanıtı. Eğer işlem yapıldıysa ne yapıldığını onaylasın.
+
+Lütfen yanıtı saf JSON olarak döndür:
+{
+  "intent": "add_expense" | "add_income" | "add_note" | "add_schedule" | "add_stock" | "query_system" | "general_chat",
+  "actionPayload": object | null,
+  "responseText": "Kullanıcıya gösterilecek profesyonel Türkçe mesaj",
+  "pipelineSteps": [
+    "1. Intent Algılandı: ...",
+    "2. Varlık Taraması Yapıldı: ...",
+    "3. Sistem Modülü Tetiklendi: ..."
+  ]
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: "Sen APEX OS Yönetici AI Asistanı ve İşlem Pipeline Motorusun. KRİTER: Kullanıcıya vereceğin 'responseText' kesinlikle UZUN AÇIKLAMALAR İÇERMEMELİDİR. Maksimum 1-2 kısa, net, öz ve son derece profesyonel Türkçe cümle ile yanıt ver. Uzun paragraflardan kaçın, doğrudan net onay ve durum özeti ver.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              intent: { type: Type.STRING },
+              actionPayload: { 
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  name: { type: Type.STRING },
+                  amount: { type: Type.NUMBER },
+                  quantity: { type: Type.NUMBER },
+                  unit: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  content: { type: Type.STRING },
+                  time: { type: Type.STRING }
+                }
+              },
+              responseText: { type: Type.STRING },
+              pipelineSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["intent", "responseText", "pipelineSteps"]
+          }
+        }
+      });
+
+      const responseText = response.text ? response.text.trim() : "";
+      const parsed = JSON.parse(responseText);
+      return res.json(parsed);
+    } catch (err: any) {
+      console.error("[Welcome AI Assistant Error]:", err.message);
+      return res.status(500).json({ error: "AI Pipeline yanıtı oluşturulamadı: " + err.message });
+    }
+  });
+
   app.get("/api/google/drive", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).send("Unauthorized");

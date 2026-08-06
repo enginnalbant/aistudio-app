@@ -51,26 +51,68 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
-import { BulletinNews } from './components/bulletin/BulletinNews';
-import { NotesTodo } from './components/notes/NotesTodo';
-import { NotesBookmarks } from './components/notes/NotesBookmarks';
-import { NotesPasswords } from './components/notes/NotesPasswords';
-import { NotesBooks } from './components/notes/NotesBooks';
-import { NotesDashboard } from './components/notes/NotesDashboard';
-import { NotesQuickMemos } from './components/notes/NotesQuickMemos';
-import { NotesNotebook } from './components/notes/NotesNotebook';
+import { WelcomeOverviewScreen } from './components/welcome/WelcomeOverviewScreen';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { WallpaperProvider } from './context/WallpaperContext';
+import { DesignSystemProvider } from './context/DesignSystemContext';
+import { WallpaperWizardModal } from './components/wallpaper/WallpaperWizardModal';
 import { useDevice } from './hooks/useDevice';
 import { DeviceTemplate } from './components/layout/DeviceTemplate';
+
+const getLibraryTitle = (module: string) => {
+  const titles: Record<string, string> = {
+    'library-ebooks': 'E-Kitaplar',
+    'library-dashboard': 'Kütüphane Dashboard',
+    'library-ebook-dashboard': 'E-Kitap Dashboard',
+    'library-ebook-panel': 'E-Kitap Paneli',
+    'library-manga-dashboard': 'Manga Dashboard',
+    'library-mangas': 'Mangalar',
+    'library-manga-panel': 'Manga Paneli',
+    'library-manga-universe': 'Manga Evreni',
+    'library-docs-dashboard': 'Döküman Dashboard',
+    'library-docs': 'Dökümanlar',
+  };
+  return titles[module] || module.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+};
+
+const getNotesTitle = (module: string) => {
+  const titles: Record<string, string> = {
+    'notes-dashboard': 'Dashboard',
+    'notes-todo': 'Yapılacaklar (Todo)',
+    'notes-bookmarks': 'Yer Simgeleri (Bookmarks)',
+    'notes-passwords': 'Parolalar',
+    'notes-quick': 'Hızlı Notlar',
+    'notes-notebook': 'Not Defteri',
+    'notes-planner-dashboard': 'Planlayıcı Dashboard',
+    'notes-planner-plans': 'Günlük / Haftalık / Aylık Planlayıcı',
+    'notes-books': 'Kitaplar',
+  };
+  return titles[module] || module.replace('notes-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+};
+
+const getBulletinTitle = (module: string) => {
+  const titles: Record<string, string> = {
+    'bulletin-dashboard': 'Bülten Dashboard',
+    'bulletin-news': 'Haber & Akışlar',
+    'bulletin-digest': 'Akıllı Bülten (AI)',
+    'bulletin-saved': 'Kaydedilenler',
+    'bulletin-feeds': 'RSS Kaynakları',
+    'bulletin-video-dashboard': 'Video & Medya Dashboard',
+    'bulletin-series-movies': 'Dizi & Film',
+    'bulletin-videos': 'Videolar',
+    'bulletin-music': 'Müzikler',
+  };
+  return titles[module] || module.replace('bulletin-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+};
 
 function AppLayout() {
   const { settings } = useSettings();
   const deviceInfo = useDevice();
   const isLargeScreen = deviceInfo.width >= 1024;
-  const [activeModule, setActiveModule] = useState('finance-dashboard');
+  const [activeModule, setActiveModule] = useState('welcome-overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(isLargeScreen);
   const [isBooting, setIsBooting] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -154,6 +196,7 @@ function AppLayout() {
         />
         
         <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        <WallpaperWizardModal />
         
         <div className="flex-1 flex overflow-hidden p-1 sm:p-3 lg:p-4 gap-2 sm:gap-3 lg:gap-4 relative pb-20 lg:pb-4 touch-optimized">
           {/* Backdrop Overlay for Mobiles & Tablets */}
@@ -172,7 +215,7 @@ function AppLayout() {
             setSidebarOpen={setIsSidebarOpen}
           />
           
-          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar bg-white/[0.04] backdrop-blur-[30px] rounded-xl sm:rounded-2xl border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.4)] transition-all duration-500">
+          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar bento-card rounded-xl sm:rounded-2xl transition-all duration-500" data-card="true">
             <main className="flex-1 overflow-x-hidden">
               <DeviceTemplate deviceInfo={deviceInfo} activeModule={activeModule}>
                 <AnimatePresence mode="wait">
@@ -184,7 +227,9 @@ function AppLayout() {
                     transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
                     className="w-full h-full min-h-[400px]"
                   >
-                    {activeModule === 'notification-page' ? (
+                    {activeModule === 'welcome-overview' ? (
+                      <WelcomeOverviewScreen onNavigate={setActiveModule} />
+                    ) : activeModule === 'notification-page' ? (
                       <NotificationPage />
                     ) : activeModule === 'notification-settings' ? (
                       <NotificationSettings />
@@ -258,36 +303,23 @@ function AppLayout() {
                       <ReconReports />
                     ) : activeModule === 'recon-analytics' ? (
                       <ReconAnalytics />
-                    ) : activeModule === 'library-ebooks' ? (
-                      <NotesBooks />
                     ) : activeModule.startsWith('library-') ? (
                       <ComingSoon 
-                        title={activeModule.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
+                        title={getLibraryTitle(activeModule)} 
                         brandName="APEXOS KÜTÜPHANE" 
                       />
-                    ) : activeModule === 'notes-dashboard' ? (
-                      <NotesDashboard />
-                    ) : activeModule === 'notes-quick' ? (
-                      <NotesQuickMemos />
-                    ) : activeModule === 'notes-notebook' ? (
-                      <NotesNotebook />
-                    ) : activeModule === 'notes-todo' ? (
-                      <NotesTodo />
-                    ) : activeModule === 'notes-bookmarks' ? (
-                      <NotesBookmarks />
-                    ) : activeModule === 'notes-passwords' ? (
-                      <NotesPasswords />
-                    ) : activeModule === 'notes-books' ? (
-                      <NotesBooks />
                     ) : activeModule.startsWith('notes-') ? (
                       <ComingSoon 
-                        title={activeModule.replace('notes-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} 
+                        title={getNotesTitle(activeModule)} 
                         brandName="APEXOS NOTLARIM" 
                       />
                     ) : activeModule.startsWith('bulletin-') ? (
-                      <BulletinNews activeSubModule={activeModule.replace('bulletin-', '')} />
+                      <ComingSoon 
+                        title={getBulletinTitle(activeModule)} 
+                        brandName="APEXOS BÜLTEN & MEDYA" 
+                      />
                     ) : (
-                      <FinanceDashboard />
+                      <WelcomeOverviewScreen onNavigate={setActiveModule} />
                     )}
                   </motion.div>
                 </AnimatePresence>
@@ -367,9 +399,13 @@ export default function App() {
     <AuthProvider>
       <SettingsProvider>
         <LanguageProvider>
-          <NotificationProvider>
-            <AppContent />
-          </NotificationProvider>
+          <WallpaperProvider>
+            <DesignSystemProvider>
+              <NotificationProvider>
+                <AppContent />
+              </NotificationProvider>
+            </DesignSystemProvider>
+          </WallpaperProvider>
         </LanguageProvider>
       </SettingsProvider>
     </AuthProvider>
