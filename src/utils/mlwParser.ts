@@ -1,5 +1,11 @@
-import JSZip from 'jszip';
+import type JSZip from 'jszip';
 import { extractPaletteFromMedia, ExtractedPalette, getDefaultPalette, generateDynamicPaletteFromName } from './colorExtractor';
+
+async function getJSZipInstance(): Promise<JSZip> {
+  const jszipModule = await import('jszip');
+  const JSZipClass = (jszipModule as any).default || jszipModule;
+  return new JSZipClass() as JSZip;
+}
 
 export interface ParsedLivelyWallpaper {
   title: string;
@@ -215,7 +221,7 @@ export async function parseMlwFile(file: File): Promise<ParsedLivelyWallpaper> {
 
   // If uploading `.mlw` or `.zip` file archive
   try {
-    const zip = new JSZip();
+    const zip = await getJSZipInstance();
     const contents = await zip.loadAsync(file);
 
     let livelyInfo: any = null;
