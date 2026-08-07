@@ -1,10 +1,44 @@
-import type JSZip from 'jszip';
 import { extractPaletteFromMedia, ExtractedPalette, getDefaultPalette, generateDynamicPaletteFromName } from './colorExtractor';
 
+// Lightweight type definition to prevent Rollup from trying to resolve 'jszip' on Vercel builds
+export type JSZip = any;
+
 async function getJSZipInstance(): Promise<JSZip> {
-  const jszipModule = await import('jszip');
-  const JSZipClass = (jszipModule as any).default || jszipModule;
-  return new JSZipClass() as JSZip;
+  // 1. If window.JSZip is already present
+  if (typeof window !== 'undefined' && (window as any).JSZip) {
+    return new (window as any).JSZip() as JSZip;
+  }
+
+  // 2. Dynamic import via CDN with @vite-ignore to prevent Rollup build failures on Vercel
+  try {
+    const cdnUrl = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
+    const jszipModule = await import(/* @vite-ignore */ cdnUrl);
+    const JSZipClass = jszipModule.default || jszipModule;
+    return new JSZipClass() as JSZip;
+  } catch (err) {
+    console.warn("Failed to load JSZip from ESM CDN, trying script tag fallback...", err);
+  }
+
+  // 3. Fallback to dynamic script injection
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      return reject(new Error("JSZip is only available in browser environment"));
+    }
+    if ((window as any).JSZip) {
+      return resolve(new (window as any).JSZip() as JSZip);
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    script.onload = () => {
+      if ((window as any).JSZip) {
+        resolve(new (window as any).JSZip() as JSZip);
+      } else {
+        reject(new Error("JSZip script loaded but window.JSZip not found"));
+      }
+    };
+    script.onerror = () => reject(new Error("Failed to load JSZip script from CDN"));
+    document.head.appendChild(script);
+  });
 }
 
 export interface ParsedLivelyWallpaper {

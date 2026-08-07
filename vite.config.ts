@@ -19,15 +19,9 @@ export default defineConfig(({mode}) => {
     server: {
       hmr: false,
     },
-    optimizeDeps: {
-      include: ['jszip'],
-    },
     build: {
       sourcemap: false,
       chunkSizeWarningLimit: 2000,
-      commonjsOptions: {
-        include: [/jszip/, /node_modules/],
-      },
     },
   };
 });
