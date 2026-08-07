@@ -1,0 +1,27 @@
+{
+  "collections": {
+    "wallpapers": {
+      "fields": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "thumbnail": { "type": "string" },
+        "type": { "type": "string" },
+        "category": { "type": "string" },
+        "createdAt": { "type": "timestamp" },
+        "userId": { "type": "string" },
+        "config": { "type": "map" }
+      },
+      "indexes": [
+        { "fields": ["userId", "createdAt"], "order": "descending" }
+      ]
+    },
+    "user_configs": {
+      "fields": {
+        "userId": { "type": "string" },
+        "currentWallpaperId": { "type": "string" },
+        "lastUpdated": { "type": "timestamp" }
+      }
+    }
+  }
+}

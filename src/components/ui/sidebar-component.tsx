@@ -255,8 +255,9 @@ function getSidebarContent(activeSection: string): SidebarContent {
           ],
         },
         {
-          title: "Notlar",
+          title: "Notlar & Workspace",
           items: [
+            { id: 'knowledge-workspace', icon: <Network size={16} className="text-cyan-400" />, label: 'Knowledge Workspace', moduleId: 'knowledge-workspace' },
             { id: 'notes-quick', icon: <Zap size={16} />, label: 'Hızlı Notlar', moduleId: 'notes-quick' },
             { id: 'notes-notebook', icon: <BookText size={16} />, label: 'Not Defteri', moduleId: 'notes-notebook' },
           ],
@@ -266,6 +267,17 @@ function getSidebarContent(activeSection: string): SidebarContent {
           items: [
             { id: 'notes-planner-dashboard', icon: <LayoutDashboard size={16} />, label: 'Dashboard', moduleId: 'notes-planner-dashboard' },
             { id: 'notes-planner-plans', icon: <CalendarDays size={16} />, label: 'Günlük/Haftalık/Aylık', moduleId: 'notes-planner-plans' },
+          ],
+        },
+      ],
+    },
+    knowledge: {
+      title: "Knowledge",
+      sections: [
+        {
+          title: "Çalışma Alanı",
+          items: [
+            { id: 'knowledge-workspace', icon: <Network size={16} className="text-cyan-400" />, label: 'Knowledge Workspace', moduleId: 'knowledge-workspace' },
           ],
         },
       ],
@@ -348,6 +360,7 @@ function IconNavigation({
 }) {
   const navItems = [
     { id: "welcome", icon: <Home size={18} />, label: "Ana Sayfa", moduleId: 'welcome-overview' },
+    { id: "knowledge", icon: <Network size={18} className="text-cyan-400" />, label: "Knowledge Workspace", moduleId: 'knowledge-workspace' },
     { id: "finance", icon: <Wallet size={18} />, label: "Kişisel Finans", moduleId: 'finance-dashboard' },
     { id: "library", icon: <Library size={18} />, label: "Kütüphane", moduleId: 'library-dashboard' },
     { id: "notes", icon: <NotebookPen size={18} />, label: "Notlarım", moduleId: 'notes-dashboard' },

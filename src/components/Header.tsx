@@ -36,7 +36,7 @@ interface HeaderProps {
 
 export const Header = React.memo(function Header({ toggleSidebar, setActiveModule }: HeaderProps) {
   const { settings, updateSetting } = useSettings();
-  const { signOut } = useAuth();
+  const { user, signOut, signInWithGoogle } = useAuth();
   const { unreadCount } = useNotifications();
   const { t } = useLanguage();
   const { openWizard } = useWallpaper();
@@ -150,13 +150,24 @@ export const Header = React.memo(function Header({ toggleSidebar, setActiveModul
 
             <div className="w-[1px] h-4 sm:h-5 bg-skel-metal/10 mx-0.5 sm:mx-1 shrink-0" />
             
-            <button 
-              onClick={signOut}
-              className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-lg sm:rounded-xl bg-crit-blood/5 hover:bg-crit-blood/15 text-crit-vivid transition-all duration-300 border border-crit-blood/10 active:scale-95 shrink-0"
-              title={t('common.logout', 'Çıkış Yap')}
-            >
-              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
+            {user ? (
+              <button 
+                onClick={signOut}
+                className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-lg sm:rounded-xl bg-crit-blood/5 hover:bg-crit-blood/15 text-crit-vivid transition-all duration-300 border border-crit-blood/10 active:scale-95 shrink-0"
+                title={t('common.logout', 'Çıkış Yap')}
+              >
+                <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+            ) : (
+              <button 
+                onClick={signInWithGoogle}
+                className="h-7 sm:h-8 lg:h-9 px-2 sm:px-3 rounded-lg sm:rounded-xl bg-focus-main text-pure-white text-[10px] sm:text-xs font-bold hover:bg-focus-main/90 transition-all active:scale-95 flex items-center gap-1 sm:gap-1.5 shrink-0 border border-focus-neon/30"
+              >
+                <Sparkles size={12} className="text-focus-neon" />
+                <span className="hidden xs:inline">Giriş Yap</span>
+                <span className="xs:hidden">Giriş</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

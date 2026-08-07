@@ -52,6 +52,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Zap } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
 import { WelcomeOverviewScreen } from './components/welcome/WelcomeOverviewScreen';
+import { BlockSuiteEditorContainer } from './components/editor/BlockSuiteEditorContainer';
+import { KnowledgeWorkspace } from './components/KnowledgeWorkspace';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -303,16 +305,15 @@ function AppLayout() {
                       <ReconReports />
                     ) : activeModule === 'recon-analytics' ? (
                       <ReconAnalytics />
+                    ) : activeModule.startsWith('knowledge') || activeModule === 'knowledge-workspace' ? (
+                      <KnowledgeWorkspace />
                     ) : activeModule.startsWith('library-') ? (
                       <ComingSoon 
                         title={getLibraryTitle(activeModule)} 
                         brandName="APEXOS KÜTÜPHANE" 
                       />
-                    ) : activeModule.startsWith('notes-') ? (
-                      <ComingSoon 
-                        title={getNotesTitle(activeModule)} 
-                        brandName="APEXOS NOTLARIM" 
-                      />
+                    ) : activeModule.startsWith('notes-') || activeModule === 'notes' ? (
+                      <BlockSuiteEditorContainer />
                     ) : activeModule.startsWith('bulletin-') ? (
                       <ComingSoon 
                         title={getBulletinTitle(activeModule)} 

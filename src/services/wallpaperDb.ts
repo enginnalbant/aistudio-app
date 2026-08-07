@@ -1,11 +1,15 @@
+import { db, auth, collection, doc, setDoc, deleteDoc, getDocs, query, orderBy } from '../lib/firebase';
+
 export interface DbWallpaper {
   id: string;
   name: string;
-  fileBlob: Blob;
+  fileBlob?: Blob; // Optional for cloud sync
+  url?: string;    // URL if available
   type: 'image' | 'video' | 'lively';
   mimeType: string;
   palette: any;
   createdAt: number;
+  userId?: string;
 }
 
 const DB_NAME = 'ApexOsWallpapersDB';
@@ -38,22 +42,48 @@ export function initDb(): Promise<IDBDatabase> {
   });
 }
 
+/**
+ * Syncs wallpaper metadata to Firestore
+ */
+async function syncToCloud(wallpaper: DbWallpaper): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    // We don't save the Blob to Firestore as it's too large.
+    // We save everything else.
+    const { fileBlob, ...meta } = wallpaper;
+    const wallRef = doc(db, 'wallpapers', wallpaper.id);
+    await setDoc(wallRef, {
+      ...meta,
+      userId: user.uid,
+      updatedAt: Date.now()
+    });
+  } catch (err) {
+    console.error('Firestore sync error:', err);
+  }
+}
+
 export async function saveWallpaper(wallpaper: DbWallpaper): Promise<void> {
-  const db = await initDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
+  // 1. Save to Local IndexedDB (for the actual Blob)
+  const dbInst = await initDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = dbInst.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
     const request = store.put(wallpaper);
 
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
+
+  // 2. Sync Metadata to Cloud
+  await syncToCloud(wallpaper);
 }
 
 export async function getWallpaper(id: string): Promise<DbWallpaper | null> {
-  const db = await initDb();
+  const dbInst = await initDb();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const transaction = dbInst.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
     const request = store.get(id);
 
@@ -63,9 +93,9 @@ export async function getWallpaper(id: string): Promise<DbWallpaper | null> {
 }
 
 export async function getAllWallpapers(): Promise<DbWallpaper[]> {
-  const db = await initDb();
+  const dbInst = await initDb();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const transaction = dbInst.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
     const request = store.getAll();
 
@@ -80,13 +110,42 @@ export async function getAllWallpapers(): Promise<DbWallpaper[]> {
 }
 
 export async function deleteWallpaper(id: string): Promise<void> {
-  const db = await initDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
+  // 1. Delete from Local
+  const dbInst = await initDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = dbInst.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
     const request = store.delete(id);
 
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
+
+  // 2. Delete from Cloud
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      await deleteDoc(doc(db, 'wallpapers', id));
+    } catch (err) {
+      console.error('Firestore delete error:', err);
+    }
+  }
+}
+
+/**
+ * Downloads metadata from cloud and returns IDs that are missing locally.
+ * In a more complete implementation, this would handle full sync.
+ */
+export async function syncFromCloud(): Promise<any[]> {
+  const user = auth.currentUser;
+  if (!user) return [];
+
+  try {
+    const q = query(collection(db, 'wallpapers'), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data());
+  } catch (err) {
+    console.error('Firestore sync from cloud error:', err);
+    return [];
+  }
 }

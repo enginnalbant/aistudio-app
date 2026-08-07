@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { ExtractedPalette, getDefaultPalette } from '../utils/colorExtractor';
+import { auth, onAuthStateChanged } from '../lib/firebase';
+import { getAllWallpapers, saveWallpaper, syncFromCloud } from '../services/wallpaperDb';
 
 export type WallpaperSourceType = 'preset' | 'image' | 'video' | 'particles' | 'lively';
 
@@ -125,7 +127,6 @@ export interface WallpaperConfig {
   flipH?: boolean;
   flipV?: boolean;
   cropMode?: string;
-  parallaxEnabled?: boolean;
   parallaxMode?: string;
   parallaxIntensity?: number;
   parallaxSensitivity?: number;
@@ -344,6 +345,43 @@ export function WallpaperProvider({ children }: { children: ReactNode }) {
     }
     return defaultWallpaperConfig;
   });
+
+  // Cloud Sync Effect
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        console.log('User signed in, syncing wallpapers...');
+        try {
+          const cloudMeta = await syncFromCloud();
+          const localWallpapers = await getAllWallpapers();
+          const localIds = new Set(localWallpapers.map(w => w.id));
+
+          // Sync: Cloud -> Local
+          for (const wall of cloudMeta) {
+            if (!localIds.has(wall.id)) {
+              console.log('Restoring metadata from cloud:', wall.name);
+              await saveWallpaper({
+                ...wall,
+              } as any);
+            }
+          }
+
+          // Sync: Local -> Cloud
+          for (const wall of localWallpapers) {
+            const isMissingInCloud = !cloudMeta.find(c => c.id === wall.id);
+            if (isMissingInCloud) {
+              console.log('Syncing local wallpaper to cloud:', wall.name);
+              await saveWallpaper(wall); // saveWallpaper already calls syncToCloud
+            }
+          }
+        } catch (err) {
+          console.error('Cloud sync error:', err);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [history, setHistory] = useState<WallpaperConfig[]>([config]);
