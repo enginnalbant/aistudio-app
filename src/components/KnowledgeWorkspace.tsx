@@ -499,15 +499,6 @@ Key Server Actions:
       likes: 5
     }
   ]);
-    {
-      id: 'm2',
-      author: 'Apex User',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-      content: 'Reading Atomic Habits... "Systems are more important than goals."',
-      timestamp: '2h ago',
-      likes: 5
-    }
-  ]);
   const [newMemoInput, setNewMemoInput] = useState('');
 
   // AI Assistant Right Panel State
