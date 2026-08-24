@@ -305,6 +305,8 @@ function AppLayout() {
                       <ReconReports />
                     ) : activeModule === 'recon-analytics' ? (
                       <ReconAnalytics />
+                    ) : activeModule === 'notes-notebook' || activeModule === 'editor' || activeModule === 'notes-editor' ? (
+                      <BlockSuiteEditorContainer />
                     ) : activeModule.startsWith('knowledge') || activeModule === 'knowledge-workspace' || activeModule.startsWith('notes') || activeModule === 'notes' ? (
                       <KnowledgeWorkspace />
                     ) : activeModule.startsWith('library-') ? (
@@ -312,8 +314,6 @@ function AppLayout() {
                         title={getLibraryTitle(activeModule)} 
                         brandName="APEXOS KÜTÜPHANE" 
                       />
-                    ) : activeModule.startsWith('notes-') || activeModule === 'notes' ? (
-                      <BlockSuiteEditorContainer />
                     ) : activeModule.startsWith('bulletin-') ? (
                       <ComingSoon 
                         title={getBulletinTitle(activeModule)} 

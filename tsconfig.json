@@ -24,6 +24,6 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "supabase/functions"]
+  "include": ["src/**/*", "server.ts", "api/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

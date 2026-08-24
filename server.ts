@@ -1071,6 +1071,68 @@ ${text}`;
     }
   });
 
+  // API Route: BlockSuite Editor AI Copilot Assistant
+  app.post("/api/ai/editor-assistant", async (req, res) => {
+    const { prompt, commandType, contextText } = req.body;
+    try {
+      let fullPrompt = "";
+      let systemInstruction = "Sen BlockSuite Canvas ve Not Editörünün akıllı yapay zeka asistanısın. Türkçe, profesyonel ve Markdown formatında zengin yanıtlar üretirsin.";
+
+      const selectedContext = contextText ? `\n\nSeçili Metin/Bağlam:\n"${contextText}"` : "";
+
+      switch (commandType) {
+        case "summarize":
+          fullPrompt = `Lütfen aşağıdaki metnin önemli noktalarını içeren profesyonel bir özetini çıkar:${selectedContext}`;
+          break;
+        case "expand":
+          fullPrompt = `Lütfen aşağıdaki fikri/metni detaylandır, alt başlıklar ve zengin içerikle genişlet:${selectedContext}`;
+          break;
+        case "fix_grammar":
+          fullPrompt = `Lütfen aşağıdaki metindeki imla ve yazım hatalarını düzelt, akıcı ve profesyonel hale getir:${selectedContext}`;
+          break;
+        case "rewrite":
+          fullPrompt = `Lütfen aşağıdaki metni daha etkileyici, açık ve profesyonel bir üslupla yeniden yaz:${selectedContext}`;
+          break;
+        default:
+          fullPrompt = `${prompt || "İçeriği analiz et ve zenginleştir"}${selectedContext}`;
+      }
+
+      const response = await getAi().models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: fullPrompt,
+        config: {
+          systemInstruction
+        }
+      });
+
+      const responseText = response.text ? response.text.trim() : "";
+      return res.json({ text: responseText, resultText: responseText, success: true });
+    } catch (err: any) {
+      console.error("[Editor AI Error]:", err.message);
+      return res.status(500).json({ error: "Editor AI yanıtı oluşturulamadı: " + err.message });
+    }
+  });
+
+  // API Route: Quick AI Search / Weather & Knowledge Insights
+  app.post("/api/ai/quick-search", async (req, res) => {
+    const { query } = req.body;
+    if (!query) return res.status(400).json({ error: "Query is required" });
+
+    try {
+      const response = await getAi().models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: query,
+        config: {
+          systemInstruction: "Sen APEX OS sisteminin hızlı yapay zeka tavsiye motorusun. Kısa, nokta atışı ve tamamen Türkçe 1-2 cümlelik tavsiyeler verirsin."
+        }
+      });
+      return res.json({ result: response.text ? response.text.trim() : "" });
+    } catch (err: any) {
+      console.error("[Quick AI Error]:", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // API Route: Bookmark Analyzer (Unified with dynamic AI and Local heuristic modes)
   const handleAnalyzeBookmark = async (req: express.Request, res: express.Response) => {
     const { url, title, notes, mode } = req.body;

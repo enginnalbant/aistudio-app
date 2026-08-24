@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '../../context/AuthContext';
 import {
   Sparkles,
   Send,
@@ -102,11 +103,14 @@ export function AiAssistantChatPanel({
   showToast,
   currentTime = new Date()
 }: AiAssistantChatPanelProps) {
+  const { user } = useAuth();
+  const userName = user?.displayName || user?.email?.split('@')[0] || 'Kullanıcı';
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome-1',
       sender: 'ai',
-      text: 'Merhaba Engin Bey! APEX OS AI Komut Merkezi aktif.\n\nYazarak komut çalıştırmak için metin alanına "/" (slash) girin. Örn: `/not`, `/notdefteri`, `/gider`, `/gelir`, `/stok`, `/ajanda`.',
+      text: `Merhaba ${userName}! APEX OS AI Komut Merkezi aktif.\n\nYazarak komut çalıştırmak için metin alanına "/" (slash) girin. Örn: \`/not\`, \`/notdefteri\`, \`/gider\`, \`/gelir\`, \`/stok\`, \`/ajanda\`.`,
       timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
       intent: 'system_welcome',
       pipelineSteps: [

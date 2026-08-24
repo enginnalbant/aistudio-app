@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 import { UiButton, UiCard, UiBadge, UiInput, tokens } from './ui';
 import { 
   Sparkles, 
@@ -222,7 +223,7 @@ export const KnowledgeWorkspace: React.FC = () => {
 
   // --- DATA STATES ---
   // 1. NOTES
-  const [notesList, setNotesList] = useState<NoteItem[]>([
+  const [notesList, setNotesList] = useLocalStorage<NoteItem[]>('apex_workspace_notes', [
     {
       id: 'note-1',
       title: 'The Future of Personal Knowledge Systems',
@@ -293,7 +294,7 @@ Key Server Actions:
   const [editingNoteContent, setEditingNoteContent] = useState('');
 
   // 2. TODAY TASKS
-  const [tasks, setTasks] = useState<TaskItem[]>([
+  const [tasks, setTasks] = useLocalStorage<TaskItem[]>('apex_workspace_tasks', [
     { id: 't1', title: 'Read AI Agent paper & extract citations', completed: true, priority: 'High' },
     { id: 't2', title: 'Write Apex OS Knowledge Workspace specs', completed: false, priority: 'High' },
     { id: 't3', title: 'Review imported RSS feeds & bookmark links', completed: false, priority: 'Medium' },
@@ -308,7 +309,7 @@ Key Server Actions:
 
   // 4. RSS STATE
   const [selectedFeed, setSelectedFeed] = useState('TechCrunch');
-  const [rssArticles, setRssArticles] = useState<RssArticle[]>([
+  const [rssArticles, setRssArticles] = useLocalStorage<RssArticle[]>('apex_workspace_rss', [
     {
       id: 'rss-1',
       feed: 'TechCrunch',
@@ -344,7 +345,7 @@ Key Server Actions:
 
   // 5. BOOKMARKS STATE
   const [bookmarkCategory, setBookmarkCategory] = useState('All');
-  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([
+  const [bookmarks, setBookmarks] = useLocalStorage<BookmarkItem[]>('apex_workspace_bookmarks', [
     {
       id: 'bm-1',
       title: 'Vercel AI SDK Docs',
@@ -380,7 +381,7 @@ Key Server Actions:
   const [selectedDate, setSelectedDate] = useState('2026-08-10');
 
   // 7. LIBRARY STATE
-  const [books, setBooks] = useState<BookItem[]>([
+  const [books, setBooks] = useLocalStorage<BookItem[]>('apex_workspace_books', [
     {
       id: 'b-1',
       title: 'Designing Data-Intensive Applications',
@@ -431,7 +432,7 @@ Key Server Actions:
   const [activeMediaId, setActiveMediaId] = useState('m-1');
 
   // 9. FILES STATE
-  const [files, setFiles] = useState<FileItem[]>([
+  const [files, setFiles] = useLocalStorage<FileItem[]>('apex_workspace_files', [
     { id: 'f-1', name: 'research-paper-v4.pdf', size: '12.4 MB', type: 'PDF', updated: 'Today', folder: 'Research Papers', iconName: 'FileText' },
     { id: 'f-2', name: 'apex-os-architecture.drawio', size: '2.1 MB', type: 'Diagram', updated: 'Yesterday', folder: 'Documents', iconName: 'Layers' },
     { id: 'f-3', name: 'workspace-wallpaper.jpg', size: '4.8 MB', type: 'Image', updated: '3d ago', folder: 'Media', iconName: 'ImageIcon' }
@@ -446,9 +447,9 @@ Key Server Actions:
     'v-3': true
   });
   const [copiedVaultId, setCopiedVaultId] = useState<string | null>(null);
-  const [credentials, setCredentials] = useState<VaultCredential[]>([
+  const [credentials, setCredentials] = useLocalStorage<VaultCredential[]>('apex_workspace_vault', [
     { id: 'v-1', service: 'Google Cloud API Key', username: 'apex-prod-service-account', secret: 'AIzaSyD-8x92aK_ApexKey9021', category: 'API Key', updatedAt: 'Today' },
-    { id: 'v-2', service: 'GitHub Personal Access Token', username: 'enginnalbant9', secret: 'ghp_ApexOsToken9823412093814', category: 'Login', updatedAt: '2d ago' },
+    { id: 'v-2', service: 'GitHub Personal Access Token', username: 'apex-developer', secret: 'ghp_ApexOsToken9823412093814', category: 'Login', updatedAt: '2d ago' },
     { id: 'v-3', service: 'PostgreSQL Primary DB', username: 'postgres_admin', secret: 'P@ssw0rd_ApexOS_Secure2026', category: 'Secure Note', updatedAt: '1w ago' }
   ]);
 
@@ -467,7 +468,7 @@ Key Server Actions:
   ]);
 
   // 13. MEMOS STATE
-  const [memos, setMemos] = useState<MemoItem[]>([
+  const [memos, setMemos] = useLocalStorage<MemoItem[]>('apex_workspace_memos', [
     {
       id: 'm1',
       author: 'Apex User',
@@ -476,6 +477,15 @@ Key Server Actions:
       timestamp: 'Just now',
       likes: 2
     },
+    {
+      id: 'm2',
+      author: 'Apex User',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+      content: 'Reading Atomic Habits... "Systems are more important than goals."',
+      timestamp: '2h ago',
+      likes: 5
+    }
+  ]);
     {
       id: 'm2',
       author: 'Apex User',

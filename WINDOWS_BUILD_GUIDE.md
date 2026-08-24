@@ -1,76 +1,69 @@
-# Windows (PC .exe) Build Kılavuzu
+# APEX OS - Kurulum ve Çalıştırma Kılavuzu
 
-Bu proje, React (Vite) frontend ve Express.js + SQLite backend içeren tam yığın (full-stack) bir uygulamadır. Bu uygulamayı Windows üzerinde çalışan tek bir `.exe` dosyası haline getirmek için **Electron** ve **electron-builder** altyapısı projeye entegre edilmiştir.
+Bu proje; modern **React 19 (Vite)** frontend'i, **Express.js API** backend'i, **Google Gemini AI SDK**, **BlockSuite** gelişmiş not editörü ve **Firebase** entegrasyonu içeren yeni nesil tam yığın (full-stack) bir kişisel ve kurumsal yönetim işletim sistemidir.
 
-Aşağıdaki adımları takip ederek projeyi kendi Windows bilgisayarınızda derleyebilir ve kurulum dosyasını (`.exe`) oluşturabilirsiniz.
+---
 
-## 1. Gereksinimler (Bilgisayarınızda Yüklü Olması Gerekenler)
+## 1. Gereksinimler
 
-Bu projeyi Windows'ta build alabilmek için aşağıdaki programların bilgisayarınızda kurulu olması gerekmektedir:
+Uygulamayı yerel geliştirme ortamınızda veya sunucunuzda çalıştırmak için:
 
-1. **Node.js (LTS Versiyonu):**
-   - [Node.js İndir](https://nodejs.org/) adresinden **LTS** (Long Term Support) sürümünü indirip kurun. (Önerilen: v20.x veya v22.x)
-   - Kurulum sırasında "Automatically install the necessary tools" (Gerekli araçları otomatik kur) seçeneğini işaretlemeniz, SQLite gibi C++ bağımlılıklarının derlenmesi için gereken Python ve Visual Studio Build Tools'un kurulmasına yardımcı olur.
+1. **Node.js (v20+ LTS önerilir):** [nodejs.org](https://nodejs.org/) adresinden LTS sürümünü kurun.
+2. **Paket Yöneticisi:** `npm`, `pnpm` veya `bun`.
+3. **Gemini API Anahtarı (Opsiyonel / Önerilen):** AI asistanı, bülten özetleme ve BlockSuite Copilot özelliklerinin aktif çalışması için [Google AI Studio](https://aistudio.google.com/)'dan bir API key edinin.
 
-2. **Git:**
-   - [Git İndir](https://git-scm.com/downloads) adresinden indirip kurun.
+---
 
-3. **Visual Studio Code (Önerilen Editör):**
-   - [VS Code İndir](https://code.visualstudio.com/) adresinden kurabilirsiniz.
+## 2. Çevre Değişkenleri (.env)
 
-4. **C++ Build Tools (SQLite için Zorunlu):**
-   - Uygulama Supabase kullandığı için internet bağlantısı gerektirir.
-   - Eğer Node.js kurarken otomatik araçları kurmadıysanız, yönetici (Administrator) olarak PowerShell açıp şu komutu çalıştırın:
-     ```bash
-     npm install --global windows-build-tools
-     ```
-   - Veya [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) indirip "C++ build tools" iş yükünü seçerek kurun.
+Proje kök dizininde bir `.env` dosyası oluşturun ve aşağıdaki değişkenleri tanımlayın:
 
-## 2. Projeyi Bilgisayarınıza İndirme ve Hazırlama
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+PORT=3000
+NODE_ENV=development
+```
 
-1. Proje dosyalarınızı (AI Studio'dan indirdiğiniz ZIP dosyası veya Git reposu) bilgisayarınızda bir klasöre çıkartın.
-2. Klasörün içinde boş bir alana sağ tıklayıp **"Open in Terminal"** (Terminalde Aç) veya VS Code üzerinden terminali açın.
-3. Bağımlılıkları yüklemek için şu komutu çalıştırın:
+---
+
+## 3. Geliştirme Modunda Başlatma
+
+1. Bağımlılıkları yükleyin:
    ```bash
    npm install
    ```
 
-## 3. Geliştirme Modunda Çalıştırma (İsteğe Bağlı)
+2. Geliştirme sunucusunu (Express + Vite SSR Middleware) başlatın:
+   ```bash
+   npm run dev
+   ```
 
-Uygulamanın masaüstü versiyonunu test etmek için geliştirme modunda çalıştırabilirsiniz:
-```bash
-npm run electron:dev
-```
-Bu komut, hem arka planda sunucuyu başlatacak hem de Electron penceresini açacaktır.
+3. Tarayıcınızda açın:
+   `http://localhost:3000`
 
-## 4. Windows için .exe Build Alma
+---
 
-Tüm hazırlıklar tamamsa, uygulamayı paketleyip `.exe` dosyası oluşturmak için terminalde şu komutu çalıştırın:
+## 4. Üretim (Production) Derleme ve Çalıştırma
 
-```bash
-npm run electron:build
-```
+Uygulamayı yayına hazırlamak ve derlemek için:
 
-### Build Sürecinde Neler Oluyor?
-1. `npm run build`: React (Vite) frontend kodları `dist` klasörüne derlenir.
-2. `npm run build:server`: Express.js backend kodları (`server.ts`), `esbuild` kullanılarak `dist-server/server.js` dosyasına derlenir.
-3. `electron-builder --win`: Electron, tüm bu derlenmiş dosyaları ve `local.db` veritabanını alır, Windows için optimize edilmiş bir kurulum dosyası (`.exe`) üretir.
+1. Frontend ve Backend'i derleyin:
+   ```bash
+   npm run build
+   ```
+   *Bu komut frontend kodlarını `dist/` klasörüne, backend Express sunucusunu ise `esbuild` ile `dist/server.cjs` dosyasına paketler.*
 
-### Sonuç
-İşlem tamamlandığında, proje ana dizininde **`dist-electron`** adında yeni bir klasör oluşacaktır.
-Bu klasörün içinde **`Nexus Purchasing Setup 0.0.0.exe`** (veya benzer bir isimde) kurulum dosyanızı bulabilirsiniz.
+2. Üretim sunucusunu çalıştırın:
+   ```bash
+   npm start
+   ```
 
-Bu `.exe` dosyasını istediğiniz Windows bilgisayara kopyalayıp kurarak uygulamayı çalıştırabilirsiniz.
+---
 
-## 5. Veritabanı (SQLite) Hakkında Önemli Not
-Uygulama ilk kez kurulup açıldığında, proje içindeki boş `local.db` dosyası, kullanıcının Windows'taki `AppData/Roaming/react-example` (veya uygulamanın adı neyse) klasörüne kopyalanır.
-Böylece uygulama güncellense bile kullanıcının girdiği veriler silinmez ve korunur.
+## 5. Modül Mimarisi & Özellikler
 
-## Olası Hatalar ve Çözümleri
-
-- **`better-sqlite3` derleme hatası (node-gyp error):**
-  Windows Build Tools veya Python eksik demektir. 1. adımdaki 4. maddeyi (C++ Build Tools) uyguladığınızdan emin olun.
-- **`esbuild` bulunamadı hatası:**
-  `npm install` komutunu çalıştırdığınızdan emin olun.
-- **Beyaz ekran çıkması:**
-  Uygulama açıldığında beyaz ekran çıkıyorsa, sunucu başlatılamamış olabilir. Terminaldeki hata çıktılarını kontrol edin. Genellikle `.env` dosyasındaki eksik API key'lerden kaynaklanabilir. Proje dizininde bir `.env` dosyası oluşturup gerekli API anahtarlarını eklediğinizden emin olun.
+- **Kişisel Finans & Bütçe:** Gelir, gider, yatırım, abonelik, 50/30/20 kuralı ve stres testleri içeren yerel matematiksel sağlık motoru (`financeHealthEngine.ts`).
+- **Knowledge Workspace:** Notlar, todolar, yer imleri, kitaplık, şifre kasası ve RSS akışları; kesintisiz `localStorage` kalıcılığı ile çalışır.
+- **BlockSuite Canvas & Doc Editör:** Zengin metin, edgeless sonsuz tuval ve AI Copilot asistanı.
+- **AI Komut Merkezi:** Slash (`/`) komutları ile hızlı not, gider, gelir, stok ve ajanda yönetimi.
+- **RSS Proxy & Haber Motoru:** Canlı RSS XML ayrıştırıcı, otomatik feed onarımı ve bülten özetleme.
