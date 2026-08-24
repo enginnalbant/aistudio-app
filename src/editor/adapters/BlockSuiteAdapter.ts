@@ -298,7 +298,7 @@ export class BlockSuiteAdapter extends EditorEngine {
     return { blocks: this.blocks };
   }
 
-  async setContent(content: string, format: 'markdown' | 'text' | 'json' = 'markdown'): Promise<void> {
+  async setContent(content: string, format: 'markdown' | 'text' | 'json' | 'html' = 'markdown'): Promise<void> {
     if (format === 'json') {
       try {
         const parsed = JSON.parse(content);

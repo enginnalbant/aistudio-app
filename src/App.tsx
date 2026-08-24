@@ -114,7 +114,7 @@ function AppLayout() {
   const { settings } = useSettings();
   const deviceInfo = useDevice();
   const isLargeScreen = deviceInfo.width >= 1024;
-  const [activeModule, setActiveModule] = useState('welcome-overview');
+  const [activeModule, setActiveModule] = useState('knowledge-workspace');
   const [isSidebarOpen, setIsSidebarOpen] = useState(isLargeScreen);
   const [isBooting, setIsBooting] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -305,7 +305,7 @@ function AppLayout() {
                       <ReconReports />
                     ) : activeModule === 'recon-analytics' ? (
                       <ReconAnalytics />
-                    ) : activeModule.startsWith('knowledge') || activeModule === 'knowledge-workspace' ? (
+                    ) : activeModule.startsWith('knowledge') || activeModule === 'knowledge-workspace' || activeModule.startsWith('notes') || activeModule === 'notes' ? (
                       <KnowledgeWorkspace />
                     ) : activeModule.startsWith('library-') ? (
                       <ComingSoon 

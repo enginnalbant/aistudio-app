@@ -276,22 +276,22 @@
 }
 
 @utility bento-card {
-  backdrop-filter: blur(var(--card-custom-blur, 28px)) saturate(190%);
-  -webkit-backdrop-filter: blur(var(--card-custom-blur, 28px)) saturate(190%);
+  backdrop-filter: blur(var(--card-custom-blur, 24px)) saturate(190%);
+  -webkit-backdrop-filter: blur(var(--card-custom-blur, 24px)) saturate(190%);
   background: linear-gradient(
     180deg,
-    rgba(18, 24, 38, calc(var(--card-custom-opacity, 0.22) + 0.55)),
-    rgba(8, 12, 22, calc(var(--card-custom-opacity, 0.22) + 0.65))
+    rgba(16, 22, 38, calc(var(--card-custom-opacity, 0.15) + 0.45)),
+    rgba(8, 12, 24, calc(var(--card-custom-opacity, 0.15) + 0.55))
   );
-  border-radius: var(--card-custom-radius, 1.5rem);
+  border-radius: var(--card-custom-radius, 1.25rem);
   border-width: var(--card-custom-border-width, 1px);
   border-style: solid;
-  border-color: rgba(255, 255, 255, var(--card-custom-border-opacity, 0.18));
+  border-color: rgba(255, 255, 255, var(--card-custom-border-opacity, 0.12));
   box-shadow: var(
     --card-custom-shadow,
-    0 25px 65px -12px rgba(0, 0, 0, 0.75),
-    0 8px 20px -6px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25)
+    0 20px 50px -10px rgba(0, 0, 0, 0.65),
+    0 5px 15px -4px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18)
   );
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
@@ -307,11 +307,11 @@
 
 .layer-1, [data-layer="1"] {
   /* Layer 1: Glass Surface Backdrop */
-  backdrop-filter: blur(var(--card-custom-blur, 18px)) saturate(160%);
-  -webkit-backdrop-filter: blur(var(--card-custom-blur, 18px)) saturate(160%);
-  background: rgba(10, 14, 26, 0.35);
+  backdrop-filter: blur(var(--card-custom-blur, 20px)) saturate(170%);
+  -webkit-backdrop-filter: blur(var(--card-custom-blur, 20px)) saturate(170%);
+  background: rgba(10, 14, 26, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   z-index: 10;
 }
 
@@ -321,39 +321,39 @@
   -webkit-backdrop-filter: blur(var(--card-custom-blur, 24px)) saturate(180%);
   background: linear-gradient(
     180deg,
-    rgba(15, 22, 36, 0.70),
-    rgba(7, 11, 20, 0.82)
+    rgba(15, 22, 38, 0.55),
+    rgba(7, 11, 22, 0.70)
   );
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.65), 0 5px 15px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.60), 0 5px 15px -4px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   z-index: 20;
 }
 
 .layer-3, [data-layer="3"] {
   /* Layer 3: Information Cards & Bento Widgets */
-  backdrop-filter: blur(var(--card-custom-blur, 32px)) saturate(190%);
-  -webkit-backdrop-filter: blur(var(--card-custom-blur, 32px)) saturate(190%);
+  backdrop-filter: blur(var(--card-custom-blur, 28px)) saturate(190%);
+  -webkit-backdrop-filter: blur(var(--card-custom-blur, 28px)) saturate(190%);
   background: linear-gradient(
     180deg,
-    rgba(20, 28, 46, 0.78),
-    rgba(9, 14, 26, 0.88)
+    rgba(18, 26, 44, 0.62),
+    rgba(8, 12, 24, 0.75)
   );
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.75), 0 8px 25px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.70), 0 8px 25px -6px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.20);
   z-index: 30;
 }
 
 .layer-4, [data-layer="4"] {
   /* Layer 4: Interactive Cards & Action Tools */
-  backdrop-filter: blur(var(--card-custom-blur, 36px)) saturate(200%);
-  -webkit-backdrop-filter: blur(var(--card-custom-blur, 36px)) saturate(200%);
+  backdrop-filter: blur(var(--card-custom-blur, 32px)) saturate(200%);
+  -webkit-backdrop-filter: blur(var(--card-custom-blur, 32px)) saturate(200%);
   background: linear-gradient(
     180deg,
-    rgba(24, 34, 56, 0.84),
-    rgba(11, 17, 30, 0.92)
+    rgba(22, 32, 54, 0.70),
+    rgba(10, 15, 28, 0.82)
   );
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow: 0 30px 75px -15px rgba(0, 0, 0, 0.85), 0 12px 30px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 30px 75px -15px rgba(0, 0, 0, 0.80), 0 12px 30px -8px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -362,29 +362,29 @@
 
 .layer-4:hover, [data-layer="4"]:hover {
   transform: translateY(-3px);
-  border-color: rgba(255, 255, 255, 0.35);
-  box-shadow: 0 38px 85px -18px rgba(0, 0, 0, 0.92), 0 16px 40px -10px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  border-color: rgba(255, 255, 255, 0.30);
+  box-shadow: 0 38px 85px -18px rgba(0, 0, 0, 0.90), 0 16px 40px -10px rgba(59, 130, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .layer-5, [data-layer="5"] {
   /* Layer 5: Floating Buttons, Popups, Dialogs & Menus */
-  backdrop-filter: blur(40px) saturate(210%);
-  -webkit-backdrop-filter: blur(40px) saturate(210%);
+  backdrop-filter: blur(36px) saturate(210%);
+  -webkit-backdrop-filter: blur(36px) saturate(210%);
   background: linear-gradient(
     180deg,
-    rgba(28, 40, 66, 0.90),
-    rgba(14, 20, 36, 0.96)
+    rgba(24, 36, 60, 0.82),
+    rgba(12, 18, 32, 0.90)
   );
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  box-shadow: 0 42px 95px -20px rgba(0, 0, 0, 0.92), 0 20px 45px -10px rgba(0, 0, 0, 0.7), inset 0 1.5px 0 rgba(255, 255, 255, 0.40);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 42px 95px -20px rgba(0, 0, 0, 0.90), 0 20px 45px -10px rgba(0, 0, 0, 0.65), inset 0 1.5px 0 rgba(255, 255, 255, 0.32);
   z-index: 50;
 }
 
 .dark .bento-card, .dark [data-card="true"] {
   background: linear-gradient(
     180deg,
-    rgba(18, 24, 38, calc(var(--card-custom-opacity, 0.22) + 0.58)),
-    rgba(8, 12, 22, calc(var(--card-custom-opacity, 0.22) + 0.68))
+    rgba(16, 22, 38, calc(var(--card-custom-opacity, 0.15) + 0.48)),
+    rgba(8, 12, 24, calc(var(--card-custom-opacity, 0.15) + 0.58))
   ) !important;
 }
 
@@ -394,8 +394,8 @@ header, header.bento-card, header[data-card="true"], .dark header {
   -webkit-backdrop-filter: blur(var(--header-custom-blur, var(--card-custom-blur, 24px))) saturate(180%) !important;
   background: linear-gradient(
     180deg,
-    rgba(15, 23, 42, calc(var(--header-custom-opacity, var(--card-custom-opacity, 0.18)) + 0.18)),
-    rgba(8, 12, 26, calc(var(--header-custom-opacity, var(--card-custom-opacity, 0.18)) + 0.12))
+    rgba(15, 23, 42, calc(var(--header-custom-opacity, var(--card-custom-opacity, 0.15)) + 0.35)),
+    rgba(8, 12, 26, calc(var(--header-custom-opacity, var(--card-custom-opacity, 0.15)) + 0.48))
   ) !important;
 }
 
@@ -404,8 +404,8 @@ aside, aside.bento-card, aside[data-card="true"], .dark aside {
   -webkit-backdrop-filter: blur(var(--sidebar-custom-blur, var(--card-custom-blur, 24px))) saturate(180%) !important;
   background: linear-gradient(
     180deg,
-    rgba(15, 23, 42, calc(var(--sidebar-custom-opacity, var(--card-custom-opacity, 0.18)) + 0.18)),
-    rgba(8, 12, 26, calc(var(--sidebar-custom-opacity, var(--card-custom-opacity, 0.18)) + 0.12))
+    rgba(15, 23, 42, calc(var(--sidebar-custom-opacity, var(--card-custom-opacity, 0.15)) + 0.38)),
+    rgba(8, 12, 26, calc(var(--sidebar-custom-opacity, var(--card-custom-opacity, 0.15)) + 0.50))
   ) !important;
 }
 
@@ -414,8 +414,8 @@ main.bento-card, [data-layer="content"] {
   -webkit-backdrop-filter: blur(var(--content-custom-blur, var(--card-custom-blur, 24px))) saturate(180%);
   background: linear-gradient(
     135deg,
-    rgba(15, 23, 42, calc(var(--content-custom-opacity, var(--card-custom-opacity, 0.18)) + 0.15)),
-    rgba(8, 12, 26, calc(var(--content-custom-opacity, var(--card-custom-opacity, 0.18)) + 0.22))
+    rgba(15, 23, 42, calc(var(--content-custom-opacity, var(--card-custom-opacity, 0.15)) + 0.32)),
+    rgba(8, 12, 26, calc(var(--content-custom-opacity, var(--card-custom-opacity, 0.15)) + 0.45))
   );
 }
 
@@ -425,23 +425,23 @@ main.bento-card, [data-layer="content"] {
   -webkit-backdrop-filter: blur(var(--menu-card-custom-blur, var(--card-custom-blur, 24px))) saturate(180%) !important;
   background: linear-gradient(
     135deg,
-    rgba(15, 23, 42, calc(var(--menu-card-custom-opacity, var(--card-custom-opacity, 0.18)) + 0.15)),
-    rgba(8, 12, 26, calc(var(--menu-card-custom-opacity, var(--card-custom-opacity, 0.18)) + 0.20))
+    rgba(15, 23, 42, calc(var(--menu-card-custom-opacity, var(--card-custom-opacity, 0.15)) + 0.35)),
+    rgba(8, 12, 26, calc(var(--menu-card-custom-opacity, var(--card-custom-opacity, 0.15)) + 0.48))
   ) !important;
-  border-color: rgba(255, 255, 255, var(--menu-card-custom-border-opacity, var(--card-custom-border-opacity, 0.25))) !important;
+  border-color: rgba(255, 255, 255, var(--menu-card-custom-border-opacity, var(--card-custom-border-opacity, 0.15))) !important;
 }
 
 /* 3. TOP-LEVEL FLOATING OVERLAYS (POP-UP, TABLO, LİSTE, BİLEŞEN, CHARTS VB.) */
 .popup-card, [data-layer="popup"], [role="dialog"], .table-card, .chart-card, .list-card, .component-card {
-  backdrop-filter: blur(var(--popup-custom-blur, 32px)) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(var(--popup-custom-blur, 32px)) saturate(190%) !important;
+  backdrop-filter: blur(var(--popup-custom-blur, 28px)) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(var(--popup-custom-blur, 28px)) saturate(190%) !important;
   background: linear-gradient(
     135deg,
-    rgba(15, 23, 42, calc(var(--popup-custom-opacity, 0.50) + 0.15)),
-    rgba(8, 12, 26, calc(var(--popup-custom-opacity, 0.50) + 0.25))
+    rgba(15, 23, 42, calc(var(--popup-custom-opacity, 0.40) + 0.20)),
+    rgba(8, 12, 26, calc(var(--popup-custom-opacity, 0.40) + 0.32))
   ) !important;
-  border-color: rgba(255, 255, 255, var(--popup-custom-border-opacity, 0.35)) !important;
-  box-shadow: var(--popup-custom-shadow, var(--card-custom-shadow, 0 35px 90px -10px rgba(0,0,0,0.8), inset 0 1.5px 2px rgba(255,255,255,0.35))) !important;
+  border-color: rgba(255, 255, 255, var(--popup-custom-border-opacity, 0.18)) !important;
+  box-shadow: var(--popup-custom-shadow, var(--card-custom-shadow, 0 30px 80px -10px rgba(0,0,0,0.85), inset 0 1px 1.5px rgba(255,255,255,0.25))) !important;
 }
 
 html[data-popup-glow="neon-border"] .popup-card,
