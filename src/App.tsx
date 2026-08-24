@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -49,11 +49,9 @@ import {
   ReconAnalytics
 } from './components/ModulePages';
 import { motion, AnimatePresence } from 'motion/react';
-import { Zap } from 'lucide-react';
+import { Zap, Loader2 } from 'lucide-react';
 import { ComingSoon } from './components/ui/ComingSoon';
 import { WelcomeOverviewScreen } from './components/welcome/WelcomeOverviewScreen';
-import { BlockSuiteEditorContainer } from './components/editor/BlockSuiteEditorContainer';
-import { KnowledgeWorkspace } from './components/KnowledgeWorkspace';
 
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -63,6 +61,24 @@ import { DesignSystemProvider } from './context/DesignSystemContext';
 import { WallpaperWizardModal } from './components/wallpaper/WallpaperWizardModal';
 import { useDevice } from './hooks/useDevice';
 import { DeviceTemplate } from './components/layout/DeviceTemplate';
+
+// Lazy Loaded Heavy Modules for Fast Initial Page Load
+const BlockSuiteEditorContainer = lazy(() => 
+  import('./components/editor/BlockSuiteEditorContainer').then(m => ({ default: m.BlockSuiteEditorContainer }))
+);
+const KnowledgeWorkspace = lazy(() => import('./components/KnowledgeWorkspace'));
+
+const ModuleLoadingFallback = () => (
+  <div className="w-full h-full min-h-[400px] flex flex-col items-center justify-center gap-3 bg-black/20 rounded-2xl border border-white/5 backdrop-blur-md">
+    <div className="relative">
+      <div className="w-10 h-10 border-2 border-focus-neon/20 border-t-focus-neon rounded-full animate-spin" />
+      <Zap size={16} className="text-focus-neon absolute inset-0 m-auto" />
+    </div>
+    <span className="text-xs font-mono font-bold text-skel-cloud tracking-widest uppercase animate-pulse">
+      Modül Yükleniyor...
+    </span>
+  </div>
+);
 
 const getLibraryTitle = (module: string) => {
   const titles: Record<string, string> = {
@@ -78,21 +94,6 @@ const getLibraryTitle = (module: string) => {
     'library-docs': 'Dökümanlar',
   };
   return titles[module] || module.replace('library-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-};
-
-const getNotesTitle = (module: string) => {
-  const titles: Record<string, string> = {
-    'notes-dashboard': 'Dashboard',
-    'notes-todo': 'Yapılacaklar (Todo)',
-    'notes-bookmarks': 'Yer Simgeleri (Bookmarks)',
-    'notes-passwords': 'Parolalar',
-    'notes-quick': 'Hızlı Notlar',
-    'notes-notebook': 'Not Defteri',
-    'notes-planner-dashboard': 'Planlayıcı Dashboard',
-    'notes-planner-plans': 'Günlük / Haftalık / Aylık Planlayıcı',
-    'notes-books': 'Kitaplar',
-  };
-  return titles[module] || module.replace('notes-', '').split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
 };
 
 const getBulletinTitle = (module: string) => {
@@ -114,19 +115,46 @@ function AppLayout() {
   const { settings } = useSettings();
   const deviceInfo = useDevice();
   const isLargeScreen = deviceInfo.width >= 1024;
-  const [activeModule, setActiveModule] = useState('knowledge-workspace');
+  
+  // URL Hash-based Deep Linking initialization
+  const [activeModule, setActiveModule] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash.replace('#', '').trim();
+      if (hash) return hash;
+    }
+    return 'welcome-overview';
+  });
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(isLargeScreen);
   const [isBooting, setIsBooting] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     (window as any).openSettingsModal = () => setIsSettingsOpen(true);
-    const timer = setTimeout(() => setIsBooting(false), 2500);
+    const timer = setTimeout(() => setIsBooting(false), 2000);
     return () => {
       clearTimeout(timer);
       delete (window as any).openSettingsModal;
     };
   }, []);
+
+  // Listen to browser hash and popstate events for backward/forward navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash) {
+        const hash = window.location.hash.replace('#', '').trim();
+        if (hash && hash !== activeModule) {
+          setActiveModule(hash);
+        }
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
+  }, [activeModule]);
 
   // Close sidebar on mobile/tablet when module changes
   useEffect(() => {
@@ -141,6 +169,9 @@ function AppLayout() {
 
   const handleSetActiveModule = useCallback((mod: string) => {
     setActiveModule(mod);
+    if (typeof window !== 'undefined') {
+      window.location.hash = mod;
+    }
   }, []);
 
   useEffect(() => {
@@ -162,28 +193,32 @@ function AppLayout() {
             <motion.div 
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 1.2, ease: [0.23, 1, 0.32, 1] }}
+              transition={{ duration: 1.0, ease: [0.23, 1, 0.32, 1] }}
               className="relative"
             >
-              <div className="w-40 h-40 rounded-[2.5rem] bg-focus-main flex items-center justify-center shadow-[0_0_120px_rgba(30,144,255,0.4)] relative overflow-hidden">
+              <div className="w-36 h-36 rounded-[2.5rem] bg-focus-main flex items-center justify-center shadow-[0_0_120px_rgba(30,144,255,0.4)] relative overflow-hidden">
                 <motion.div 
                   animate={{ rotate: 360 }}
                   transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
                   className="absolute inset-0 border-[6px] border-pure-white/10 border-t-pure-white rounded-full scale-90"
                 />
-                <Zap size={48} className="text-pure-white relative z-10" />
+                <Zap size={44} className="text-pure-white relative z-10" />
               </div>
               <div className="absolute inset-0 bg-focus-main blur-[100px] opacity-30 animate-pulse" />
             </motion.div>
             <div className="space-y-3 text-center">
-              <h1 className="text-5xl font-display font-black tracking-tighter text-pure-white">APEX <span className="text-focus-neon">OS</span></h1>
-              <p className="text-skel-metal font-mono text-[11px] uppercase tracking-[0.6em] animate-pulse">Neural Environment v4.2.0 Initializing...</p>
+              <h1 className="text-4xl sm:text-5xl font-display font-black tracking-tighter text-pure-white">
+                APEX <span className="text-focus-neon">OS</span>
+              </h1>
+              <p className="text-skel-metal font-mono text-[11px] uppercase tracking-[0.5em] animate-pulse">
+                Neural Environment v4.2.0 Initializing...
+              </p>
             </div>
-            <div className="w-80 h-1.5 bg-skel-metal/10 rounded-full overflow-hidden mt-6 backdrop-blur-md border border-white/5">
+            <div className="w-72 h-1.5 bg-skel-metal/10 rounded-full overflow-hidden mt-4 backdrop-blur-md border border-white/5">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: "100%" }}
-                transition={{ duration: 2.2, ease: [0.65, 0, 0.35, 1] }}
+                transition={{ duration: 1.8, ease: [0.65, 0, 0.35, 1] }}
                 className="h-full bg-gradient-to-r from-focus-main to-focus-neon shadow-[0_0_20px_rgba(37,99,235,0.6)]"
               />
             </div>
@@ -194,7 +229,7 @@ function AppLayout() {
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <Header 
           toggleSidebar={toggleSidebar} 
-          setActiveModule={handleSetActiveModule}
+          setActiveModule={handleSetActiveModule} 
         />
         
         <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
@@ -220,114 +255,116 @@ function AppLayout() {
           <div className="flex-1 flex flex-col min-w-0 overflow-y-auto custom-scrollbar bento-card rounded-xl sm:rounded-2xl transition-all duration-500" data-card="true">
             <main className="flex-1 overflow-x-hidden">
               <DeviceTemplate deviceInfo={deviceInfo} activeModule={activeModule}>
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeModule}
-                    initial={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
-                    animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                    exit={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
-                    transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                    className="w-full h-full min-h-[400px]"
-                  >
-                    {activeModule === 'welcome-overview' ? (
-                      <WelcomeOverviewScreen onNavigate={setActiveModule} />
-                    ) : activeModule === 'notification-page' ? (
-                      <NotificationPage />
-                    ) : activeModule === 'notification-settings' ? (
-                      <NotificationSettings />
-                    ) : activeModule === 'calendar-page' ? (
-                      <CalendarPage />
-                    ) : activeModule === 'finance-dashboard' ? (
-                      <FinanceDashboard />
-                    ) : activeModule === 'finance-incomes' ? (
-                      <FinanceIncomes />
-                    ) : activeModule === 'finance-expenses' ? (
-                      <FinanceExpenses />
-                    ) : activeModule === 'finance-subscriptions' ? (
-                      <FinanceSubscriptions />
-                    ) : activeModule === 'finance-investments' ? (
-                      <FinanceInvestments />
-                    ) : activeModule === 'finance-purchasing' ? (
-                      <FinancePurchasing />
-                    ) : activeModule === 'finance-analytics' ? (
-                      <FinanceAnalytics />
-                    ) : activeModule === 'finance-reports' ? (
-                      <FinanceReports />
-                    ) : activeModule === 'purchasing-dashboard' ? (
-                      <PurchasingDashboard />
-                    ) : activeModule === 'purchasing-requests' ? (
-                      <PurchasingRequests />
-                    ) : activeModule === 'purchasing-lists' ? (
-                      <PurchasingLists />
-                    ) : activeModule === 'purchasing-quotes' ? (
-                      <PurchasingQuotes />
-                    ) : activeModule === 'purchasing-pending-orders' ? (
-                      <PurchasingPendingOrders />
-                    ) : activeModule === 'purchasing-sent-orders' ? (
-                      <PurchasingSentOrders />
-                    ) : activeModule === 'purchasing-all-orders' ? (
-                      <PurchasingAllOrders />
-                    ) : activeModule === 'purchasing-reports' ? (
-                      <PurchasingReports />
-                    ) : activeModule === 'purchasing-analytics' ? (
-                      <PurchasingAnalytics />
-                    ) : activeModule === 'fason-dashboard' ? (
-                      <FasonDashboard />
-                    ) : activeModule === 'fason-outgoing' ? (
-                      <FasonOutgoing />
-                    ) : activeModule === 'fason-all' ? (
-                      <FasonAll />
-                    ) : activeModule === 'fason-reports' ? (
-                      <FasonReports />
-                    ) : activeModule === 'fason-analytics' ? (
-                      <FasonAnalytics />
-                    ) : activeModule === 'stocks-dashboard' ? (
-                      <StocksDashboard />
-                    ) : activeModule === 'stocks-list' ? (
-                      <StocksList />
-                    ) : activeModule === 'stocks-reports' ? (
-                      <StocksReports />
-                    ) : activeModule === 'stocks-analytics' ? (
-                      <StocksAnalytics />
-                    ) : activeModule === 'contacts-dashboard' ? (
-                      <ContactsDashboard />
-                    ) : activeModule === 'contacts-list' ? (
-                      <ContactsList />
-                    ) : activeModule === 'contacts-reports' ? (
-                      <ContactsReports />
-                    ) : activeModule === 'contacts-analytics' ? (
-                      <ContactsAnalytics />
-                    ) : activeModule === 'recon-dashboard' ? (
-                      <ReconDashboard />
-                    ) : activeModule === 'recon-contacts' ? (
-                      <ReconContacts />
-                    ) : activeModule === 'recon-reports' ? (
-                      <ReconReports />
-                    ) : activeModule === 'recon-analytics' ? (
-                      <ReconAnalytics />
-                    ) : activeModule === 'notes-notebook' || activeModule === 'editor' || activeModule === 'notes-editor' ? (
-                      <BlockSuiteEditorContainer />
-                    ) : activeModule.startsWith('knowledge') || activeModule === 'knowledge-workspace' || activeModule.startsWith('notes') || activeModule === 'notes' ? (
-                      <KnowledgeWorkspace />
-                    ) : activeModule.startsWith('library-') ? (
-                      <ComingSoon 
-                        title={getLibraryTitle(activeModule)} 
-                        brandName="APEXOS KÜTÜPHANE" 
-                      />
-                    ) : activeModule.startsWith('bulletin-') ? (
-                      <ComingSoon 
-                        title={getBulletinTitle(activeModule)} 
-                        brandName="APEXOS BÜLTEN & MEDYA" 
-                      />
-                    ) : (
-                      <WelcomeOverviewScreen onNavigate={setActiveModule} />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                <Suspense fallback={<ModuleLoadingFallback />}>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeModule}
+                      initial={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
+                      animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                      exit={{ opacity: 0, scale: 0.99, filter: 'blur(10px)' }}
+                      transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                      className="w-full h-full min-h-[400px]"
+                    >
+                      {activeModule === 'welcome-overview' || activeModule === '' ? (
+                        <WelcomeOverviewScreen onNavigate={handleSetActiveModule} />
+                      ) : activeModule === 'notification-page' ? (
+                        <NotificationPage />
+                      ) : activeModule === 'notification-settings' ? (
+                        <NotificationSettings />
+                      ) : activeModule === 'calendar-page' ? (
+                        <CalendarPage />
+                      ) : activeModule === 'finance-dashboard' ? (
+                        <FinanceDashboard />
+                      ) : activeModule === 'finance-incomes' ? (
+                        <FinanceIncomes />
+                      ) : activeModule === 'finance-expenses' ? (
+                        <FinanceExpenses />
+                      ) : activeModule === 'finance-subscriptions' ? (
+                        <FinanceSubscriptions />
+                      ) : activeModule === 'finance-investments' ? (
+                        <FinanceInvestments />
+                      ) : activeModule === 'finance-purchasing' ? (
+                        <FinancePurchasing />
+                      ) : activeModule === 'finance-analytics' ? (
+                        <FinanceAnalytics />
+                      ) : activeModule === 'finance-reports' ? (
+                        <FinanceReports />
+                      ) : activeModule === 'purchasing-dashboard' ? (
+                        <PurchasingDashboard />
+                      ) : activeModule === 'purchasing-requests' ? (
+                        <PurchasingRequests />
+                      ) : activeModule === 'purchasing-lists' ? (
+                        <PurchasingLists />
+                      ) : activeModule === 'purchasing-quotes' ? (
+                        <PurchasingQuotes />
+                      ) : activeModule === 'purchasing-pending-orders' ? (
+                        <PurchasingPendingOrders />
+                      ) : activeModule === 'purchasing-sent-orders' ? (
+                        <PurchasingSentOrders />
+                      ) : activeModule === 'purchasing-all-orders' ? (
+                        <PurchasingAllOrders />
+                      ) : activeModule === 'purchasing-reports' ? (
+                        <PurchasingReports />
+                      ) : activeModule === 'purchasing-analytics' ? (
+                        <PurchasingAnalytics />
+                      ) : activeModule === 'fason-dashboard' ? (
+                        <FasonDashboard />
+                      ) : activeModule === 'fason-outgoing' ? (
+                        <FasonOutgoing />
+                      ) : activeModule === 'fason-all' ? (
+                        <FasonAll />
+                      ) : activeModule === 'fason-reports' ? (
+                        <FasonReports />
+                      ) : activeModule === 'fason-analytics' ? (
+                        <FasonAnalytics />
+                      ) : activeModule === 'stocks-dashboard' ? (
+                        <StocksDashboard />
+                      ) : activeModule === 'stocks-list' ? (
+                        <StocksList />
+                      ) : activeModule === 'stocks-reports' ? (
+                        <StocksReports />
+                      ) : activeModule === 'stocks-analytics' ? (
+                        <StocksAnalytics />
+                      ) : activeModule === 'contacts-dashboard' ? (
+                        <ContactsDashboard />
+                      ) : activeModule === 'contacts-list' ? (
+                        <ContactsList />
+                      ) : activeModule === 'contacts-reports' ? (
+                        <ContactsReports />
+                      ) : activeModule === 'contacts-analytics' ? (
+                        <ContactsAnalytics />
+                      ) : activeModule === 'recon-dashboard' ? (
+                        <ReconDashboard />
+                      ) : activeModule === 'recon-contacts' ? (
+                        <ReconContacts />
+                      ) : activeModule === 'recon-reports' ? (
+                        <ReconReports />
+                      ) : activeModule === 'recon-analytics' ? (
+                        <ReconAnalytics />
+                      ) : activeModule === 'notes-notebook' || activeModule === 'editor' || activeModule === 'notes-editor' ? (
+                        <BlockSuiteEditorContainer />
+                      ) : activeModule.startsWith('knowledge') || activeModule === 'knowledge-workspace' || activeModule.startsWith('notes') || activeModule === 'notes' ? (
+                        <KnowledgeWorkspace />
+                      ) : activeModule.startsWith('library-') ? (
+                        <ComingSoon 
+                          title={getLibraryTitle(activeModule)} 
+                          brandName="APEXOS KÜTÜPHANE" 
+                        />
+                      ) : activeModule.startsWith('bulletin-') ? (
+                        <ComingSoon 
+                          title={getBulletinTitle(activeModule)} 
+                          brandName="APEXOS BÜLTEN & MEDYA" 
+                        />
+                      ) : (
+                        <WelcomeOverviewScreen onNavigate={handleSetActiveModule} />
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </Suspense>
               </DeviceTemplate>
             </main>
           </div>
-      </div>
+        </div>
       </div>
 
       <AndroidDockBar 

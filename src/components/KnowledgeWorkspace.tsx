@@ -21,7 +21,7 @@ import {
   CheckSquare, 
   Film, 
   Play, 
-  Pause,
+  Pause, 
   Lock, 
   Globe, 
   Trash2, 
@@ -88,6 +88,19 @@ import {
   Type
 } from 'lucide-react';
 
+import { HomeDashboardTab } from './knowledge/HomeDashboardTab';
+import { NotesStreamTab } from './knowledge/NotesStreamTab';
+import { DeepResearchTab } from './knowledge/DeepResearchTab';
+import { RssReaderTab } from './knowledge/RssReaderTab';
+import { BookmarksTab } from './knowledge/BookmarksTab';
+import { PlannerTab } from './knowledge/PlannerTab';
+import { LibraryTab } from './knowledge/LibraryTab';
+import { MediaStudioTab } from './knowledge/MediaStudioTab';
+import { FilesVaultTab } from './knowledge/FilesVaultTab';
+import { PasswordVaultTab } from './knowledge/PasswordVaultTab';
+import { TranslatorTab } from './knowledge/TranslatorTab';
+import { WhiteboardTab } from './knowledge/WhiteboardTab';
+import { MemosTab } from './knowledge/MemosTab';
 // --- TYPES ---
 export interface NoteItem {
   id: string;
@@ -1165,713 +1178,137 @@ Key Server Actions:
             
             {/* 1. HOME DASHBOARD PAGE */}
             {selectedModule === 'home' && (
-              <div className="space-y-6">
-                <div className="relative rounded-3xl bg-gradient-to-r from-purple-950/60 via-indigo-950/40 to-slate-900 border border-purple-500/20 p-6 shadow-2xl overflow-hidden flex items-center justify-between">
-                  <div className="space-y-1 z-10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center text-indigo-300">
-                        <Zap size={18} />
-                      </div>
-                      <h2 className="text-xl md:text-2xl font-display font-black text-white tracking-tight">
-                        Welcome back, Apex!
-                      </h2>
-                    </div>
-                    <p className="text-xs text-slate-300/80">
-                      Turn information into actionable knowledge. Neural context engine connected.
-                    </p>
-                  </div>
-
-                  <div className="hidden lg:flex items-center gap-3 z-10">
-                    {[
-                      { label: 'Notes', count: notesList.length.toString(), icon: FileText, color: 'text-indigo-400' },
-                      { label: 'Bookmarks', count: bookmarks.length.toString(), icon: Bookmark, color: 'text-cyan-400' },
-                      { label: 'RSS Feeds', count: rssArticles.length.toString(), icon: Rss, color: 'text-amber-400' },
-                      { label: 'Books', count: books.length.toString(), icon: Book, color: 'text-pink-400' },
-                      { label: 'Files', count: files.length.toString(), icon: Folder, color: 'text-emerald-400' }
-                    ].map((st, idx) => {
-                      const IconS = st.icon;
-                      return (
-                        <div key={idx} className="bg-slate-900/80 backdrop-blur-xl border border-white/10 px-3.5 py-2 rounded-2xl flex flex-col items-center min-w-[70px]">
-                          <IconS size={15} className={`${st.color} mb-1`} />
-                          <span className="text-base font-mono font-black text-white">{st.count}</span>
-                          <span className="text-[9px] text-slate-400 font-bold">{st.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Quick Launcher Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    { id: 'notes', name: 'Notes Stream', desc: 'Rich block editor & notes', icon: FileText, color: 'from-indigo-600/30 to-purple-600/20' },
-                    { id: 'research', name: 'Deep Research', desc: 'AI citations & knowledge graph', icon: Compass, color: 'from-cyan-600/30 to-blue-600/20' },
-                    { id: 'planner', name: 'Planner & Calendar', desc: 'Schedule & time blocking', icon: Calendar, color: 'from-amber-600/30 to-rose-600/20' },
-                    { id: 'translate', name: 'AI Translator', desc: 'Neural translation engine', icon: Globe, color: 'from-emerald-600/30 to-teal-600/20' }
-                  ].map(m => {
-                    const IconM = m.icon;
-                    return (
-                      <div 
-                        key={m.id}
-                        onClick={() => handleSelectModule(m.id as any)}
-                        className={`p-4 rounded-2xl bg-gradient-to-br ${m.color} border border-white/10 hover:border-white/30 cursor-pointer transition-all space-y-2 group shadow-lg`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <IconM size={20} className="text-white group-hover:scale-110 transition-transform" />
-                          <ArrowUpRight size={14} className="text-slate-400 group-hover:text-white" />
-                        </div>
-                        <h3 className="text-sm font-bold text-white">{m.name}</h3>
-                        <p className="text-[11px] text-slate-300/80">{m.desc}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Focus Checklist */}
-                <div className="bg-slate-900/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 space-y-3 shadow-xl">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
-                      <CheckCircle2 size={15} className="text-indigo-400" /> Today Focus Checklist
-                    </span>
-                    <span className="text-[10px] font-mono text-indigo-400 font-bold">
-                      {tasks.filter(t => t.completed).length}/{tasks.length} Completed
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {tasks.map(task => (
-                      <div
-                        key={task.id}
-                        onClick={() => handleToggleTask(task.id)}
-                        className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
-                          task.completed 
-                            ? 'bg-slate-950/40 border-white/5 opacity-60 line-through text-slate-400' 
-                            : 'bg-slate-800/40 border-white/10 hover:border-white/20 text-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 text-xs font-bold">
-                          <div className={`w-4 h-4 rounded-md border flex items-center justify-center ${
-                            task.completed ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-white/20'
-                          }`}>
-                            {task.completed && <CheckCircle2 size={12} />}
-                          </div>
-                          <span>{task.title}</span>
-                        </div>
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-white/10 text-slate-300">
-                          {task.priority}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-2 pt-1">
-                    <input
-                      type="text"
-                      value={newTaskInput}
-                      onChange={(e) => setNewTaskInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
-                      placeholder="Add a new focus task..."
-                      className="flex-1 bg-slate-950/60 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none"
-                    />
-                    <button
-                      onClick={handleAddTask}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <HomeDashboardTab
+                notesList={notesList}
+                bookmarks={bookmarks}
+                rssArticles={rssArticles}
+                books={books}
+                files={files}
+                tasks={tasks}
+                newTaskInput={newTaskInput}
+                setNewTaskInput={setNewTaskInput}
+                onToggleTask={handleToggleTask}
+                onAddTask={handleAddTask}
+                onSelectModule={handleSelectModule}
+              />
             )}
 
             {/* 2. NOTES STREAM & EDITOR PAGE */}
             {selectedModule === 'notes' && (
-              <div className="bg-slate-900/60 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 space-y-6 shadow-2xl relative">
-                <div className="border-b border-white/10 pb-4 space-y-2">
-                  <div className="flex justify-between items-center text-xs text-slate-400 font-mono">
-                    <div className="flex items-center gap-2">
-                      <Folder size={14} className="text-amber-400" />
-                      <span>{currentNote.folder || 'Personal Knowledge'}</span>
-                      <span>/</span>
-                      <span className="text-white font-bold">{editingNoteTitle}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span>{currentNote.updatedAt}</span>
-                      <Share2 size={14} className="hover:text-white cursor-pointer" />
-                    </div>
-                  </div>
-
-                  <input
-                    type="text"
-                    value={editingNoteTitle}
-                    onChange={(e) => handleUpdateNoteContent(e.target.value, editingNoteContent)}
-                    className="w-full bg-transparent text-2xl md:text-3xl font-display font-black text-white tracking-tight border-b border-transparent focus:border-indigo-500/50 outline-none"
-                  />
-
-                  <div className="flex items-center gap-3 text-xs text-slate-400">
-                    <span className="text-indigo-400 font-bold flex items-center gap-1"><User size={13} /> Apex</span>
-                    <span>•</span>
-                    <span>{editingNoteContent.split(/\s+/).filter(Boolean).length} words</span>
-                    <span>•</span>
-                    <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                      <Sparkles size={12} /> AI Enhanced
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  {/* Formatting Sidebar */}
-                  <div className="w-9 bg-slate-950/60 border border-white/10 rounded-2xl p-1.5 flex flex-col items-center gap-2 shrink-0 h-fit text-slate-400">
-                    <button className="p-1 hover:text-white hover:bg-white/10 rounded-lg" title="Add Block"><Plus size={15} /></button>
-                    <button className="p-1 hover:text-white hover:bg-white/10 rounded-lg" title="Text"><Type size={15} /></button>
-                    <button className="p-1 hover:text-white hover:bg-white/10 rounded-lg" title="Code"><Code2 size={15} /></button>
-                    <button className="p-1 hover:text-white hover:bg-white/10 rounded-lg" title="Image"><ImageIcon size={15} /></button>
-                  </div>
-
-                  {/* Note Body Textarea */}
-                  <div className="flex-1 space-y-4">
-                    <textarea
-                      value={editingNoteContent}
-                      onChange={(e) => handleUpdateNoteContent(editingNoteTitle, e.target.value)}
-                      rows={14}
-                      className="w-full bg-slate-950/40 border border-white/10 rounded-2xl p-4 text-sm text-slate-200 leading-relaxed outline-none focus:border-indigo-500/50 resize-y font-sans"
-                    />
-                  </div>
-                </div>
-
-                {/* Bottom Contextual AI Bar */}
-                <div className="bg-slate-950/90 border border-indigo-500/30 rounded-2xl p-3 space-y-2 shadow-2xl">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={16} className="text-indigo-400 animate-pulse" />
-                    <input
-                      type="text"
-                      value={aiPromptInput}
-                      onChange={(e) => setAiPromptInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSendAiPrompt()}
-                      placeholder="Ask AI anything or select text..."
-                      className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
-                    />
-                    <button 
-                      onClick={() => handleSendAiPrompt()}
-                      className="p-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
-                    >
-                      <Send size={13} />
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {['Summarize', 'Rewrite', 'Translate', 'Explain', 'Create Tasks'].map((act, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleSendAiPrompt(`${act} the current note.`)}
-                        className="text-[10px] font-bold bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 px-2.5 py-1 rounded-lg transition-all"
-                      >
-                        {act}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <NotesStreamTab
+                currentNote={currentNote}
+                editingNoteTitle={editingNoteTitle}
+                editingNoteContent={editingNoteContent}
+                aiPromptInput={aiPromptInput}
+                setAiPromptInput={setAiPromptInput}
+                onUpdateNoteContent={handleUpdateNoteContent}
+                onSendAiPrompt={handleSendAiPrompt}
+              />
             )}
 
             {/* 3. DEEP RESEARCH PAGE */}
             {selectedModule === 'research' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/60 border border-white/10 rounded-3xl p-6 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                      <Compass className="text-cyan-400" /> Deep AI Research Assistant
-                    </h2>
-                    <span className="text-xs bg-cyan-500/20 text-cyan-300 px-2.5 py-1 rounded-lg border border-cyan-500/30 font-bold">
-                      25 Sources Connected
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      value={researchQuery}
-                      onChange={(e) => setResearchQuery(e.target.value)}
-                      placeholder="Enter research topic..."
-                      className="flex-1 bg-slate-950 border border-white/10 rounded-2xl px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50"
-                    />
-                    <button 
-                      onClick={() => {
-                        setIsSynthesizing(true);
-                        setTimeout(() => {
-                          setResearchOutput(`Deep Synthesis for "${researchQuery}":\n\n1. Multi-agent Orchestration: Modular frameworks permit specialized sub-agents to execute web queries, code execution, and data extraction.\n2. Vector Context Retrieval: Semantic graph databases reduce latency by 68% compared to traditional full-text searches.\n3. Citation Quality: Verified against 12 imported PDF papers and recent arXiv benchmarks.`);
-                          setIsSynthesizing(false);
-                        }, 800);
-                      }}
-                      className="bg-gradient-to-r from-cyan-600 to-indigo-600 hover:opacity-90 text-white font-bold text-xs px-5 py-2.5 rounded-2xl flex items-center gap-2 shadow-lg"
-                    >
-                      {isSynthesizing ? <RefreshCw className="animate-spin" size={14} /> : <Wand2 size={14} />}
-                      <span>Synthesize</span>
-                    </button>
-                  </div>
-
-                  {researchOutput && (
-                    <div className="bg-slate-950/80 border border-cyan-500/30 rounded-2xl p-4 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
-                      {researchOutput}
-                    </div>
-                  )}
-                </div>
-
-                {/* Knowledge Graph Preview */}
-                <div className="bg-slate-900/60 border border-white/10 rounded-3xl p-6 space-y-3">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Network className="text-indigo-400" /> Neural Knowledge Connections
-                  </h3>
-                  <div className="h-64 bg-slate-950 rounded-2xl border border-white/5 relative overflow-hidden flex items-center justify-center p-4">
-                    <div className="w-20 h-20 rounded-full bg-indigo-600/40 border border-indigo-400 flex items-center justify-center text-white font-bold text-xs shadow-[0_0_30px_rgba(99,102,241,0.6)] z-10 animate-pulse">
-                      Apex Research
-                    </div>
-                    {[
-                      { name: 'RAG Vector Store', top: '15%', left: '20%' },
-                      { name: 'LLM Agents', top: '20%', right: '20%' },
-                      { name: 'PDF Citations', bottom: '20%', left: '25%' },
-                      { name: 'ArXiv Feeds', bottom: '15%', right: '25%' }
-                    ].map((nod, idx) => (
-                      <div key={idx} className="absolute text-xs font-bold bg-slate-900 text-slate-200 border border-white/20 px-3 py-1 rounded-full shadow-lg" style={{ top: nod.top, left: nod.left, right: nod.right, bottom: nod.bottom }}>
-                        {nod.name}
-                      </div>
-                    ))}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none stroke-indigo-500/30 stroke-[1]">
-                      <line x1="50%" y1="50%" x2="25%" y2="25%" />
-                      <line x1="50%" y1="50%" x2="75%" y2="30%" />
-                      <line x1="50%" y1="50%" x2="30%" y2="75%" />
-                      <line x1="50%" y1="50%" x2="70%" y2="80%" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+              <DeepResearchTab
+                researchQuery={researchQuery}
+                setResearchQuery={setResearchQuery}
+                researchOutput={researchOutput}
+                isSynthesizing={isSynthesizing}
+                onSynthesize={() => {
+                  setIsSynthesizing(true);
+                  setTimeout(() => {
+                    setResearchOutput(`Deep Synthesis for "${researchQuery}":\n\n1. Multi-agent Orchestration: Modular frameworks permit specialized sub-agents to execute web queries, code execution, and data extraction.\n2. Vector Context Retrieval: Semantic graph databases reduce latency by 68% compared to traditional full-text searches.\n3. Citation Quality: Verified against 12 imported PDF papers and recent arXiv benchmarks.`);
+                    setIsSynthesizing(false);
+                  }, 800);
+                }}
+              />
             )}
 
             {/* 4. RSS READER PAGE */}
             {selectedModule === 'rss' && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center bg-slate-900/60 p-4 rounded-2xl border border-white/10">
-                  <div className="flex items-center gap-2">
-                    <Rss className="text-amber-400" size={20} />
-                    <h2 className="text-lg font-bold text-white">RSS Reader Feeds</h2>
-                  </div>
-                  <div className="flex gap-2">
-                    {['TechCrunch', 'Hacker News', 'MIT Tech Review'].map(f => (
-                      <button
-                        key={f}
-                        onClick={() => setSelectedFeed(f)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                          selectedFeed === f ? 'bg-amber-500 text-black shadow-md' : 'bg-white/5 text-slate-300'
-                        }`}
-                      >
-                        {f}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {rssArticles.map(art => (
-                    <div key={art.id} className="bg-slate-900/60 border border-white/10 p-5 rounded-3xl space-y-3 shadow-xl">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-extrabold text-amber-400">{art.feed}</span>
-                        <span className="text-slate-500 font-mono">{art.published}</span>
-                      </div>
-                      <h3 className="text-base font-bold text-white leading-snug">{art.title}</h3>
-                      <p className="text-xs text-slate-300 leading-relaxed">{art.summary}</p>
-                      <div className="pt-2 border-t border-white/10 flex justify-between items-center text-xs">
-                        <a href={art.url} target="_blank" rel="noreferrer" className="text-indigo-400 font-bold flex items-center gap-1">
-                          <span>Read Source</span> <ExternalLink size={12} />
-                        </a>
-                        <button className="bg-white/5 hover:bg-white/10 text-slate-300 px-3 py-1 rounded-lg text-[10px] font-bold">
-                          Bookmark
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <RssReaderTab
+                rssArticles={rssArticles}
+                selectedFeed={selectedFeed}
+                setSelectedFeed={setSelectedFeed}
+              />
             )}
 
             {/* 5. BOOKMARKS PAGE */}
             {selectedModule === 'bookmarks' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/60 p-5 rounded-3xl border border-white/10 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Bookmark className="text-cyan-400" /> Web Bookmarks Vault
-                    </h2>
-                    <span className="text-xs text-slate-400">{bookmarks.length} Bookmarks Saved</span>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Bookmark Title..."
-                      value={newBmTitle}
-                      onChange={(e) => setNewBmTitle(e.target.value)}
-                      className="flex-1 bg-slate-950 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="URL (https://...)"
-                      value={newBmUrl}
-                      onChange={(e) => setNewBmUrl(e.target.value)}
-                      className="flex-1 bg-slate-950 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white"
-                    />
-                    <button
-                      onClick={() => {
-                        if (!newBmTitle.trim() || !newBmUrl.trim()) return;
-                        setBookmarks([
-                          {
-                            id: `bm-${Date.now()}`,
-                            title: newBmTitle,
-                            url: newBmUrl,
-                            category: 'Saved',
-                            description: 'User added web bookmark link.',
-                            icon: '🔖',
-                            tags: ['#custom']
-                          },
-                          ...bookmarks
-                        ]);
-                        setNewBmTitle('');
-                        setNewBmUrl('');
-                      }}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-1.5 rounded-xl"
-                    >
-                      Add Bookmark
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {bookmarks.map(bm => (
-                    <div key={bm.id} className="bg-slate-900/60 border border-white/10 p-4 rounded-2xl space-y-2 shadow-lg">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xl">{bm.icon}</span>
-                        <span className="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30">{bm.category}</span>
-                      </div>
-                      <h3 className="text-sm font-bold text-white">{bm.title}</h3>
-                      <p className="text-xs text-slate-400 leading-snug">{bm.description}</p>
-                      <a href={bm.url} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 font-bold block pt-1 hover:underline truncate">
-                        {bm.url}
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <BookmarksTab
+                bookmarks={bookmarks}
+                setBookmarks={setBookmarks}
+              />
             )}
 
             {/* 6. PLANNER PAGE */}
             {selectedModule === 'planner' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/60 p-5 rounded-3xl border border-white/10 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Calendar className="text-amber-400" /> Strategic Planner & Calendar
-                    </h2>
-                    <input 
-                      type="date" 
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="bg-slate-950 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white"
-                    />
-                  </div>
-
-                  {/* Time blocking agenda */}
-                  <div className="space-y-2 pt-2">
-                    {[
-                      { time: '09:00', title: 'Daily System Architecture Sync', status: 'Completed', color: 'text-emerald-400' },
-                      { time: '11:00', title: 'Deep Work: Vector Graph Optimization', status: 'In Progress', color: 'text-amber-400' },
-                      { time: '14:30', title: 'AI Research Paper Review', status: 'Scheduled', color: 'text-indigo-400' },
-                      { time: '16:30', title: 'Knowledge Base Backup & Cloud Sync', status: 'Scheduled', color: 'text-slate-400' }
-                    ].map((slot, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/60 border border-white/5 text-xs">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-indigo-300 font-bold w-12">{slot.time}</span>
-                          <span className="font-bold text-white">{slot.title}</span>
-                        </div>
-                        <span className={`font-mono text-[10px] font-bold ${slot.color}`}>{slot.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <PlannerTab
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
+              />
             )}
 
             {/* 7. LIBRARY PAGE */}
             {selectedModule === 'library' && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center bg-slate-900/60 p-5 rounded-3xl border border-white/10">
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <BookOpen className="text-pink-400" /> Digital Bookshelf & Reading List
-                  </h2>
-                  <button className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl">
-                    + Add Book / PDF
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {books.map(bk => (
-                    <div key={bk.id} className="bg-slate-900/60 border border-white/10 p-5 rounded-3xl flex gap-4 shadow-xl">
-                      <img src={bk.cover} alt={bk.title} className="w-24 h-36 object-cover rounded-xl shadow-lg border border-white/10" />
-                      <div className="flex-1 space-y-2 flex flex-col justify-between">
-                        <div>
-                          <span className="text-[10px] font-bold bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded border border-pink-500/30">{bk.status}</span>
-                          <h3 className="text-base font-bold text-white mt-1">{bk.title}</h3>
-                          <p className="text-xs text-slate-400">{bk.author}</p>
-                        </div>
-                        <div>
-                          <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                            <span>Reading Progress</span>
-                            <span className="font-bold text-white">{bk.progress}%</span>
-                          </div>
-                          <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-pink-500 to-indigo-500" style={{ width: `${bk.progress}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <LibraryTab
+                books={books}
+                setBooks={setBooks}
+              />
             )}
 
             {/* 8. MEDIA STUDIO PAGE */}
             {selectedModule === 'media' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/60 p-6 rounded-3xl border border-white/10 space-y-4">
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Film className="text-purple-400" /> Media & Podcast Player Studio
-                  </h2>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {mediaTracks.map(track => (
-                      <div key={track.id} className="bg-slate-950/80 border border-white/10 p-4 rounded-2xl flex gap-4 items-center">
-                        <img src={track.cover} alt={track.title} className="w-16 h-16 object-cover rounded-xl border border-white/10" />
-                        <div className="flex-1 space-y-1">
-                          <h3 className="text-xs font-bold text-white">{track.title}</h3>
-                          <p className="text-[10px] text-slate-400">{track.artist} • {track.duration}</p>
-                          <button 
-                            onClick={() => {
-                              setActiveMediaId(track.id);
-                              setMediaPlaying(!mediaPlaying);
-                            }}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white p-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
-                          >
-                            {mediaPlaying && activeMediaId === track.id ? <Pause size={12} /> : <Play size={12} />}
-                            <span>{mediaPlaying && activeMediaId === track.id ? 'Pause' : 'Play'}</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <MediaStudioTab
+                mediaTracks={mediaTracks}
+                mediaPlaying={mediaPlaying}
+                activeMediaId={activeMediaId}
+                setActiveMediaId={setActiveMediaId}
+                setMediaPlaying={setMediaPlaying}
+              />
             )}
 
             {/* 9. CLOUD FILES PAGE */}
             {selectedModule === 'files' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/60 p-5 rounded-3xl border border-white/10 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Folder className="text-indigo-400" /> Cloud Files Vault
-                    </h2>
-                    <span className="text-xs font-mono text-slate-400">Storage Used: 42.8 GB / 100 GB</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {files.map(f => (
-                      <div key={f.id} className="bg-slate-950/60 border border-white/10 p-4 rounded-2xl space-y-2">
-                        <div className="flex justify-between items-center">
-                          <Folder size={20} className="text-indigo-400" />
-                          <span className="text-[10px] font-mono text-slate-500">{f.size}</span>
-                        </div>
-                        <h3 className="text-xs font-bold text-white">{f.name}</h3>
-                        <div className="flex justify-between items-center text-[10px] text-slate-400">
-                          <span>{f.type}</span>
-                          <span>{f.updated}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <FilesVaultTab
+                files={files}
+                setFiles={setFiles}
+              />
             )}
 
             {/* 10. ENCRYPTED VAULT PAGE */}
             {selectedModule === 'password' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/60 p-6 rounded-3xl border border-white/10 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Lock className="text-emerald-400" /> Encrypted Vault & Passwords
-                    </h2>
-                    <span className="text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-xl border border-emerald-500/30 font-bold">
-                      AES-256 Encrypted
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    {credentials.map(c => {
-                      const isMasked = maskedSecrets[c.id];
-                      return (
-                        <div key={c.id} className="bg-slate-950/80 border border-white/10 p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-                          <div className="space-y-0.5">
-                            <span className="font-bold text-white block">{c.service}</span>
-                            <span className="text-slate-400 font-mono text-[11px]">{c.username}</span>
-                          </div>
-                          <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-white/5">
-                            <span className="font-mono text-indigo-300">
-                              {isMasked ? '••••••••••••••••' : c.secret}
-                            </span>
-                            <button 
-                              onClick={() => setMaskedSecrets(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
-                              className="p-1 hover:text-white text-slate-400"
-                            >
-                              {isMasked ? <Eye size={14} /> : <EyeOff size={14} />}
-                            </button>
-                            <button 
-                              onClick={() => copyCredential(c.id, c.secret)}
-                              className="p-1 hover:text-white text-slate-400"
-                            >
-                              {copiedVaultId === c.id ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              <PasswordVaultTab
+                credentials={credentials}
+                setCredentials={setCredentials}
+              />
             )}
 
             {/* 11. NEURAL TRANSLATOR PAGE */}
             {selectedModule === 'translate' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/60 p-6 rounded-3xl border border-white/10 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Globe className="text-cyan-400" /> Neural AI Translator
-                    </h2>
-                    <div className="flex gap-2 text-xs font-bold">
-                      <select 
-                        value={sourceLang} 
-                        onChange={(e) => setSourceLang(e.target.value)}
-                        className="bg-slate-950 text-white border border-white/10 rounded-xl px-3 py-1"
-                      >
-                        <option value="tr">Turkish</option>
-                        <option value="en">English</option>
-                        <option value="de">German</option>
-                        <option value="fr">French</option>
-                      </select>
-                      <span className="text-slate-500 font-bold">➔</span>
-                      <select 
-                        value={targetLang} 
-                        onChange={(e) => setTargetLang(e.target.value)}
-                        className="bg-slate-950 text-white border border-white/10 rounded-xl px-3 py-1"
-                      >
-                        <option value="en">English</option>
-                        <option value="tr">Turkish</option>
-                        <option value="de">German</option>
-                        <option value="fr">French</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <span className="text-xs font-bold text-slate-400">Source Text</span>
-                      <textarea
-                        value={translateSource}
-                        onChange={(e) => setTranslateSource(e.target.value)}
-                        rows={6}
-                        className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-xs text-white outline-none focus:border-cyan-500/50 resize-none"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <span className="text-xs font-bold text-slate-400">AI Translation</span>
-                      <div className="w-full h-36 bg-slate-950 border border-white/10 rounded-2xl p-4 text-xs text-slate-200 leading-relaxed overflow-y-auto">
-                        {isTranslating ? 'Translating via Neural Engine...' : translateTarget}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleTranslate}
-                    className="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:opacity-90 text-white font-bold text-xs py-3 rounded-2xl shadow-lg cursor-pointer"
-                  >
-                    Translate Text
-                  </button>
-                </div>
-              </div>
+              <TranslatorTab
+                sourceLang={sourceLang}
+                setSourceLang={setSourceLang}
+                targetLang={targetLang}
+                setTargetLang={setTargetLang}
+                translateSource={translateSource}
+                setTranslateSource={setTranslateSource}
+                translateTarget={translateTarget}
+                isTranslating={isTranslating}
+                onTranslate={handleTranslate}
+              />
             )}
 
             {/* 12. WHITEBOARD CANVAS PAGE */}
             {selectedModule === 'whiteboard' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/60 p-6 rounded-3xl border border-white/10 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Layers className="text-purple-400" /> Infinite Whiteboard Canvas
-                    </h2>
-                    <span className="text-xs text-slate-400 font-mono">Zoom: 100%</span>
-                  </div>
-
-                  <div className="h-96 bg-slate-950 rounded-2xl border border-white/10 relative p-6 overflow-hidden">
-                    {whiteboardNodes.map(node => (
-                      <div 
-                        key={node.id} 
-                        className={`absolute p-4 rounded-2xl border ${node.color} text-white font-bold text-xs shadow-2xl backdrop-blur-md cursor-grab active:cursor-grabbing`}
-                        style={{ left: node.x, top: node.y }}
-                      >
-                        {node.title}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <WhiteboardTab />
             )}
 
             {/* 13. MEMOS TIMELINE PAGE */}
             {selectedModule === 'memos' && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/60 p-6 rounded-3xl border border-white/10 space-y-4">
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <MessageSquare className="text-indigo-400" /> Quick Micro-Memos Timeline
-                  </h2>
-
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newMemoInput}
-                      onChange={(e) => setNewMemoInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddMemo()}
-                      placeholder="Post a micro thought or quote..."
-                      className="flex-1 bg-slate-950 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white outline-none"
-                    />
-                    <button 
-                      onClick={handleAddMemo}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-2xl"
-                    >
-                      Post Memo
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {memos.map(m => (
-                      <div key={m.id} className="bg-slate-950/60 border border-white/5 p-4 rounded-2xl space-y-1">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-bold text-white">{m.author}</span>
-                          <span className="text-slate-500 font-mono text-[10px]">{m.timestamp}</span>
-                        </div>
-                        <p className="text-xs text-slate-200">{m.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <MemosTab
+                memos={memos}
+                setMemos={setMemos}
+              />
             )}
 
           </div>

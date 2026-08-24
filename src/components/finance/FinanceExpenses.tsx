@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import { getRollovers } from './financeUtils';
@@ -29,7 +29,8 @@ import {
   Target,
   ArrowDownRight,
   ArrowUpRight,
-  Wallet
+  Wallet,
+  Sparkles
 } from 'lucide-react';
 import { 
   BarChart,
@@ -380,6 +381,58 @@ export const FinanceExpenses = () => {
   }, [activeDonutData]);
 
   // --- ACTIONS ---
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleReceiptOcrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsOcrLoading(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64Data = reader.result as string;
+        const res = await fetch('/api/finance/receipt-ocr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: base64Data,
+            mimeType: file.type || 'image/jpeg'
+          })
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          const ocrData = json.data || {};
+          
+          setFormData({
+            title: ocrData.merchant || file.name.replace(/\.[^/.]+$/, ''),
+            amount: Number(ocrData.totalAmount) || 0,
+            category: ocrData.category && CATEGORIES.includes(ocrData.category) ? ocrData.category : 'Diğer',
+            date: ocrData.date || new Date().toISOString().split('T')[0],
+            status: 'Gerçekleşti',
+            recipient: ocrData.merchant || '',
+            currency: 'TRY',
+            originalAmount: Number(ocrData.totalAmount) || 0,
+            exchangeRate: 1.0,
+            tags: ['Fiş-OCR', ocrData.paymentMethod || 'Kredi Kartı'].filter(Boolean),
+            notes: ocrData.items ? `Fiş Kalemleri:\n${ocrData.items.map((i: any) => `• ${i.name} (x${i.quantity}): ₺${i.price}`).join('\n')}` : 'Fiş OCR Taraması ile oluşturuldu.'
+          });
+          setIsEditingWizard(false);
+          setWizardStep(1);
+          setIsWizardOpen(true);
+        }
+      } catch (err: any) {
+        console.warn('Receipt OCR processing failed:', err);
+      } finally {
+        setIsOcrLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleOpenWizard = (expenseToEdit?: Expense) => {
     if (expenseToEdit) {
       setFormData({
@@ -499,9 +552,28 @@ export const FinanceExpenses = () => {
             </button>
           </div>
 
+          <input 
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,application/pdf"
+            className="hidden"
+            onChange={handleReceiptOcrUpload}
+          />
+
+          <button 
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isOcrLoading}
+            className="flex items-center gap-1.5 bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 font-bold px-3.5 py-2.5 rounded-xl transition-all text-xs cursor-pointer active:scale-95 shadow-md"
+            title="Fiş veya fatura görseli yükleyerek Gemini Vision ile otomatik doldurun"
+          >
+            {isOcrLoading ? <RefreshCw size={14} className="animate-spin text-purple-400" /> : <Sparkles size={14} className="text-purple-400" />}
+            <span>{isOcrLoading ? 'Taranıyor...' : 'Fiş Tara (AI OCR)'}</span>
+          </button>
+
           <button 
             onClick={() => handleOpenWizard()}
-            className="flex items-center gap-2 bg-crit-vivid text-pure-white font-bold px-4 py-2.5 rounded-xl hover:bg-crit-vivid/90 transition-all shadow-lg shadow-crit-vivid/20 active:scale-95 text-xs ml-auto xl:ml-0"
+            className="flex items-center gap-2 bg-crit-vivid text-pure-white font-bold px-4 py-2.5 rounded-xl hover:bg-crit-vivid/90 transition-all shadow-lg shadow-crit-vivid/20 active:scale-95 text-xs cursor-pointer ml-auto xl:ml-0"
           >
             <Plus size={15} />
             <span>Gider Ekle</span>

@@ -1,6 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { motion, AnimatePresence } from 'motion/react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { 
   Plus, 
   Search, 
@@ -28,7 +31,8 @@ import {
   Building,
   CreditCard,
   Target,
-  Trash2
+  Trash2,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -358,7 +362,105 @@ export const FinanceReports = () => {
     }
   };
 
-  // Simulation controls
+  // Simulation and Export controls
+  const handleExportPDF = (report: FinanceReport) => {
+    try {
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFontSize(18);
+      doc.setTextColor(30, 41, 59);
+      doc.text("APEX OS - Finansal Analiz Raporu", 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Rapor: ${report.title}`, 14, 28);
+      doc.text(`Donem: ${report.period} | Tarih: ${report.createdAt} | Not: ${report.grade}`, 14, 34);
+      
+      // Summary Table
+      autoTable(doc, {
+        startY: 40,
+        head: [['Metrik', 'Tutar / Oran']],
+        body: [
+          ['Toplam Gelir', `TL ${report.totalIncome.toLocaleString('tr-TR')}`],
+          ['Toplam Gider', `TL ${report.totalExpense.toLocaleString('tr-TR')}`],
+          ['Net Tasarruf', `TL ${report.netSavings.toLocaleString('tr-TR')}`],
+          ['Tasarruf Orani', `%${report.savingsRate}`],
+          ['Finansal Not', report.grade],
+          ['Aktif Borclar', `${report.activeDebtsCount} Adet (TL ${report.totalRemainingDebt.toLocaleString('tr-TR')})`],
+          ['Aylik Abonelikler', `${report.subscriptionsCount} Adet (TL ${report.totalSubscriptionCost.toLocaleString('tr-TR')})`]
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [37, 99, 235] }
+      });
+
+      // Expense Breakdown Table
+      const finalY = (doc as any).lastAutoTable?.finalY || 100;
+      doc.setFontSize(12);
+      doc.setTextColor(30, 41, 59);
+      doc.text("Kategori Bazli Harcama Dagilimi", 14, finalY + 12);
+
+      autoTable(doc, {
+        startY: finalY + 16,
+        head: [['Kategori', 'Harcama Tutari']],
+        body: report.expenseBreakdown.map(e => [e.name, `TL ${e.value.toLocaleString('tr-TR')}`]),
+        theme: 'grid',
+        headStyles: { fillColor: [239, 68, 68] }
+      });
+
+      doc.save(`${report.period}-finansal-rapor.pdf`);
+      triggerAlert('PDF Raporu başarıyla oluşturuldu.');
+    } catch (err: any) {
+      console.error('PDF export failed:', err);
+      triggerAlert('PDF oluşturulamadı.', 'info');
+    }
+  };
+
+  const handleExportExcel = (report: FinanceReport) => {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Ozet
+      const summaryData = [
+        ["Rapor Başlığı", report.title],
+        ["Dönem", report.period],
+        ["Tarih", report.createdAt],
+        ["Sağlık Notu", report.grade],
+        ["Toplam Gelir (TL)", report.totalIncome],
+        ["Toplam Gider (TL)", report.totalExpense],
+        ["Net Tasarruf (TL)", report.netSavings],
+        ["Tasarruf Oranı (%)", report.savingsRate],
+        ["Aktif Borç Tutarı (TL)", report.totalRemainingDebt],
+        ["Aylık Abonelik Gideri (TL)", report.totalSubscriptionCost],
+        ["Kişisel Değerlendirme", report.personalNotes]
+      ];
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Finansal Özet");
+
+      // Sheet 2: Gider Dağılımı
+      const expenseData = [
+        ["Kategori", "Tutar (TL)"],
+        ...report.expenseBreakdown.map(e => [e.name, e.value])
+      ];
+      const wsExpense = XLSX.utils.aoa_to_sheet(expenseData);
+      XLSX.utils.book_append_sheet(wb, wsExpense, "Gider Dağılımı");
+
+      // Sheet 3: Gelir Dağılımı
+      const incomeData = [
+        ["Gelir Kaynağı", "Tutar (TL)"],
+        ...report.incomeBreakdown.map(i => [i.name, i.value])
+      ];
+      const wsIncome = XLSX.utils.aoa_to_sheet(incomeData);
+      XLSX.utils.book_append_sheet(wb, wsIncome, "Gelir Dağılımı");
+
+      XLSX.writeFile(wb, `${report.period}-finansal-rapor.xlsx`);
+      triggerAlert('Excel Tablosu başarıyla indirildi.');
+    } catch (err: any) {
+      console.error('Excel export failed:', err);
+      triggerAlert('Excel indirilemedi.', 'info');
+    }
+  };
+
   const handleExportJSON = (report: FinanceReport) => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
     const downloadAnchor = document.createElement('a');
@@ -456,25 +558,39 @@ ${getAdvisorComments(report).desc}
             </div>
 
             {/* Print and Export Buttons */}
-            <div className="flex gap-2 w-full md:w-auto">
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+              <button 
+                onClick={() => handleExportPDF(activeReport)}
+                title="PDF İndir"
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-red-600/20 hover:bg-red-600/30 text-xs font-bold text-red-300 rounded-xl border border-red-500/30 transition-colors cursor-pointer"
+              >
+                <Download size={14} /> PDF İndir
+              </button>
+              <button 
+                onClick={() => handleExportExcel(activeReport)}
+                title="Excel İndir"
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-xs font-bold text-emerald-300 rounded-xl border border-emerald-500/30 transition-colors cursor-pointer"
+              >
+                <FileSpreadsheet size={14} /> Excel İndir
+              </button>
               <button 
                 onClick={() => handleExportJSON(activeReport)}
                 title="JSON İndir"
-                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-bold text-white rounded-xl border border-white/10 transition-colors"
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-bold text-white rounded-xl border border-white/10 transition-colors cursor-pointer"
               >
                 <Download size={14} /> JSON
               </button>
               <button 
                 onClick={() => handleExportTXT(activeReport)}
                 title="TXT İndir"
-                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-bold text-white rounded-xl border border-white/10 transition-colors"
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-bold text-white rounded-xl border border-white/10 transition-colors cursor-pointer"
               >
                 <FileText size={14} /> Metin
               </button>
               <button 
                 onClick={handleSimulatePrint}
                 title="Yazdır"
-                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-bold text-white rounded-xl border border-white/10 transition-colors"
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-bold text-white rounded-xl border border-white/10 transition-colors cursor-pointer"
               >
                 <Printer size={14} /> Yazdır
               </button>
