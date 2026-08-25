@@ -33,7 +33,13 @@ import {
   Sliders,
   RotateCcw,
   Gauge,
-  Wand2
+  Wand2,
+  Briefcase,
+  Tv,
+  Library,
+  BrainCircuit,
+  FolderKanban,
+  Boxes
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../context/LanguageContext';
@@ -58,10 +64,10 @@ export interface AppShortcut {
 }
 
 const DEFAULT_SLOTS = [
-  'finance-dashboard', // Slot 0: Ana Sayfa / Finans Özeti
-  'finance-incomes',   // Slot 1: Gelirler
-  'notes-dashboard',   // Slot 2: Notlar
-  'notes-todo'         // Slot 3: Yapılacaklar & Sayaç
+  'workspace-main',
+  'workspace-main',
+  'workspace-main',
+  'workspace-main'
 ];
 
 export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
@@ -141,33 +147,15 @@ export const AndroidDockBar: React.FC<AndroidDockBarProps> = ({
 
   // Catalog of all accessible modules
   const allApps: AppShortcut[] = useMemo(() => [
-    // Finans
-    { id: 'finance-dashboard', title: t('nav.dashboard', 'Finans Özeti'), category: 'finance', icon: <Wallet size={18} />, color: 'from-blue-500 to-indigo-600' },
-    { id: 'finance-incomes', title: t('finance.incomes', 'Gelirler'), category: 'finance', icon: <TrendingUp size={18} />, color: 'from-emerald-500 to-teal-600' },
-    { id: 'finance-expenses', title: t('finance.expenses', 'Giderler'), category: 'finance', icon: <TrendingDown size={18} />, color: 'from-rose-500 to-red-600' },
-    { id: 'finance-subscriptions', title: t('finance.subscriptions', 'Abonelikler'), category: 'finance', icon: <CreditCard size={18} />, color: 'from-purple-500 to-violet-600' },
-    { id: 'finance-investments', title: t('finance.investments', 'Yatırımlar'), category: 'finance', icon: <PiggyBank size={18} />, color: 'from-amber-500 to-yellow-600' },
-    { id: 'finance-analytics', title: t('finance.analytics', 'Finansal Analiz'), category: 'finance', icon: <BarChart3 size={18} />, color: 'from-cyan-500 to-blue-600' },
-    { id: 'finance-reports', title: t('finance.reports', 'Mali Raporlar'), category: 'finance', icon: <FileBarChart size={18} />, color: 'from-blue-600 to-indigo-800' },
-
-    // Tedarik & Stok
-    { id: 'purchasing-dashboard', title: t('nav.purchasing', 'Satınalma'), category: 'inventory', icon: <ShoppingBag size={18} />, color: 'from-amber-500 to-orange-600' },
-    { id: 'fason-dashboard', title: t('nav.fason', 'Fason Takibi'), category: 'inventory', icon: <Package size={18} />, color: 'from-teal-500 to-emerald-600' },
-    { id: 'stocks-dashboard', title: t('nav.stocks', 'Stok Yönetimi'), category: 'inventory', icon: <Package size={18} />, color: 'from-blue-500 to-cyan-600' },
-    { id: 'contacts-list', title: t('nav.contacts', 'Cari Takibi'), category: 'inventory', icon: <Users size={18} />, color: 'from-violet-500 to-purple-700' },
-    { id: 'recon-dashboard', title: t('nav.recon', 'BA-BS Mutabakat'), category: 'inventory', icon: <Scale size={18} />, color: 'from-indigo-500 to-blue-700' },
-
-    // Notlar & Araçlar
-    { id: 'notes-dashboard', title: t('nav.notes', 'Notlar Özeti'), category: 'notes', icon: <NotebookPen size={18} />, color: 'from-orange-500 to-amber-600' },
-    { id: 'notes-todo', title: t('notes.todo', 'Yapılacaklar & Sayaç'), category: 'notes', icon: <CheckSquare size={18} />, color: 'from-emerald-500 to-green-600' },
-    { id: 'notes-quick', title: t('notes.quickMemos', 'Hızlı Notlar'), category: 'notes', icon: <Sparkles size={18} />, color: 'from-amber-400 to-orange-500' },
-    { id: 'notes-passwords', title: t('notes.passwords', 'Parola Kasası'), category: 'notes', icon: <Key size={18} />, color: 'from-rose-500 to-pink-600' },
-    { id: 'notes-bookmarks', title: t('notes.bookmarks', 'Yer İmleri'), category: 'notes', icon: <Bookmark size={18} />, color: 'from-blue-400 to-indigo-500' },
-    { id: 'notes-books', title: t('notes.books', 'Okuma Listesi'), category: 'notes', icon: <BookOpen size={18} />, color: 'from-teal-400 to-cyan-600' },
-
-    // Sosyal & Bülten
-    { id: 'bulletin-dashboard', title: t('nav.bulletin', 'Bülten & Haberler'), category: 'social', icon: <Rss size={18} />, color: 'from-rose-500 to-orange-500' },
-  ], [t]);
+    { id: 'overview-dashboard', title: 'Ana Menü (Genel Bakış)', category: 'notes', icon: <Home size={18} />, color: 'from-blue-500 to-indigo-600' },
+    { id: 'personelos-main', title: 'PersonelOs', category: 'inventory', icon: <Users size={18} />, color: 'from-indigo-500 to-violet-600' },
+    { id: 'workos-main', title: 'WorkOs', category: 'finance', icon: <Briefcase size={18} />, color: 'from-blue-500 to-cyan-600' },
+    { id: 'mediaos-main', title: 'MediaOs', category: 'social', icon: <Tv size={18} />, color: 'from-rose-500 to-pink-600' },
+    { id: 'libraryos-main', title: 'LibraryOs', category: 'notes', icon: <Library size={18} />, color: 'from-amber-500 to-yellow-600' },
+    { id: 'intelligeos-main', title: 'IntelligeOs', category: 'notes', icon: <BrainCircuit size={18} />, color: 'from-purple-500 to-indigo-600' },
+    { id: 'files-main', title: 'Dosya Yöneticisi', category: 'inventory', icon: <FolderKanban size={18} />, color: 'from-emerald-500 to-teal-600' },
+    { id: 'appstore-main', title: 'Açık Kaynak Uygulamalar', category: 'inventory', icon: <Boxes size={18} />, color: 'from-teal-500 to-emerald-600' },
+  ], []);
 
   const appMap = useMemo(() => {
     const map = new Map<string, AppShortcut>();

@@ -441,32 +441,23 @@ main.bento-card, [data-layer="content"] {
     rgba(8, 12, 26, calc(var(--popup-custom-opacity, 0.40) + 0.32))
   ) !important;
   border-color: rgba(255, 255, 255, var(--popup-custom-border-opacity, 0.18)) !important;
-  box-shadow: var(--popup-custom-shadow, var(--card-custom-shadow, 0 30px 80px -10px rgba(0,0,0,0.85), inset 0 1px 1.5px rgba(255,255,255,0.25))) !important;
-}
-
-html[data-popup-glow="neon-border"] .popup-card,
-html[data-popup-glow="neon-border"] [data-layer="popup"],
-html[data-popup-glow="neon-border"] [role="dialog"],
-html[data-popup-glow="neon-border"] .chart-card,
-html[data-popup-glow="neon-border"] .table-card {
-  border-color: var(--focus-neon, #3b82f6) !important;
-  box-shadow: var(--popup-custom-shadow), 0 0 35px rgba(var(--glow-rgb, 59, 130, 246), 0.55) !important;
+  box-shadow: var(--popup-custom-shadow, var(--card-custom-shadow, 0 10px 30px -5px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15))) !important;
 }
 
 /* DYNAMIC CONTRAST & ADAPTIVE TEXT LEGIBILITY OVER TRANSPARENT WALLPAPERS */
 .bento-card, [data-card="true"], header, aside, .menu-card, .page-card, .popup-card {
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
 }
 
 .bento-card h1, .bento-card h2, .bento-card h3, .bento-card h4, .bento-card h5, .bento-card h6,
 [data-card="true"] h1, [data-card="true"] h2, [data-card="true"] h3, [data-card="true"] h4,
 header h1, header span, aside h1, aside h2, aside span, .font-display, .font-bold {
-  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.95), 0 0 18px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   letter-spacing: -0.01em;
 }
 
 .bento-card svg, [data-card="true"] svg, header svg, aside svg, .menu-card svg, .popup-card svg {
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.75));
+  filter: none;
 }
 
 .bento-card .text-text-secondary, [data-card="true"] .text-text-secondary, aside .text-text-secondary {
@@ -475,67 +466,6 @@ header h1, header span, aside h1, aside h2, aside span, .font-display, .font-bol
 
 .bento-card .text-text-muted, [data-card="true"] .text-text-muted {
   color: rgba(203, 213, 225, 0.85) !important;
-}
-
-/* CARD GLOW & RAINBOW EFFECT MODES */
-html[data-card-glow="neon-border"] .bento-card,
-html[data-card-glow="neon-border"] [data-card="true"] {
-  border-color: var(--focus-neon, #3b82f6) !important;
-  box-shadow: var(--card-custom-shadow), 0 0 25px rgba(var(--glow-rgb, 59, 130, 246), 0.45) !important;
-}
-
-html[data-card-glow="pulse-border"] .bento-card,
-html[data-card-glow="pulse-border"] [data-card="true"] {
-  animation: card-pulse-glow 3s ease-in-out infinite !important;
-}
-
-@keyframes card-pulse-glow {
-  0%, 100% {
-    border-color: rgba(var(--glow-rgb, 59, 130, 246), 0.4);
-    box-shadow: var(--card-custom-shadow), 0 0 12px rgba(var(--glow-rgb, 59, 130, 246), 0.3);
-  }
-  50% {
-    border-color: rgba(255, 255, 255, 0.85);
-    box-shadow: var(--card-custom-shadow), 0 0 35px rgba(var(--glow-rgb, 59, 130, 246), 0.75);
-  }
-}
-
-html[data-card-glow="rainbow-border"] .bento-card,
-html[data-card-glow="rainbow-border"] [data-card="true"] {
-  animation: card-rainbow-spin 5s linear infinite !important;
-}
-
-@keyframes card-rainbow-spin {
-  0% { border-color: #ff2a5f; box-shadow: var(--card-custom-shadow), 0 0 22px rgba(255, 42, 95, 0.55); }
-  20% { border-color: #ffab00; box-shadow: var(--card-custom-shadow), 0 0 22px rgba(255, 171, 0, 0.55); }
-  40% { border-color: #00e676; box-shadow: var(--card-custom-shadow), 0 0 22px rgba(0, 230, 118, 0.55); }
-  60% { border-color: #00b0ff; box-shadow: var(--card-custom-shadow), 0 0 22px rgba(0, 176, 255, 0.55); }
-  80% { border-color: #d500f9; box-shadow: var(--card-custom-shadow), 0 0 22px rgba(213, 0, 249, 0.55); }
-  100% { border-color: #ff2a5f; box-shadow: var(--card-custom-shadow), 0 0 22px rgba(255, 42, 95, 0.55); }
-}
-
-html[data-card-glow="rainbow-flow"] .bento-card,
-html[data-card-glow="rainbow-flow"] [data-card="true"] {
-  animation: card-rainbow-flow 7s ease-in-out infinite alternate !important;
-}
-
-@keyframes card-rainbow-flow {
-  0% {
-    box-shadow: var(--card-custom-shadow), 0 0 28px rgba(244, 63, 94, 0.65), inset 0 0 12px rgba(244, 63, 94, 0.2);
-    border-color: rgba(244, 63, 94, 0.85) !important;
-  }
-  33% {
-    box-shadow: var(--card-custom-shadow), 0 0 28px rgba(59, 130, 246, 0.65), inset 0 0 12px rgba(59, 130, 246, 0.2);
-    border-color: rgba(59, 130, 246, 0.85) !important;
-  }
-  66% {
-    box-shadow: var(--card-custom-shadow), 0 0 28px rgba(34, 197, 94, 0.65), inset 0 0 12px rgba(34, 197, 94, 0.2);
-    border-color: rgba(34, 197, 94, 0.85) !important;
-  }
-  100% {
-    box-shadow: var(--card-custom-shadow), 0 0 28px rgba(168, 85, 247, 0.65), inset 0 0 12px rgba(168, 85, 247, 0.2);
-    border-color: rgba(168, 85, 247, 0.85) !important;
-  }
 }
 
 @utility bento-card-hover {

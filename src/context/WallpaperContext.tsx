@@ -255,15 +255,15 @@ export const defaultWallpaperConfig: WallpaperConfig = {
   activePalette: WALLPAPER_PRESETS[0].palette,
 
   // Glow defaults
-  glowEnabled: true,
-  glowType: 'pulse',
-  glowShape: 'corner-orbs',
-  glowIntensity: 25,
-  glowRadius: 55,
-  glowColorMode: 'dual-gradient',
-  mouseGlowEnabled: true,
+  glowEnabled: false,
+  glowType: 'static',
+  glowShape: 'center-radial',
+  glowIntensity: 0,
+  glowRadius: 0,
+  glowColorMode: 'primary',
+  mouseGlowEnabled: false,
   mouseGlowType: 'radial-aura',
-  mouseGlowSize: 400,
+  mouseGlowSize: 0,
 
   // Card defaults
   cardBlurAmount: 24,
@@ -272,7 +272,7 @@ export const defaultWallpaperConfig: WallpaperConfig = {
   cardBorderWidth: 1,
   cardBorderOpacity: 25,
   cardGlowEffect: 'none',
-  cardShadowDepth: 'deep-3d',
+  cardShadowDepth: 'subtle',
 
   // Studio Master Defaults v3.0
   studioMode: 'basic',
@@ -280,22 +280,22 @@ export const defaultWallpaperConfig: WallpaperConfig = {
   experienceLevel: 'experience',
   experienceIntentions: {
     glassFeel: 'balanced',
-    depthStyle: 'layered',
+    depthStyle: 'flat',
     atmosphere: 'professional'
   },
   selectedMaterial: 'glass',
   autoHarmonyEngine: true,
   readabilityEngineActive: true,
   focusEngineActive: true,
-  cursorLightingActive: true,
+  cursorLightingActive: false,
 
   frostIntensity: 45,
   glassTintOpacity: 30,
-  ambientLightingIntensity: 35,
-  borderGlowIntensity: 25,
-  shadowSpread: 25,
-  shadowOpacity: 65,
-  cardElevation: 3,
+  ambientLightingIntensity: 0,
+  borderGlowIntensity: 0,
+  shadowSpread: 10,
+  shadowOpacity: 20,
+  cardElevation: 1,
   animationSpeedMs: 200,
   motionIntensity: 50,
   learningEnabled: true,

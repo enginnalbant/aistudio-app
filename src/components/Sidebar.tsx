@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useSettings } from '../context/SettingsContext';
-import { TwoLevelSidebar } from './ui/sidebar-component';
+import { useNavigation } from '../context/NavigationContext';
+import { AdaptiveSidebar } from './navigation/AdaptiveSidebar';
 import { useDevice } from '../hooks/useDevice';
 
 interface SidebarProps {
@@ -12,65 +12,48 @@ interface SidebarProps {
   setSidebarOpen?: (open: boolean) => void;
 }
 
-export const Sidebar = React.memo(function Sidebar({ isOpen, activeModule, setActiveModule, closeSidebar, setSidebarOpen }: SidebarProps) {
-  const { settings } = useSettings();
+export const Sidebar = React.memo(function Sidebar({ isOpen, closeSidebar, setSidebarOpen }: SidebarProps) {
   const { isDesktop, isLaptop, width } = useDevice();
-  const position = settings['sidebar_position']?.value;
+  const { preferences, currentMode } = useNavigation();
 
-  // Laptops and Desktops (width >= 1024px) use relative inline sidebar
+  // Laptops and Desktops (width >= 1024px) use relative inline adaptive sidebar
   const isLargeScreen = isDesktop || isLaptop || width >= 1024;
 
-  const animateConfig = isLargeScreen 
-    ? {
-        width: position === 'bottom' ? 'auto' : (isOpen ? 'auto' : 56),
-        height: position === 'bottom' ? 80 : '100%',
-        bottom: position === 'bottom' ? 20 : 'auto',
-        left: position === 'bottom' ? '50%' : (position === 'left' ? 0 : 'auto'),
-        right: position === 'right' ? 0 : 'auto',
-        x: position === 'bottom' ? '-50%' : 0,
-        opacity: 1
-      }
-    : {
-        width: 280,
-        height: 'calc(100% - 5rem)',
-        bottom: 'auto',
-        left: 8,
-        top: '4.25rem',
-        right: 'auto',
-        x: isOpen ? 0 : -340,
-        opacity: isOpen ? 1 : 0
-      };
+  if (isLargeScreen) {
+    return <AdaptiveSidebar isOpen={isOpen} />;
+  }
 
+  // Mobile / Tablet Drawer Layout
   return (
     <>
       {/* Mobile/Tablet Backdrop Overlay */}
-      {!isLargeScreen && (
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              key="sidebar-mobile-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                if (closeSidebar) closeSidebar();
-                else if (setSidebarOpen) setSidebarOpen(false);
-              }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
-            />
-          )}
-        </AnimatePresence>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            key="sidebar-mobile-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              if (closeSidebar) closeSidebar();
+              else if (setSidebarOpen) setSidebarOpen(false);
+            }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-md z-[100]"
+          />
+        )}
+      </AnimatePresence>
 
-      <motion.aside 
+      <motion.div
         initial={false}
-        animate={animateConfig}
-        transition={{ type: "spring", damping: 28, stiffness: 170 }}
-        className={`flex flex-col shrink-0 z-[101] h-full ${isLargeScreen ? 'relative' : 'fixed shadow-2xl rounded-2xl overflow-hidden border border-white/10 bg-neutral-950/98 backdrop-blur-3xl'}`}
+        animate={{
+          x: isOpen ? 0 : -360,
+          opacity: isOpen ? 1 : 0,
+        }}
+        transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+        className="fixed left-2 top-16 bottom-20 z-[101] shadow-2xl rounded-2xl overflow-hidden"
       >
-        <TwoLevelSidebar setActiveModule={setActiveModule} isOpen={isOpen || !isLargeScreen} activeModule={activeModule} setSidebarOpen={setSidebarOpen} />
-      </motion.aside>
+        <AdaptiveSidebar isOpen={isOpen} onCloseMobile={closeSidebar} />
+      </motion.div>
     </>
   );
 });
-
